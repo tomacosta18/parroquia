@@ -1275,41 +1275,35 @@ function applyManualZone(zoneId) {
   toast(`Ordenado por cercanía a ${zone.nombre}`);
 }
 
-function fallbackFromGeolocationError() {
+function fallbackFromGeolocationError(customNotice) {
+  const noticeMsg = customNotice || "No se pudo obtener tu ubicación, usando vista predeterminada de CABA";
   state.sortByNear = false;
   state.userLoc = null;
   clearDistances();
   syncLocationUI();
-  showLocationBanner("No pudimos obtener tu ubicación automática. Mostrando listado general o elegí tu zona manualmente");
+  showLocationBanner(`${noticeMsg}. Podés elegir tu zona o barrio manualmente.`);
   state.visibleLimit = PAGE_SIZE;
   renderList();
-  toast("Ubicación GPS no disponible · Elegí tu zona manualmente");
-  if (state.view === "list") {
-    $("#manual-zone")?.focus();
+  if (map) {
+    map.setView(CABA_CENTER, CABA_ZOOM);
+  }
+  toast(noticeMsg);
+
+  // Activa y destaca el selector manual de zonas/barrios como respaldo inmediato
+  const manualSelect = $("#manual-zone");
+  if (manualSelect && state.view === "list") {
+    manualSelect.focus();
   }
 }
 
-function requestGpsLocation() {
+function requestGpsLocation(e) {
+  if (e && typeof e.preventDefault === "function") {
+    e.preventDefault();
+  }
+
   const fab = $("#btn-near");
   const fabLabel = $("#btn-near-label");
   const inlineGps = $("#btn-gps-inline");
-
-  // Si ya estaba activo por GPS, al volver a tocarlo se restaura el orden alfabético general
-  if (state.sortByNear && state.userLoc?.source === "gps") {
-    state.sortByNear = false;
-    state.userLoc = null;
-    clearDistances();
-    syncLocationUI();
-    state.visibleLimit = PAGE_SIZE;
-    renderList();
-    toast("Orden alfabético restaurado");
-    return;
-  }
-
-  if (!("geolocation" in navigator) || typeof navigator.geolocation.getCurrentPosition !== "function") {
-    fallbackFromGeolocationError();
-    return;
-  }
 
   if (fab && fabLabel) {
     fab.classList.add("loading");
@@ -1319,55 +1313,48 @@ function requestGpsLocation() {
     inlineGps.textContent = "Ubicando…";
   }
 
-  let settled = false;
-  const safetyTimer = setTimeout(() => {
-    if (settled) return;
-    settled = true;
-    fallbackFromGeolocationError();
-  }, 6000);
+  const successCallback = (position) => {
+    hideLocationBanner();
+    const { latitude, longitude } = position.coords;
+
+    state.userLoc = {
+      id: "__gps__",
+      lat: latitude,
+      lng: longitude,
+      label: "tu ubicación GPS",
+      source: "gps"
+    };
+    state.sortByNear = true;
+    updateDistances(latitude, longitude);
+    syncLocationUI();
+    state.visibleLimit = PAGE_SIZE;
+    renderList();
+
+    if (map) {
+      map.setView([latitude, longitude], 14, { animate: true });
+    }
+    toast("Ubicación obtenida · Ordenado por cercanía");
+  };
+
+  const errorCallback = (error) => {
+    console.warn("Geolocalización falló o fue denegada (código " + (error && error.code) + "):", error && error.message);
+    fallbackFromGeolocationError("No se pudo obtener tu ubicación, usando vista predeterminada de CABA");
+  };
 
   try {
-    navigator.geolocation.getCurrentPosition(
-      (pos) => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(safetyTimer);
-        hideLocationBanner();
-
-        const { latitude, longitude } = pos.coords;
-        state.userLoc = {
-          id: "__gps__",
-          lat: latitude,
-          lng: longitude,
-          label: "tu ubicación GPS",
-          source: "gps"
-        };
-        state.sortByNear = true;
-        updateDistances(latitude, longitude);
-        syncLocationUI();
-        state.visibleLimit = PAGE_SIZE;
-        renderList();
-        if (map && state.view === "map") {
-          map.setView([latitude, longitude], 14, { animate: true });
-        }
-        toast("Ordenado por cercanía a tu ubicación");
-      },
-      (err) => {
-        if (settled) return;
-        settled = true;
-        clearTimeout(safetyTimer);
-        console.warn("Geolocalización no disponible (code " + (err && err.code) + "):", err && err.message);
-        fallbackFromGeolocationError();
-      },
-      { enableHighAccuracy: false, timeout: 5500, maximumAge: 120000 }
-    );
-  } catch (err) {
-    if (!settled) {
-      settled = true;
-      clearTimeout(safetyTimer);
-      console.warn("Excepción al solicitar geolocalización:", err);
-      fallbackFromGeolocationError();
+    if ("geolocation" in navigator) {
+      navigator.geolocation.getCurrentPosition(successCallback, errorCallback, {
+        enableHighAccuracy: true,
+        timeout: 10000,
+        maximumAge: 0
+      });
+    } else {
+      alert("El navegador no soporta geolocalización.");
+      fallbackFromGeolocationError("No se pudo obtener tu ubicación, usando vista predeterminada de CABA");
     }
+  } catch (err) {
+    console.warn("Excepción al solicitar geolocalización:", err);
+    fallbackFromGeolocationError("No se pudo obtener tu ubicación, usando vista predeterminada de CABA");
   }
 }
 
@@ -2078,121 +2065,135 @@ function toast(msg) {
 }
 
 /* =====================================================================
-   Eventos de Interfaz y Paginación Fluida (IntersectionObserver + Debounce)
+   Conexión de Eventos en el DOM (DOMContentLoaded) e Inicio Offline-First
    ===================================================================== */
-$$("[data-target-view]").forEach(btn => {
-  btn.addEventListener("click", () => switchView(btn.dataset.targetView));
-});
+let appInitialized = false;
 
-$("#btn-map-fit")?.addEventListener("click", () => fitMapToBounds(filtered()));
+function bindAppEvents() {
+  $$("[data-target-view]").forEach(btn => {
+    btn.addEventListener("click", () => switchView(btn.dataset.targetView));
+  });
 
-// Debounce ligero para que el filtrado sea instantáneo en listas de +100 registros en celulares
-let searchDebounceTimer = null;
-$("#q")?.addEventListener("input", e => {
-  state.q = e.target.value;
-  state.visibleLimit = PAGE_SIZE;
-  renderSuggest();
-  clearTimeout(searchDebounceTimer);
-  searchDebounceTimer = setTimeout(() => {
+  $("#btn-map-fit")?.addEventListener("click", () => fitMapToBounds(filtered()));
+
+  // Debounce ligero para que el filtrado sea instantáneo en listas de +100 registros en celulares
+  let searchDebounceTimer = null;
+  $("#q")?.addEventListener("input", e => {
+    state.q = e.target.value;
+    state.visibleLimit = PAGE_SIZE;
+    renderSuggest();
+    clearTimeout(searchDebounceTimer);
+    searchDebounceTimer = setTimeout(() => {
+      renderList();
+    }, 90);
+  });
+  $("#q")?.addEventListener("focus", renderSuggest);
+  $("#suggest")?.addEventListener("click", e => {
+    const b = e.target.closest("[data-sug]");
+    if (!b) return;
+    state.q = b.dataset.sug;
+    $("#q").value = state.q;
+    $("#suggest").classList.remove("open");
+    state.visibleLimit = PAGE_SIZE;
     renderList();
-  }, 90);
-});
-$("#q")?.addEventListener("focus", renderSuggest);
-$("#suggest")?.addEventListener("click", e => {
-  const b = e.target.closest("[data-sug]");
-  if (!b) return;
-  state.q = b.dataset.sug;
-  $("#q").value = state.q;
-  $("#suggest").classList.remove("open");
-  state.visibleLimit = PAGE_SIZE;
-  renderList();
-});
-document.addEventListener("click", e => { if (!e.target.closest(".field")) $("#suggest")?.classList.remove("open"); });
+  });
+  document.addEventListener("click", e => { if (!e.target.closest(".field")) $("#suggest")?.classList.remove("open"); });
 
-$("#manual-zone")?.addEventListener("change", e => applyManualZone(e.target.value));
-$("#btn-gps-inline")?.addEventListener("click", requestGpsLocation);
-$("#btn-near")?.addEventListener("click", requestGpsLocation);
-$("#loc-banner-close")?.addEventListener("click", hideLocationBanner);
+  // Botón flotante "Cerca de mí", botón inline "Usar GPS" y selector manual de zonas/barrios
+  const btnNear = document.getElementById("btn-near");
+  if (btnNear) {
+    btnNear.addEventListener("click", requestGpsLocation);
+  }
+  const btnGpsInline = document.getElementById("btn-gps-inline");
+  if (btnGpsInline) {
+    btnGpsInline.addEventListener("click", requestGpsLocation);
+  }
+  const manualZoneSelect = document.getElementById("manual-zone");
+  if (manualZoneSelect) {
+    manualZoneSelect.addEventListener("change", e => applyManualZone(e.target.value));
+  }
+  $("#loc-banner-close")?.addEventListener("click", hideLocationBanner);
 
-$("#region-tabs")?.addEventListener("click", e => {
-  const btn = e.target.closest("[data-region]");
-  if (!btn) return;
-  const targetRegion = btn.dataset.region;
-  if (state.region === targetRegion) return;
-  state.region = targetRegion;
-  state.barrio = null;
-  state.visibleLimit = PAGE_SIZE;
-  renderChips();
-  renderList();
-});
+  $("#region-tabs")?.addEventListener("click", e => {
+    const btn = e.target.closest("[data-region]");
+    if (!btn) return;
+    const targetRegion = btn.dataset.region;
+    if (state.region === targetRegion) return;
+    state.region = targetRegion;
+    state.barrio = null;
+    state.visibleLimit = PAGE_SIZE;
+    renderChips();
+    renderList();
+  });
 
-$("#chips")?.addEventListener("click", e => {
-  const b = e.target.closest(".chip");
-  if (!b) return;
-  if ("now" in b.dataset) state.soloNow = !state.soloNow;
-  else if ("fav" in b.dataset) state.soloFav = !state.soloFav;
-  else state.barrio = state.barrio === b.dataset.barrio ? null : b.dataset.barrio;
-  state.visibleLimit = PAGE_SIZE;
-  renderChips();
-  renderList();
-});
+  $("#chips")?.addEventListener("click", e => {
+    const b = e.target.closest(".chip");
+    if (!b) return;
+    if ("now" in b.dataset) state.soloNow = !state.soloNow;
+    else if ("fav" in b.dataset) state.soloFav = !state.soloFav;
+    else state.barrio = state.barrio === b.dataset.barrio ? null : b.dataset.barrio;
+    state.visibleLimit = PAGE_SIZE;
+    renderChips();
+    renderList();
+  });
 
-$("#btn-load-more")?.addEventListener("click", () => {
-  state.visibleLimit += PAGE_SIZE;
-  renderList();
-});
+  $("#btn-load-more")?.addEventListener("click", () => {
+    state.visibleLimit += PAGE_SIZE;
+    renderList();
+  });
 
-if ("IntersectionObserver" in window && $("#list-sentinel")) {
-  const observer = new IntersectionObserver((entries) => {
-    entries.forEach(entry => {
-      if (entry.isIntersecting && !$("#list-sentinel").hidden) {
-        state.visibleLimit += PAGE_SIZE;
-        renderList();
-      }
-    });
-  }, { rootMargin: "220px" });
-  observer.observe($("#list-sentinel"));
+  if ("IntersectionObserver" in window && $("#list-sentinel")) {
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach(entry => {
+        if (entry.isIntersecting && !$("#list-sentinel").hidden) {
+          state.visibleLimit += PAGE_SIZE;
+          renderList();
+        }
+      });
+    }, { rootMargin: "220px" });
+    observer.observe($("#list-sentinel"));
+  }
+
+  $("#list")?.addEventListener("click", e => {
+    const editBtn = e.target.closest("[data-edit]");
+    if (editBtn) return openParishEditor(editBtn.dataset.edit);
+    const h = e.target.closest("[data-heart]");
+    if (h) return toggleFav(h.dataset.heart);
+    const c = e.target.closest("[data-id]");
+    if (c) openDetail(c.dataset.id);
+  });
+
+  $("#d-fav")?.addEventListener("click", () => state.current && toggleFav(state.current.id));
+  $("#d-edit")?.addEventListener("click", () => state.current && openParishEditor(state.current.id));
+  $("#d-close")?.addEventListener("click", closeDetail);
+  $("#scrim")?.addEventListener("click", closeDetail);
+
+  // Eventos Modo Administrador
+  $("#btn-admin-access")?.addEventListener("click", openAdminLoginModal);
+  $("#btn-close-login")?.addEventListener("click", closeAdminLoginModal);
+  $("#btn-cancel-login")?.addEventListener("click", closeAdminLoginModal);
+  $("#admin-login-form")?.addEventListener("submit", handleAdminLoginSubmit);
+  $("#btn-admin-logout")?.addEventListener("click", logoutAdmin);
+  $("#btn-admin-add")?.addEventListener("click", () => openParishEditor(null));
+  $("#fab-admin-add")?.addEventListener("click", () => openParishEditor(null));
+  $("#btn-admin-export")?.addEventListener("click", exportUpdatedJson);
+  $("#btn-close-edit")?.addEventListener("click", closeParishEditor);
+  $("#btn-cancel-edit")?.addEventListener("click", closeParishEditor);
+  $("#admin-edit-form")?.addEventListener("submit", saveParishEditor);
+
+  document.addEventListener("keydown", e => {
+    if (e.key === "Escape") {
+      if ($("#admin-edit-modal") && !$("#admin-edit-modal").hidden) return closeParishEditor();
+      if ($("#admin-login-modal") && !$("#admin-login-modal").hidden) return closeAdminLoginModal();
+      closeDetail();
+    }
+  });
 }
 
-$("#list")?.addEventListener("click", e => {
-  const editBtn = e.target.closest("[data-edit]");
-  if (editBtn) return openParishEditor(editBtn.dataset.edit);
-  const h = e.target.closest("[data-heart]");
-  if (h) return toggleFav(h.dataset.heart);
-  const c = e.target.closest("[data-id]");
-  if (c) openDetail(c.dataset.id);
-});
-
-$("#d-fav")?.addEventListener("click", () => state.current && toggleFav(state.current.id));
-$("#d-edit")?.addEventListener("click", () => state.current && openParishEditor(state.current.id));
-$("#d-close")?.addEventListener("click", closeDetail);
-$("#scrim")?.addEventListener("click", closeDetail);
-
-// Eventos Modo Administrador
-$("#btn-admin-access")?.addEventListener("click", openAdminLoginModal);
-$("#btn-close-login")?.addEventListener("click", closeAdminLoginModal);
-$("#btn-cancel-login")?.addEventListener("click", closeAdminLoginModal);
-$("#admin-login-form")?.addEventListener("submit", handleAdminLoginSubmit);
-$("#btn-admin-logout")?.addEventListener("click", logoutAdmin);
-$("#btn-admin-add")?.addEventListener("click", () => openParishEditor(null));
-$("#fab-admin-add")?.addEventListener("click", () => openParishEditor(null));
-$("#btn-admin-export")?.addEventListener("click", exportUpdatedJson);
-$("#btn-close-edit")?.addEventListener("click", closeParishEditor);
-$("#btn-cancel-edit")?.addEventListener("click", closeParishEditor);
-$("#admin-edit-form")?.addEventListener("submit", saveParishEditor);
-
-document.addEventListener("keydown", e => {
-  if (e.key === "Escape") {
-    if (!$("#admin-edit-modal").hidden) return closeParishEditor();
-    if (!$("#admin-login-modal").hidden) return closeAdminLoginModal();
-    closeDetail();
-  }
-});
-
-/* =====================================================================
-   Inicio Inmediato (Offline-First) + Actualización Asíncrona por Fetch
-   ===================================================================== */
 function bootstrapApp() {
+  if (appInitialized) return;
+  appInitialized = true;
+  bindAppEvents();
   syncAdminUI();
   renderZoneSelector();
   renderChips();
@@ -2229,7 +2230,10 @@ async function loadParishes() {
   }
 }
 
-bootstrapApp();
+document.addEventListener("DOMContentLoaded", bootstrapApp);
+if (document.readyState !== "loading") {
+  bootstrapApp();
+}
 
 /* =====================================================================
    PWA: Registro y Actualización Inmediata del Service Worker

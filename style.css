@@ -284,7 +284,7 @@ h1{font-family:var(--serif);font-weight:600;font-size:1.95rem;letter-spacing:-.0
 .fab-near svg{width:19px;height:19px;flex:none}
 .fab-near:active{transform:scale(.96)}
 .fab-near[aria-pressed="true"]{background:var(--brand);color:#fff}
-.fab-near.loading{opacity:.75;pointer-events:none}
+.fab-near.loading{opacity:.82}
 
 .fab-admin-add{position:fixed;right:max(16px,calc((100vw - 640px)/2 + 16px));
   bottom:calc(var(--nav-h) + 70px + env(safe-area-inset-bottom,0px));z-index:520;height:44px;padding:0 16px;
