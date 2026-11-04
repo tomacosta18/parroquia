@@ -1,7 +1,8 @@
 /* ============ Tokens ============ */
 :root{
   --bg:#F2F4F7; --surface:#FFFFFF; --ink:#14181F; --muted:#586070; --line:#E1E5EB;
-  --brand:#243B8F; --brand-soft:#E8ECF9; --gold:#8F6417; --gold-bright:#B8821E; --gold-soft:#F6EEDD;
+  --brand:#243B8F; --brand-soft:#E8ECF9; --night:#182238; --slate:#334155;
+  --gold:#8F6417; --gold-champagne:#C89D3C; --gold-soft:#F7EFE0;
   --ok:#166534; --ok-soft:#DCFCE7;
   --r-lg:20px; --r-md:14px; --r-pill:999px;
   --nav-h:64px;
@@ -78,66 +79,101 @@ h1{font-family:var(--serif);font-weight:600;font-size:1.95rem;letter-spacing:-.0
 .chip .dot{width:7px;height:7px;border-radius:50%;background:var(--ok);flex:none}
 .chip[aria-pressed="true"] .dot{background:#fff}
 
-/* ============ Vista Dedicada: Mapa Completo ============ */
+/* ============ Vista Dedicada: Mapa Minimalista (CartoDB Positron) ============ */
 .map-fullscreen{position:fixed;left:0;right:0;top:0;
   bottom:calc(var(--nav-h) + env(safe-area-inset-bottom,0px));
-  z-index:300;background:#E5E9F0;display:flex;flex-direction:column}
-.map-canvas-full{width:100%;height:100%;flex:1;z-index:1}
-/* Refinamiento minimalista para los tiles de OpenStreetMap */
-.leaflet-tile-pane{filter:saturate(.82) contrast(1.02) brightness(1.01)}
-.leaflet-control-zoom{border:1px solid var(--line)!important;border-radius:12px!important;overflow:hidden;
-  box-shadow:0 4px 14px rgba(20,24,31,.1)!important;margin-top:68px!important;margin-left:14px!important}
-.leaflet-control-zoom a{color:var(--ink)!important;width:36px!important;height:36px!important;line-height:36px!important}
+  z-index:300;background:#F4F5F7;display:flex;flex-direction:column}
+.map-canvas-full{width:100%;height:100%;flex:1;z-index:1;background:#F4F5F7}
 
-.map-top-bar{position:absolute;top:calc(12px + env(safe-area-inset-top,0px));left:14px;right:14px;
+/* Controles discretos para no competir con los pines */
+.leaflet-control-zoom{border:1px solid rgba(20,24,31,.08)!important;border-radius:14px!important;overflow:hidden;
+  box-shadow:0 4px 16px rgba(20,24,31,.07)!important;margin-bottom:22px!important;margin-left:14px!important}
+.leaflet-control-zoom a{background:rgba(255,255,255,.92)!important;backdrop-filter:blur(8px);
+  color:var(--ink)!important;width:36px!important;height:36px!important;line-height:36px!important;
+  border-bottom-color:var(--line)!important;font-weight:500!important}
+.leaflet-control-attribution{background:rgba(255,255,255,.72)!important;backdrop-filter:blur(4px);
+  font-size:10px!important;color:#8891A0!important;border-radius:8px 0 0 0;padding:2px 6px!important}
+.leaflet-control-attribution a{color:#6E7787!important;text-decoration:none}
+
+.map-top-bar{position:absolute;top:calc(14px + env(safe-area-inset-top,0px));left:14px;right:14px;
   max-width:640px;margin:0 auto;z-index:450;display:flex;align-items:center;justify-content:space-between;
   gap:8px;pointer-events:none}
-.map-legend-pill{pointer-events:auto;background:rgba(255,255,255,.94);backdrop-filter:blur(10px);
-  -webkit-backdrop-filter:blur(10px);border:1px solid var(--line);border-radius:var(--r-pill);
-  padding:7px 14px;display:inline-flex;align-items:center;gap:14px;font-size:.76rem;color:var(--ink);
-  box-shadow:0 4px 16px rgba(20,24,31,.1)}
+.map-legend-pill{pointer-events:auto;background:rgba(255,255,255,.92);backdrop-filter:blur(12px);
+  -webkit-backdrop-filter:blur(12px);border:1px solid rgba(20,24,31,.08);border-radius:var(--r-pill);
+  padding:7px 14px;display:inline-flex;align-items:center;gap:14px;font-size:.75rem;color:var(--ink);
+  box-shadow:0 6px 20px rgba(20,24,31,.07)}
 .legend-item{display:inline-flex;align-items:center;gap:6px;font-weight:500;white-space:nowrap}
 .legend-dot{display:inline-block;border-radius:50%}
-.legend-dot.major{width:11px;height:11px;background:linear-gradient(135deg,var(--gold-bright),var(--gold));
-  box-shadow:0 0 0 2px var(--gold-soft),0 0 0 3px rgba(143,100,23,.35)}
-.legend-dot.minor{width:9px;height:9px;background:var(--brand);box-shadow:0 0 0 2px var(--brand-soft)}
+.legend-dot.major{width:11px;height:11px;background:linear-gradient(145deg,#D5B048,#9A6F18);
+  box-shadow:0 0 0 2px #FAF3E0,0 0 0 3px rgba(154,111,24,.3)}
+.legend-dot.minor{width:9px;height:9px;background:var(--night);box-shadow:0 0 0 2px #E2E8F0}
 
-.map-recenter-btn{pointer-events:auto;height:34px;padding:0 12px;border-radius:var(--r-pill);
-  background:rgba(255,255,255,.94);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
-  border:1px solid var(--line);color:var(--brand);font-size:.78rem;font-weight:600;
-  display:inline-flex;align-items:center;gap:5px;box-shadow:0 4px 16px rgba(20,24,31,.1)}
-.map-recenter-btn svg{width:14px;height:14px}
+.map-recenter-btn{pointer-events:auto;height:34px;padding:0 13px;border-radius:var(--r-pill);
+  background:rgba(255,255,255,.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  border:1px solid rgba(20,24,31,.08);color:var(--ink);font-size:.76rem;font-weight:600;
+  display:inline-flex;align-items:center;gap:5px;box-shadow:0 6px 20px rgba(20,24,31,.07)}
+.map-recenter-btn svg{width:14px;height:14px;color:var(--muted)}
 
-/* Pines personalizados de Leaflet */
+/* ============ Marcadores Estilizados (Custom Leaflet DivIcon) ============ */
 .custom-pin-icon{background:transparent;border:0}
-.pin-wrap{display:grid;place-items:center;border-radius:50%;color:#fff;
-  transition:transform .18s var(--ease)}
-.pin-wrap:hover{transform:scale(1.12)}
-/* Jerarquía Mayor: Catedral y Basílica (Dorado distintivo, mayor tamaño) */
-.pin-wrap.major{width:40px;height:40px;background:linear-gradient(145deg,#C48B20,#8F6417);
-  border:2.5px solid #FFF;box-shadow:0 0 0 3px rgba(143,100,23,.3),0 6px 14px rgba(20,24,31,.3)}
-.pin-wrap.major svg{width:21px;height:21px}
-/* Jerarquía Estándar: Parroquia y Capilla (Compacto y sobrio) */
-.pin-wrap.minor{width:30px;height:30px;background:var(--brand);
-  border:2px solid #FFF;box-shadow:0 3px 10px rgba(20,24,31,.24)}
-.pin-wrap.minor.capilla{background:#475569}
+.pin-wrap{position:relative;display:grid;place-items:center;border-radius:50%;color:#fff;
+  transition:transform .22s var(--ease),box-shadow .22s var(--ease)}
+.pin-wrap:hover{transform:translateY(-2px) scale(1.08)}
+
+/* Jerarquía Mayor: Catedral y Basílica (Dorado / Champagne elegante, tamaño mayor) */
+.pin-wrap.major{
+  width:42px;height:42px;
+  background:linear-gradient(145deg,#D4AF37 0%,#9A6F18 100%);
+  border:2.5px solid #FCF8EC;
+  box-shadow:0 0 0 1px rgba(154,111,24,.28),0 8px 20px rgba(143,100,23,.32),0 2px 6px rgba(20,24,31,.16);
+}
+.pin-wrap.major::after{
+  content:"";position:absolute;inset:3px;border-radius:50%;
+  border:1px solid rgba(255,255,255,.32);pointer-events:none;
+}
+.pin-wrap.major svg{width:20px;height:20px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.18))}
+
+/* Jerarquía Estándar: Parroquia y Capilla (Azul noche / Gris pizarra oscuro, cruz blanca fina) */
+.pin-wrap.minor{
+  width:32px;height:32px;
+  background:linear-gradient(145deg,#22304E 0%,#141D30 100%);
+  border:2px solid #FFFFFF;
+  box-shadow:0 6px 14px rgba(20,29,48,.24),0 2px 4px rgba(20,24,31,.12);
+}
+.pin-wrap.minor.capilla{
+  background:linear-gradient(145deg,#475569 0%,#293548 100%);
+}
 .pin-wrap.minor svg{width:15px;height:15px}
+
 /* Marcador de referencia del usuario */
 .pin-user{width:16px;height:16px;border-radius:50%;background:#2563EB;border:3px solid #FFF;
-  box-shadow:0 0 0 5px rgba(37,99,235,.22),0 2px 6px rgba(0,0,0,.3)}
+  box-shadow:0 0 0 6px rgba(37,99,235,.2),0 2px 6px rgba(0,0,0,.25)}
 
-/* Popup minimalista de Leaflet */
-.leaflet-popup-content-wrapper{border-radius:16px!important;padding:2px!important;
-  box-shadow:0 12px 28px rgba(20,24,31,.18)!important;border:1px solid var(--line)}
-.leaflet-popup-content{margin:12px 14px!important;font-family:var(--sans);color:var(--ink);line-height:1.35}
-.map-popup{min-width:210px;max-width:245px}
-.map-popup-top{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:4px}
-.map-popup h3{font-family:var(--serif);font-size:1.06rem;font-weight:600;line-height:1.2;margin:2px 0 4px}
-.map-popup .p-addr{font-size:.8rem;color:var(--muted);margin-bottom:6px}
-.map-popup .p-next{font-size:.8rem;font-weight:600;color:var(--brand);margin-bottom:10px}
-.map-popup .p-next.live{color:var(--ok)}
-.map-popup .p-btn{width:100%;height:36px;border-radius:10px;background:var(--brand);color:#fff;
-  font-size:.83rem;font-weight:600;display:flex;align-items:center;justify-content:center}
+/* ============ Popup Minimalista y Moderno ============ */
+.leaflet-popup-content-wrapper{
+  background:rgba(255,255,255,.98)!important;
+  backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  border-radius:18px!important;padding:4px!important;
+  box-shadow:0 16px 36px rgba(20,24,31,.14),0 2px 8px rgba(20,24,31,.06)!important;
+  border:1px solid rgba(20,24,31,.07);
+}
+.leaflet-popup-tip{background:#FFFFFF!important;box-shadow:none!important}
+.leaflet-popup-close-button{
+  top:10px!important;right:10px!important;width:24px!important;height:24px!important;
+  border-radius:50%;color:var(--muted)!important;font-size:18px!important;line-height:24px!important;
+}
+.leaflet-popup-content{margin:12px 14px!important;font-family:var(--sans);color:var(--ink);line-height:1.38}
+.map-popup{min-width:215px;max-width:250px;font-family:var(--sans)}
+.map-popup-top{display:flex;align-items:center;gap:6px;margin-bottom:6px;padding-right:18px}
+.map-popup h3{font-family:var(--sans);font-size:.98rem;font-weight:600;letter-spacing:-.01em;line-height:1.25;margin:0 0 4px;color:var(--ink)}
+.map-popup .p-addr{font-size:.79rem;color:var(--muted);margin-bottom:8px}
+.map-popup .p-next{font-size:.79rem;font-weight:600;color:var(--brand);margin-bottom:12px;
+  padding:5px 9px;border-radius:8px;background:var(--bg);display:block}
+.map-popup .p-next.live{color:var(--ok);background:var(--ok-soft)}
+.map-popup .p-btn{width:100%;height:36px;border-radius:10px;background:var(--night);color:#fff;
+  font-family:var(--sans);font-size:.81rem;font-weight:600;display:flex;align-items:center;justify-content:center;
+  transition:background .15s}
+.map-popup .p-btn:hover{background:var(--brand)}
 
 /* ============ Tarjetas y Badges de Jerarquía ============ */
 .count{color:var(--muted);font-size:.85rem;padding:12px 4px 8px}
@@ -147,15 +183,15 @@ h1{font-family:var(--serif);font-weight:600;font-size:1.95rem;letter-spacing:-.0
 .card:active{transform:scale(.985)}
 .card.card-major{border-color:rgba(143,100,23,.28)}
 .card-head{display:flex;align-items:center;gap:6px;margin-bottom:6px;padding-right:40px}
-.type-badge{display:inline-flex;align-items:center;gap:4px;font-size:.73rem;font-weight:600;
+.type-badge{display:inline-flex;align-items:center;gap:4px;font-size:.72rem;font-weight:600;
   padding:2px 9px;border-radius:var(--r-pill);letter-spacing:.01em}
 .type-badge.major{background:var(--gold-soft);color:var(--gold);border:1px solid rgba(143,100,23,.22)}
-.type-badge.minor{background:var(--brand-soft);color:var(--brand)}
-.type-badge.capilla{background:#EEF2F6;color:#475569}
+.type-badge.minor{background:#EEF1F6;color:var(--night)}
+.type-badge.capilla{background:#F1F5F9;color:var(--slate)}
 .card h2{font-family:var(--serif);font-size:1.3rem;font-weight:600;line-height:1.2;padding-right:44px;letter-spacing:-.01em}
 .card-meta{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:4px}
 .card .addr{color:var(--muted);font-size:.9rem}
-.dist-badge{display:inline-flex;align-items:center;gap:4px;font-size:.78rem;font-weight:600;
+.dist-badge{display:inline-flex;align-items:center;gap:4px;font-size:.76rem;font-weight:600;
   color:var(--brand);background:var(--brand-soft);padding:2px 9px;border-radius:var(--r-pill);
   font-variant-numeric:tabular-nums}
 .card .next{margin-top:12px;font-size:.9rem;font-weight:500;color:var(--brand);display:flex;align-items:center;gap:6px}
@@ -174,7 +210,7 @@ h1{font-family:var(--serif);font-weight:600;font-size:1.95rem;letter-spacing:-.0
 .fab-near{position:fixed;right:max(16px,calc((100vw - 640px)/2 + 16px));
   bottom:calc(var(--nav-h) + 16px + env(safe-area-inset-bottom,0px));z-index:520;height:46px;padding:0 18px;
   border-radius:var(--r-pill);background:var(--surface);color:var(--brand);border:1px solid var(--brand);
-  box-shadow:0 8px 24px rgba(20,24,31,.16);display:inline-flex;align-items:center;gap:8px;
+  box-shadow:0 8px 24px rgba(20,24,31,.14);display:inline-flex;align-items:center;gap:8px;
   font-size:.9rem;font-weight:600;transition:transform .15s,background .2s,color .2s,opacity .2s}
 .fab-near svg{width:19px;height:19px;flex:none}
 .fab-near:active{transform:scale(.96)}

@@ -293,17 +293,16 @@ let markersLayer = null;
 let userMarker = null;
 const markerById = new Map();
 
-// SVG para Catedral / Basílica (Cruz monumental con corona/halo)
+// SVG para Catedral / Basílica (Cruz latina minimalista elegante)
 const SVG_PIN_MAJOR = `
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <path d="M12 3v18M7.5 8h9"/>
-    <circle cx="12" cy="8" r="1.5" fill="currentColor"/>
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M12 4.5v15M7.5 9.5h9"/>
   </svg>`;
 
-// SVG para Parroquia / Capilla (Cruz compacta)
+// SVG para Parroquia / Capilla (Cruz blanca fina y minimalista)
 const SVG_PIN_MINOR = `
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" aria-hidden="true">
-    <path d="M12 4v16M7 9h10"/>
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+    <path d="M12 5.5v13M8 10h8"/>
   </svg>`;
 
 function initMap() {
@@ -313,14 +312,18 @@ function initMap() {
   mapInstance = L.map(mapEl, {
     center: CABA_CENTER,
     zoom: CABA_ZOOM,
-    zoomControl: true,
+    zoomControl: false,
     attributionControl: true
   });
 
-  // Exclusivamente OpenStreetMap (sin marcas de agua ni errores de API key)
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
-    maxZoom: 19
+  // Controles de zoom discretos abajo a la izquierda para no competir con el contenido
+  L.control.zoom({ position: "bottomleft" }).addTo(mapInstance);
+
+  // Mapa base minimalista CartoDB Positron (tonos grises, blancos y pasteles suaves sin ruido visual)
+  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
+    subdomains: "abcd",
+    maxZoom: 20
   }).addTo(mapInstance);
 
   markersLayer = L.layerGroup().addTo(mapInstance);
@@ -339,7 +342,7 @@ function initMap() {
 function createHierarchyIcon(p) {
   const major = isMajorTemple(p.tipo);
   const isCapilla = norm(p.tipo) === "capilla";
-  const size = major ? 40 : 30;
+  const size = major ? 42 : 32;
   const cls = major ? "pin-wrap major" : `pin-wrap minor${isCapilla ? " capilla" : ""}`;
   const svg = major ? SVG_PIN_MAJOR : SVG_PIN_MINOR;
 
@@ -348,7 +351,7 @@ function createHierarchyIcon(p) {
     html: `<div class="${cls}" title="${p.tipo}: ${p.nombre}">${svg}</div>`,
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
-    popupAnchor: [0, -(size / 2)]
+    popupAnchor: [0, -(size / 2 + 2)]
   });
 }
 
