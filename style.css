@@ -85,10 +85,9 @@ h1{font-family:var(--serif);font-weight:600;font-size:1.95rem;letter-spacing:-.0
   z-index:300;background:#F2F4F7;display:flex;flex-direction:column}
 .map-canvas-full{width:100%;height:100%;flex:1;z-index:1;background:#F2F4F7}
 
-/* Estilización minimalista aplicada solo a los mosaicos para que los pines destaquen a todo color */
-.leaflet-tile-pane{
-  filter:grayscale(85%) contrast(108%) brightness(104%) opacity(92%);
-  -webkit-filter:grayscale(85%) contrast(108%) brightness(104%) opacity(92%);
+/* Estilización Moderna del Mapa por CSS (escala de grises limpia estilo Apple/Google Maps Pro) */
+.leaflet-tile-pane {
+    filter: grayscale(85%) contrast(110%) brightness(95%);
 }
 
 /* Controles discretos para no competir con los pines */
@@ -97,17 +96,17 @@ h1{font-family:var(--serif);font-weight:600;font-size:1.95rem;letter-spacing:-.0
 .leaflet-control-zoom a{background:rgba(255,255,255,.92)!important;backdrop-filter:blur(8px);
   color:var(--ink)!important;width:36px!important;height:36px!important;line-height:36px!important;
   border-bottom-color:var(--line)!important;font-weight:500!important}
-.leaflet-control-attribution{background:rgba(255,255,255,.72)!important;backdrop-filter:blur(4px);
-  font-size:10px!important;color:#8891A0!important;border-radius:8px 0 0 0;padding:2px 6px!important}
-.leaflet-control-attribution a{color:#6E7787!important;text-decoration:none}
+.leaflet-control-attribution{background:rgba(255,255,255,.75)!important;backdrop-filter:blur(4px);
+  font-size:10px!important;color:#6E7787!important;border-radius:8px 0 0 0;padding:2px 6px!important}
+.leaflet-control-attribution a{color:#586070!important;text-decoration:none}
 
 .map-top-bar{position:absolute;top:calc(14px + env(safe-area-inset-top,0px));left:14px;right:14px;
   max-width:640px;margin:0 auto;z-index:450;display:flex;align-items:center;justify-content:space-between;
   gap:8px;pointer-events:none}
-.map-legend-pill{pointer-events:auto;background:rgba(255,255,255,.92);backdrop-filter:blur(12px);
+.map-legend-pill{pointer-events:auto;background:rgba(255,255,255,.94);backdrop-filter:blur(12px);
   -webkit-backdrop-filter:blur(12px);border:1px solid rgba(20,24,31,.08);border-radius:var(--r-pill);
   padding:7px 14px;display:inline-flex;align-items:center;gap:14px;font-size:.75rem;color:var(--ink);
-  box-shadow:0 6px 20px rgba(20,24,31,.07)}
+  box-shadow:0 6px 20px rgba(20,24,31,.08)}
 .legend-item{display:inline-flex;align-items:center;gap:6px;font-weight:500;white-space:nowrap}
 .legend-dot{display:inline-block;border-radius:50%}
 .legend-dot.major{width:11px;height:11px;background:linear-gradient(145deg,#D5B048,#9A6F18);
@@ -115,9 +114,9 @@ h1{font-family:var(--serif);font-weight:600;font-size:1.95rem;letter-spacing:-.0
 .legend-dot.minor{width:9px;height:9px;background:var(--night);box-shadow:0 0 0 2px #E2E8F0}
 
 .map-recenter-btn{pointer-events:auto;height:34px;padding:0 13px;border-radius:var(--r-pill);
-  background:rgba(255,255,255,.92);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
+  background:rgba(255,255,255,.94);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
   border:1px solid rgba(20,24,31,.08);color:var(--ink);font-size:.76rem;font-weight:600;
-  display:inline-flex;align-items:center;gap:5px;box-shadow:0 6px 20px rgba(20,24,31,.07)}
+  display:inline-flex;align-items:center;gap:5px;box-shadow:0 6px 20px rgba(20,24,31,.08)}
 .map-recenter-btn svg{width:14px;height:14px;color:var(--muted)}
 
 /* ============ Marcadores Estilizados (Custom Leaflet DivIcon) ============ */
@@ -131,7 +130,7 @@ h1{font-family:var(--serif);font-weight:600;font-size:1.95rem;letter-spacing:-.0
   width:42px;height:42px;
   background:linear-gradient(145deg,#D4AF37 0%,#9A6F18 100%);
   border:2.5px solid #FFFFFF;
-  box-shadow:0 0 0 3px rgba(154,111,24,.28),0 8px 20px rgba(20,24,31,.28),0 2px 6px rgba(20,24,31,.18);
+  box-shadow:0 0 0 3px rgba(154,111,24,.32),0 8px 20px rgba(20,24,31,.3),0 2px 6px rgba(20,24,31,.18);
 }
 .pin-wrap.major::after{
   content:"";position:absolute;inset:3px;border-radius:50%;
@@ -139,12 +138,12 @@ h1{font-family:var(--serif);font-weight:600;font-size:1.95rem;letter-spacing:-.0
 }
 .pin-wrap.major svg{width:20px;height:20px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.18))}
 
-/* Jerarquía Estándar: Parroquia y Capilla (Azul noche / Gris pizarra oscuro, cruz blanca fina) */
+/* Jerarquía Estándar: Parroquia y Capilla (Azul oscuro / Pizarra sofisticado, cruz blanca fina) */
 .pin-wrap.minor{
   width:32px;height:32px;
-  background:linear-gradient(145deg,#22304E 0%,#141D30 100%);
+  background:linear-gradient(145deg,#243B8F 0%,#141D30 100%);
   border:2.5px solid #FFFFFF;
-  box-shadow:0 0 0 2px rgba(20,29,48,.16),0 6px 14px rgba(20,29,48,.28),0 2px 4px rgba(20,24,31,.14);
+  box-shadow:0 0 0 2px rgba(20,29,48,.18),0 6px 14px rgba(20,29,48,.3),0 2px 4px rgba(20,24,31,.16);
 }
 .pin-wrap.minor.capilla{
   background:linear-gradient(145deg,#475569 0%,#293548 100%);
@@ -153,15 +152,15 @@ h1{font-family:var(--serif);font-weight:600;font-size:1.95rem;letter-spacing:-.0
 
 /* Marcador de referencia del usuario */
 .pin-user{width:16px;height:16px;border-radius:50%;background:#2563EB;border:3px solid #FFF;
-  box-shadow:0 0 0 6px rgba(37,99,235,.2),0 2px 6px rgba(0,0,0,.25)}
+  box-shadow:0 0 0 6px rgba(37,99,235,.22),0 2px 6px rgba(0,0,0,.28)}
 
 /* ============ Popup Minimalista y Moderno ============ */
 .leaflet-popup-content-wrapper{
   background:rgba(255,255,255,.98)!important;
   backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
   border-radius:18px!important;padding:4px!important;
-  box-shadow:0 16px 36px rgba(20,24,31,.14),0 2px 8px rgba(20,24,31,.06)!important;
-  border:1px solid rgba(20,24,31,.07);
+  box-shadow:0 16px 36px rgba(20,24,31,.16),0 2px 8px rgba(20,24,31,.08)!important;
+  border:1px solid rgba(20,24,31,.08);
 }
 .leaflet-popup-tip{background:#FFFFFF!important;box-shadow:none!important}
 .leaflet-popup-close-button{

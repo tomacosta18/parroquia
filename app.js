@@ -197,8 +197,8 @@ function switchView(targetView) {
   if (!isList) {
     initMap();
     requestAnimationFrame(() => {
-      if (mapInstance) {
-        mapInstance.invalidateSize();
+      if (map) {
+        map.invalidateSize();
         fitMapToBounds(filtered());
       }
     });
@@ -286,9 +286,9 @@ function getMassStatus(p) {
 }
 
 /* =====================================================================
-   Mapa Interactivo Completo con OpenStreetMap y Marcadores Jerárquicos
+    Inicialización Limpia del Mapa (100% OpenStreetMap Libre + Marcadores Jerárquicos)
    ===================================================================== */
-let mapInstance = null;
+let map = null;
 let markersLayer = null;
 let userMarker = null;
 const markerById = new Map();
@@ -307,25 +307,25 @@ const SVG_PIN_MINOR = `
 
 function initMap() {
   const mapEl = $("#map");
-  if (!mapEl || typeof L === "undefined" || mapInstance) return;
+  if (!mapEl || typeof L === "undefined" || map) return;
 
-  mapInstance = L.map(mapEl, {
+  map = L.map(mapEl, {
     center: CABA_CENTER,
     zoom: CABA_ZOOM,
     zoomControl: false,
     attributionControl: true
   });
 
-  // Controles de zoom discretos abajo a la izquierda para no competir con el contenido
-  L.control.zoom({ position: "bottomleft" }).addTo(mapInstance);
+  // Controles de zoom discretos abajo a la izquierda
+  L.control.zoom({ position: "bottomleft" }).addTo(map);
 
-  // Capa base libre de errores y sin API Keys: OpenStreetMap oficial
-  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
-    maxZoom: 19,
-    attribution: "&copy; OpenStreetMap contributors"
-  }).addTo(mapInstance);
+  // Capa pública oficial de OpenStreetMap (100% libre, sin API Keys)
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      maxZoom: 19,
+      attribution: '&copy; OpenStreetMap contributors'
+  }).addTo(map);
 
-  markersLayer = L.layerGroup().addTo(mapInstance);
+  markersLayer = L.layerGroup().addTo(map);
 
   // Delegación de clic en el botón del popup para abrir la ficha completa
   mapEl.addEventListener("click", (e) => {
@@ -355,7 +355,7 @@ function createHierarchyIcon(p) {
 }
 
 function fitMapToBounds(items) {
-  if (!mapInstance) return;
+  if (!map) return;
   const bounds = [];
   if (state.userLoc) bounds.push([state.userLoc.lat, state.userLoc.lng]);
 
@@ -365,16 +365,16 @@ function fitMapToBounds(items) {
   });
 
   if (bounds.length > 1) {
-    mapInstance.fitBounds(bounds, { padding: [52, 42], maxZoom: 15 });
+    map.fitBounds(bounds, { padding: [52, 42], maxZoom: 15 });
   } else if (bounds.length === 1) {
-    mapInstance.setView(bounds[0], 15);
+    map.setView(bounds[0], 15);
   } else {
-    mapInstance.setView(CABA_CENTER, CABA_ZOOM);
+    map.setView(CABA_CENTER, CABA_ZOOM);
   }
 }
 
 function renderMapMarkers(items) {
-  if (!mapInstance || !markersLayer) return;
+  if (!map || !markersLayer) return;
 
   markersLayer.clearLayers();
   markerById.clear();
@@ -965,11 +965,13 @@ async function loadParishes() {
 bootstrapApp();
 
 /* =====================================================================
-   PWA: Registro de Service Worker
+   PWA: Registro y Actualización Inmediata del Service Worker
    ===================================================================== */
 if ("serviceWorker" in navigator) {
   window.addEventListener("load", () => {
-    navigator.serviceWorker.register("./sw.js").catch(err => {
+    navigator.serviceWorker.register("./sw.js").then(reg => {
+      reg.update();
+    }).catch(err => {
       console.warn("No se pudo registrar el Service Worker:", err);
     });
   });
