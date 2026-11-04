@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="es-AR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Parroquias CABA</title>
+<meta name="description" content="Guía de parroquias y templos católicos de la Ciudad de Buenos Aires: horarios de misas y confesiones.">
+<meta name="theme-color" content="#243B8F">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Parroquias">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Crect width='100' height='100' rx='22' fill='%23243B8F'/%3E%3Cpath d='M44 18h12v22h22v12H56v30H44V52H22V40h22z' fill='%23fff'/%3E%3C/svg%3E">
+<link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="manifest" href="manifest.json">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+<link rel="stylesheet" href="style.css">
+</head>
+<body data-active-view="list">
+
+<!-- ==================== VISTA 1: LISTADO ==================== -->
+<div class="app view-panel is-active" id="view-list" role="tabpanel" aria-labelledby="tab-list">
+  <header>
+    <h1>Parroquias de Buenos Aires</h1>
+    <p class="sub">Encontrá misas y confesiones cerca tuyo.</p>
+  </header>
+
+  <div class="search">
+    <div class="field">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input id="q" type="search" placeholder="Buscá por nombre, barrio, tipo o calle" autocomplete="off" aria-label="Buscar parroquias" aria-controls="suggest">
+      <div class="suggest" id="suggest" role="listbox"></div>
+    </div>
+
+    <div class="loc-bar" aria-label="Ubicación de referencia">
+      <div class="loc-select-wrap">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <path d="M12 21s-6-5.2-6-10a6 6 0 1 1 12 0c0 4.8-6 10-6 10z"/>
+          <circle cx="12" cy="11" r="2.2"/>
+        </svg>
+        <select id="manual-zone" aria-label="Elegir zona o barrio de referencia para calcular distancias">
+          <option value="">Ubicación: Orden alfabético (general)</option>
+        </select>
+      </div>
+      <button type="button" class="btn-gps-inline" id="btn-gps-inline" aria-label="Usar mi ubicación GPS">
+        Usar GPS
+      </button>
+    </div>
+
+    <div class="loc-banner" id="loc-banner" role="status" aria-live="polite" hidden>
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+        <circle cx="12" cy="12" r="9"/><path d="M12 8v4"/><path d="M12 16h.01"/>
+      </svg>
+      <span id="loc-banner-text">No pudimos obtener tu ubicación automática. Mostrando listado general o elegí tu zona manualmente</span>
+      <button type="button" class="loc-banner-close" id="loc-banner-close" aria-label="Cerrar aviso">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
+
+    <div class="chips" id="chips" role="group" aria-label="Filtros"></div>
+  </div>
+
+  <p class="count" id="count" aria-live="polite"></p>
+  <main class="list" id="list"></main>
+</div>
+
+<!-- ==================== VISTA 2: MAPA COMPLETO ==================== -->
+<section class="map-fullscreen view-panel" id="view-map" role="tabpanel" aria-labelledby="tab-map" aria-hidden="true">
+  <div class="map-top-bar">
+    <div class="map-legend-pill">
+      <span class="legend-item">
+        <span class="legend-dot major" aria-hidden="true"></span>
+        Catedral / Basílica
+      </span>
+      <span class="legend-item">
+        <span class="legend-dot minor" aria-hidden="true"></span>
+        Parroquia / Capilla
+      </span>
+    </div>
+    <button type="button" class="map-recenter-btn" id="btn-map-fit" aria-label="Ajustar vista a todos los templos">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+        <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+      </svg>
+      <span>Ver todos</span>
+    </button>
+  </div>
+  <div id="map" class="map-canvas-full" role="region" aria-label="Mapa interactivo a pantalla completa de parroquias en CABA"></div>
+</section>
+
+<!-- ==================== BOTÓN FLOTANTE "CERCA DE MÍ" ==================== -->
+<button class="fab-near" id="btn-near" type="button" aria-pressed="false" aria-label="Ordenar parroquias cerca de mí">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+    <path d="M12 21s-6-5.2-6-10a6 6 0 1 1 12 0c0 4.8-6 10-6 10z"/>
+    <circle cx="12" cy="11" r="2.2"/>
+  </svg>
+  <span id="btn-near-label">Cerca de mí</span>
+</button>
+
+<!-- ==================== BARRA DE NAVEGACIÓN INFERIOR (BOTTOM NAV) ==================== -->
+<nav class="bottom-nav" role="tablist" aria-label="Navegación principal">
+  <button type="button" class="nav-tab is-active" id="tab-list" role="tab" aria-selected="true" aria-controls="view-list" data-target-view="list">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true">
+      <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>
+    </svg>
+    <span>Listado</span>
+  </button>
+  <button type="button" class="nav-tab" id="tab-map" role="tab" aria-selected="false" aria-controls="view-map" data-target-view="map">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/>
+      <line x1="9" y1="3" x2="9" y2="18"/>
+      <line x1="15" y1="6" x2="15" y2="21"/>
+    </svg>
+    <span>Mapa Completo</span>
+  </button>
+</nav>
+
+<!-- ==================== HOJA DESLIZANTE DE DETALLE ==================== -->
+<div class="scrim" id="scrim"></div>
+<section class="sheet" id="sheet" role="dialog" aria-modal="true" aria-labelledby="d-name" aria-hidden="true">
+  <span class="grab"></span>
+  <div class="sheet-top">
+    <button class="icon-btn" id="d-close" aria-label="Cerrar"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+    <button class="icon-btn" id="d-fav" aria-label="Agregar a favoritos"><svg viewBox="0 0 24 24"><path d="M12 20.5s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.7c0 5.6-7.5 10.2-7.5 10.2z"/></svg></button>
+  </div>
+  <div class="sheet-body" id="d-body"></div>
+  <div class="actions">
+    <a class="btn ghost" id="d-call">Llamar</a>
+    <a class="btn primary" id="d-map" target="_blank" rel="noopener">Cómo llegar</a>
+  </div>
+</section>
+<div class="toast" id="toast" role="status" aria-live="polite"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="" defer></script>
+<script src="app.js" defer></script>
+</body>
+</html>
