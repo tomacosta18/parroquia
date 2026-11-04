@@ -3,6 +3,7 @@
     "id": 1,
     "nombre": "Catedral Metropolitana de Buenos Aires",
     "tipo": "Catedral",
+    "region": "CABA",
     "direccion": "San Martín 27, San Nicolás, CABA",
     "barrio": "San Nicolás",
     "coordenadas": { "lat": -34.6083, "lng": -58.3722 },
@@ -19,6 +20,7 @@
     "id": 2,
     "nombre": "Basílica Nuestra Señora del Pilar",
     "tipo": "Basílica",
+    "region": "CABA",
     "direccion": "Junín 1904, Recoleta, CABA",
     "barrio": "Recoleta",
     "coordenadas": { "lat": -34.5875, "lng": -58.3931 },
@@ -35,6 +37,7 @@
     "id": 3,
     "nombre": "Basílica San Antonio de Padua",
     "tipo": "Basílica",
+    "region": "CABA",
     "direccion": "Agüero 2030, Recoleta, CABA",
     "barrio": "Recoleta",
     "coordenadas": { "lat": -34.5902, "lng": -58.3985 },
@@ -49,11 +52,12 @@
   },
   {
     "id": 4,
-    "nombre": "Catedral Nuestra Señora de la Paz (Lomas)",
+    "nombre": "Catedral Nuestra Señora de la Paz",
     "tipo": "Catedral",
-    "direccion": "Castro 941, Lomas de Zona Sur",
-    "barrio": "Zona Sur",
-    "coordenadas": { "lat": -34.7578, "lng": -58.4025 },
+    "region": "Zona Sur",
+    "direccion": "Sáenz 438, Lomas de Zamora, Provincia de Buenos Aires",
+    "barrio": "Lomas de Zamora",
+    "coordenadas": { "lat": -34.7609, "lng": -58.4061 },
     "horariosMisa": [
       { "dia": "Lunes a Viernes", "horarios": ["08:00", "19:00"] },
       { "dia": "Domingos", "horarios": ["09:00", "11:00", "20:00"] }
@@ -61,12 +65,13 @@
     "horariosConfesiones": "Sábados de 10:00 a 12:00",
     "telefono": "+54 11 4243-2311",
     "webOficial": "",
-    "etiquetas": ["Catedral", "Historica"]
+    "etiquetas": ["Catedral", "Historica", "Zona Sur"]
   },
   {
     "id": 5,
     "nombre": "Parroquia San Nicolás de Bari",
     "tipo": "Parroquia",
+    "region": "CABA",
     "direccion": "Av. Santa Fe 1352, Recoleta, CABA",
     "barrio": "Recoleta",
     "coordenadas": { "lat": -34.5982, "lng": -58.3871 },
@@ -83,6 +88,7 @@
     "id": 6,
     "nombre": "Parroquia San Tarsicio",
     "tipo": "Parroquia",
+    "region": "CABA",
     "direccion": "Zapiola 4541, Coghlan, CABA",
     "barrio": "Coghlan",
     "coordenadas": { "lat": -34.5642, "lng": -58.4751 },
@@ -99,6 +105,7 @@
     "id": 7,
     "nombre": "Capilla del Hospital de Clínicas",
     "tipo": "Capilla",
+    "region": "CABA",
     "direccion": "Av. Córdoba 2351, Recoleta, CABA",
     "barrio": "Recoleta",
     "coordenadas": { "lat": -34.5972, "lng": -58.3992 },
@@ -115,6 +122,7 @@
     "id": 8,
     "nombre": "Capilla Nuestra Señora del Carmen",
     "tipo": "Capilla",
+    "region": "CABA",
     "direccion": "Rodríguez Peña 840, Recoleta, CABA",
     "barrio": "Recoleta",
     "coordenadas": { "lat": -34.5961, "lng": -58.3902 },
@@ -131,6 +139,7 @@
     "id": 9,
     "nombre": "Basílica del Santísimo Sacramento",
     "tipo": "Basílica",
+    "region": "CABA",
     "direccion": "San Martín 1039, Retiro, CABA",
     "barrio": "Retiro",
     "coordenadas": { "lat": -34.5955, "lng": -58.3756 },
@@ -147,6 +156,7 @@
     "id": 10,
     "nombre": "Basílica San José de Flores",
     "tipo": "Basílica",
+    "region": "CABA",
     "direccion": "Av. Rivadavia 6950, Flores, CABA",
     "barrio": "Flores",
     "coordenadas": { "lat": -34.6286, "lng": -58.4641 },
@@ -163,6 +173,7 @@
     "id": 11,
     "nombre": "Parroquia Nuestra Señora de las Victorias",
     "tipo": "Parroquia",
+    "region": "CABA",
     "direccion": "Paraguay 1204, Retiro, CABA",
     "barrio": "Retiro",
     "coordenadas": { "lat": -34.5987, "lng": -58.3845 },
@@ -179,6 +190,7 @@
     "id": 12,
     "nombre": "Parroquia Inmaculada Concepción (La Redonda)",
     "tipo": "Parroquia",
+    "region": "CABA",
     "direccion": "Vuelta de Obligado 2042, Belgrano, CABA",
     "barrio": "Belgrano",
     "coordenadas": { "lat": -34.5614, "lng": -58.4563 },
@@ -195,6 +207,7 @@
     "id": 13,
     "nombre": "Basílica María Auxiliadora y San Carlos",
     "tipo": "Basílica",
+    "region": "CABA",
     "direccion": "Hipólito Yrigoyen 3999, Almagro, CABA",
     "barrio": "Almagro",
     "coordenadas": { "lat": -34.6143, "lng": -58.4227 },
@@ -211,6 +224,7 @@
     "id": 14,
     "nombre": "Basílica del Espíritu Santo (Ntra. Sra. de Guadalupe)",
     "tipo": "Basílica",
+    "region": "CABA",
     "direccion": "Mansilla 3865, Palermo, CABA",
     "barrio": "Palermo",
     "coordenadas": { "lat": -34.5891, "lng": -58.4184 },
@@ -227,6 +241,7 @@
     "id": 15,
     "nombre": "Parroquia Nuestra Señora de Caacupé",
     "tipo": "Parroquia",
+    "region": "CABA",
     "direccion": "Av. Rivadavia 4879, Caballito, CABA",
     "barrio": "Caballito",
     "coordenadas": { "lat": -34.6177, "lng": -58.4352 },
@@ -243,6 +258,7 @@
     "id": 16,
     "nombre": "Parroquia San Pedro González Telmo",
     "tipo": "Parroquia",
+    "region": "CABA",
     "direccion": "Humberto 1º 340, San Telmo, CABA",
     "barrio": "San Telmo",
     "coordenadas": { "lat": -34.6212, "lng": -58.3716 },
@@ -254,5 +270,141 @@
     "telefono": "+54 11 4361-1168",
     "webOficial": "",
     "etiquetas": ["Historica", "Parroquia", "San Telmo"]
+  },
+  {
+    "id": 17,
+    "nombre": "Catedral San Isidro Labrador",
+    "tipo": "Catedral",
+    "region": "Zona Norte",
+    "direccion": "Av. del Libertador 16200, San Isidro, GBA Norte",
+    "barrio": "San Isidro",
+    "coordenadas": { "lat": -34.4675, "lng": -58.5091 },
+    "horariosMisa": [
+      { "dia": "Lunes a Sábados", "horarios": ["09:00", "19:00"] },
+      { "dia": "Domingos", "horarios": ["09:30", "11:00", "12:30", "19:00", "20:15"] }
+    ],
+    "horariosConfesiones": "Media hora antes de cada misa",
+    "telefono": "+54 11 4743-0285",
+    "webOficial": "",
+    "etiquetas": ["Catedral", "Historica", "Zona Norte"]
+  },
+  {
+    "id": 18,
+    "nombre": "Parroquia Inmaculada Concepción de Tigre",
+    "tipo": "Parroquia",
+    "region": "Zona Norte",
+    "direccion": "Av. Liniers 1560, Tigre, GBA Norte",
+    "barrio": "Tigre",
+    "coordenadas": { "lat": -34.4265, "lng": -58.5796 },
+    "horariosMisa": [
+      { "dia": "Martes a Sábados", "horarios": ["19:00"] },
+      { "dia": "Domingos", "horarios": ["10:00", "11:30", "19:00"] }
+    ],
+    "horariosConfesiones": "Sábados y domingos 30 minutos antes de misa",
+    "telefono": "+54 11 4749-0630",
+    "webOficial": "",
+    "etiquetas": ["Parroquia", "Historica", "Zona Norte"]
+  },
+  {
+    "id": 19,
+    "nombre": "Parroquia San Gabriel de la Dolorosa",
+    "tipo": "Parroquia",
+    "region": "Zona Norte",
+    "direccion": "Gaspar Campos 859, Vicente López, GBA Norte",
+    "barrio": "Vicente López",
+    "coordenadas": { "lat": -34.5256, "lng": -58.4774 },
+    "horariosMisa": [
+      { "dia": "Lunes a Sábados", "horarios": ["08:30", "19:00"] },
+      { "dia": "Domingos", "horarios": ["09:30", "11:00", "19:30"] }
+    ],
+    "horariosConfesiones": "20 minutos antes de cada misa",
+    "telefono": "+54 11 4791-3342",
+    "webOficial": "",
+    "etiquetas": ["Parroquia", "Zona Norte"]
+  },
+  {
+    "id": 20,
+    "nombre": "Basílica Nacional Nuestra Señora de Luján",
+    "tipo": "Basílica",
+    "region": "Zona Oeste",
+    "direccion": "San Martín 51, Luján, Provincia de Buenos Aires",
+    "barrio": "Luján",
+    "coordenadas": { "lat": -34.5642, "lng": -59.1213 },
+    "horariosMisa": [
+      { "dia": "Lunes a Viernes", "horarios": ["08:00", "10:00", "11:30", "17:00", "19:00"] },
+      { "dia": "Sábados y Domingos", "horarios": ["07:00", "08:00", "09:30", "11:00", "13:00", "15:00", "17:00", "19:00"] }
+    ],
+    "horariosConfesiones": "Todos los días de 08:30 a 18:30",
+    "telefono": "+54 2323 42-0058",
+    "webOficial": "https://santuariodelujan.org.ar",
+    "etiquetas": ["Basilica", "Santuario Nacional", "Zona Oeste"]
+  },
+  {
+    "id": 21,
+    "nombre": "Catedral Inmaculada Concepción del Buen Viaje",
+    "tipo": "Catedral",
+    "region": "Zona Oeste",
+    "direccion": "Belgrano 327, Morón, GBA Oeste",
+    "barrio": "Morón",
+    "coordenadas": { "lat": -34.6512, "lng": -58.6219 },
+    "horariosMisa": [
+      { "dia": "Lunes a Sábados", "horarios": ["08:00", "11:00", "19:00"] },
+      { "dia": "Domingos", "horarios": ["08:30", "10:00", "11:30", "19:00", "20:00"] }
+    ],
+    "horariosConfesiones": "Lunes a sábados de 10:00 a 12:00 y 17:30 a 19:00",
+    "telefono": "+54 11 4629-8912",
+    "webOficial": "",
+    "etiquetas": ["Catedral", "Zona Oeste"]
+  },
+  {
+    "id": 22,
+    "nombre": "Parroquia Nuestra Señora del Carmen",
+    "tipo": "Parroquia",
+    "region": "Zona Oeste",
+    "direccion": "Álvarez Jonte 77, Ramos Mejía, GBA Oeste",
+    "barrio": "Ramos Mejía",
+    "coordenadas": { "lat": -34.6424, "lng": -58.5648 },
+    "horariosMisa": [
+      { "dia": "Lunes a Sábados", "horarios": ["08:00", "19:00"] },
+      { "dia": "Domingos", "horarios": ["09:00", "11:00", "19:00"] }
+    ],
+    "horariosConfesiones": "Media hora antes de cada misa",
+    "telefono": "+54 11 4658-0432",
+    "webOficial": "",
+    "etiquetas": ["Parroquia", "Zona Oeste"]
+  },
+  {
+    "id": 23,
+    "nombre": "Catedral de la Inmaculada Concepción de Quilmes",
+    "tipo": "Catedral",
+    "region": "Zona Sur",
+    "direccion": "Rivadavia 355, Quilmes, GBA Sur",
+    "barrio": "Quilmes",
+    "coordenadas": { "lat": -34.7206, "lng": -58.2546 },
+    "horariosMisa": [
+      { "dia": "Lunes a Sábados", "horarios": ["08:30", "19:00"] },
+      { "dia": "Domingos", "horarios": ["09:00", "11:00", "19:00"] }
+    ],
+    "horariosConfesiones": "Durante las celebraciones",
+    "telefono": "+54 11 4253-2241",
+    "webOficial": "",
+    "etiquetas": ["Catedral", "Zona Sur"]
+  },
+  {
+    "id": 24,
+    "nombre": "Catedral Nuestra Señora de la Asunción",
+    "tipo": "Catedral",
+    "region": "Zona Sur",
+    "direccion": "San Martín 745, Avellaneda, GBA Sur",
+    "barrio": "Avellaneda",
+    "coordenadas": { "lat": -34.6627, "lng": -58.3647 },
+    "horariosMisa": [
+      { "dia": "Martes a Sábados", "horarios": ["18:30"] },
+      { "dia": "Domingos", "horarios": ["09:30", "11:00", "19:00"] }
+    ],
+    "horariosConfesiones": "30 minutos antes de cada misa",
+    "telefono": "+54 11 4201-8432",
+    "webOficial": "",
+    "etiquetas": ["Catedral", "Zona Sur"]
   }
 ]

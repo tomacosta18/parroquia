@@ -87,7 +87,17 @@ h1{font-family:var(--serif);font-weight:600;font-size:1.95rem;letter-spacing:-.0
 .loc-banner-close{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;color:var(--muted);flex:none}
 .loc-banner-close svg{width:15px;height:15px}
 
-.chips{display:flex;gap:8px;overflow-x:auto;padding:10px 0 2px;scrollbar-width:none}
+/* Selector de Región (CABA / Zona Norte / Zona Oeste / Zona Sur) */
+.region-tabs{display:flex;gap:6px;overflow-x:auto;padding:10px 0 0;scrollbar-width:none}
+.region-tabs::-webkit-scrollbar{display:none}
+.region-pill{flex:none;height:32px;padding:0 12px;border-radius:10px;border:1px solid var(--line);
+  background:rgba(255,255,255,.78);color:var(--muted);font-size:.8rem;font-weight:600;
+  display:inline-flex;align-items:center;gap:5px;transition:background .15s,color .15s,border-color .15s}
+.region-pill small{font-size:.72rem;font-weight:500;opacity:.75}
+.region-pill[aria-pressed="true"]{background:var(--night);border-color:var(--night);color:#fff}
+.region-pill[aria-pressed="true"] small{opacity:.9}
+
+.chips{display:flex;gap:8px;overflow-x:auto;padding:8px 0 2px;scrollbar-width:none}
 .chips::-webkit-scrollbar{display:none}
 .chip{flex:none;height:38px;padding:0 15px;border-radius:var(--r-pill);border:1px solid var(--line);
   background:var(--surface);font-size:.88rem;font-weight:500;display:inline-flex;align-items:center;gap:6px;
@@ -97,20 +107,28 @@ h1{font-family:var(--serif);font-weight:600;font-size:1.95rem;letter-spacing:-.0
 .chip .dot{width:7px;height:7px;border-radius:50%;background:var(--ok);flex:none}
 .chip[aria-pressed="true"] .dot{background:#fff}
 
-/* ============ Vista Dedicada: Mapa Minimalista (CartoDB Positron) ============ */
+/* ============ Vista Dedicada: Mapa Minimalista (100% OpenStreetMap Libre) ============ */
 .map-fullscreen{position:fixed;left:0;right:0;top:0;
   bottom:calc(var(--nav-h) + env(safe-area-inset-bottom,0px));
-  z-index:300;background:#F5F6F8;display:flex;flex-direction:column}
-.map-canvas-full{width:100%;height:100%;flex:1;z-index:1;background:#F5F6F8;touch-action:pan-x pan-y}
+  z-index:300;background:#F2F4F7;display:flex;flex-direction:column}
+.map-canvas-full{width:100%;height:100%;flex:1;z-index:1;background:#F2F4F7;touch-action:pan-x pan-y}
 
-/* Sin filtros CSS pesados: CartoDB Positron ya entrega tonos blancos y grises suaves ultralimpios */
-.leaflet-tile-pane{filter:none}
+/* Estilización Moderna del Mapa por CSS sobre OpenStreetMap oficial (sin API Keys) */
+.leaflet-tile-pane {
+    filter: grayscale(85%) contrast(110%) brightness(95%);
+}
 
-/* Controles discretos para no competir con los pines */
-.leaflet-control-zoom{border:1px solid rgba(20,24,31,.08)!important;border-radius:14px!important;overflow:hidden;
-  box-shadow:0 4px 16px rgba(20,24,31,.07)!important;margin-bottom:22px!important;margin-left:14px!important}
+/* Controles táctiles sin superposición con la barra superior ni con los botones flotantes inferiores */
+.leaflet-top.leaflet-left .leaflet-control-zoom{
+  margin-top:calc(64px + env(safe-area-inset-top,0px))!important;
+  margin-left:14px!important;
+  border:1px solid rgba(20,24,31,.08)!important;
+  border-radius:14px!important;
+  overflow:hidden;
+  box-shadow:0 4px 16px rgba(20,24,31,.08)!important;
+}
 .leaflet-control-zoom a{background:rgba(255,255,255,.94)!important;backdrop-filter:blur(8px);
-  color:var(--ink)!important;width:36px!important;height:36px!important;line-height:36px!important;
+  color:var(--ink)!important;width:38px!important;height:38px!important;line-height:38px!important;
   border-bottom-color:var(--line)!important;font-weight:500!important}
 .leaflet-control-attribution{background:rgba(255,255,255,.82)!important;backdrop-filter:blur(4px);
   font-size:10px!important;color:#6E7787!important;border-radius:8px 0 0 0;padding:2px 6px!important}
@@ -215,7 +233,17 @@ h1{font-family:var(--serif);font-weight:600;font-size:1.95rem;letter-spacing:-.0
 .dist-badge{display:inline-flex;align-items:center;gap:4px;font-size:.76rem;font-weight:600;
   color:var(--brand);background:var(--brand-soft);padding:2px 9px;border-radius:var(--r-pill);
   font-variant-numeric:tabular-nums}
-.card .next{margin-top:12px;font-size:.9rem;font-weight:500;color:var(--brand);display:flex;align-items:center;gap:6px}
+.region-tag{font-size:.72rem;font-weight:600;color:var(--muted);background:var(--bg);
+  border:1px solid var(--line);padding:2px 8px;border-radius:var(--r-pill)}
+
+/* Badge de Concurrencia en Tarjetas y Mapa */
+.crowd-badge{display:inline-flex;align-items:center;gap:4px;font-size:.73rem;font-weight:600;
+  padding:2px 9px;border-radius:var(--r-pill);border:1px solid transparent}
+.crowd-badge.tranquilo{background:#ECFDF5;color:#065F46;border-color:rgba(6,95,70,.2)}
+.crowd-badge.moderado{background:#FEF9C3;color:#854D0E;border-color:rgba(133,77,14,.22)}
+.crowd-badge.lleno{background:#FEE2E2;color:#991B1B;border-color:rgba(153,27,27,.22)}
+
+.card .next{margin-top:12px;font-size:.9rem;font-weight:500;color:var(--brand);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
 .card .next.live{color:var(--ok);font-weight:600}
 .card .next.live::before{content:"";width:7px;height:7px;border-radius:50%;background:var(--ok);flex:none}
 .tags{display:flex;flex-wrap:wrap;gap:6px;margin-top:12px}
@@ -230,6 +258,13 @@ h1{font-family:var(--serif);font-weight:600;font-size:1.95rem;letter-spacing:-.0
 .card-edit-btn svg{width:13px;height:13px}
 .empty{text-align:center;color:var(--muted);padding:48px 16px}
 .empty strong{display:block;color:var(--ink);font-size:1.05rem;margin-bottom:4px}
+
+/* Paginación incremental para datasets masivos (+100 registros) */
+.list-sentinel{display:flex;justify-content:center;padding:16px 0 4px}
+.btn-load-more{height:42px;padding:0 20px;border-radius:var(--r-pill);border:1px solid var(--line);
+  background:var(--surface);color:var(--brand);font-size:.86rem;font-weight:600;
+  transition:background .15s,border-color .15s}
+.btn-load-more:hover{background:var(--brand-soft);border-color:var(--brand)}
 
 /* ============ Footer Discreto con Acceso Administrador ============ */
 .app-footer{margin-top:28px;padding:18px 4px 8px;border-top:1px solid var(--line);
@@ -293,11 +328,37 @@ body.open .sheet{transform:none;visibility:visible}
 .sheet h2{font-family:var(--serif);font-size:1.75rem;line-height:1.15;font-weight:600;letter-spacing:-.015em}
 .block{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);padding:16px;margin-top:14px}
 .block h3{font-size:.95rem;font-weight:600;margin-bottom:10px}
-.row{display:flex;justify-content:space-between;gap:16px;padding:8px 0}
+.row{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:8px 0}
 .row+.row{border-top:1px solid var(--line)}
-.row .d{color:var(--muted)}
-.row .h{font-weight:500;text-align:right;font-variant-numeric:tabular-nums}
+.row .d{color:var(--muted);font-size:.9rem}
+.row .h{font-weight:500;text-align:right;font-variant-numeric:tabular-nums;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:5px}
+.hour-pill{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:8px;
+  background:var(--bg);border:1px solid var(--line);font-size:.82rem;font-weight:600;color:var(--ink);
+  transition:border-color .15s,background .15s}
+.hour-pill.is-selected{border-color:var(--brand);background:var(--brand-soft);color:var(--brand)}
+.hour-pill .h-dot{font-size:.72rem;line-height:1}
 .note{color:var(--muted);font-size:.9rem;margin-top:8px}
+
+/* ============ Widget Interactivo de Concurrencia Comunitaria ("Lleno / Vacío") ============ */
+.crowd-widget{margin-top:14px;padding-top:14px;border-top:1px dashed var(--line)}
+.crowd-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px}
+.crowd-title{font-size:.84rem;font-weight:600;color:var(--ink);display:inline-flex;align-items:center;gap:6px}
+.crowd-slot-badge{font-size:.75rem;font-weight:600;color:var(--brand);background:var(--brand-soft);
+  padding:2px 9px;border-radius:var(--r-pill);font-variant-numeric:tabular-nums}
+.crowd-sub{font-size:.77rem;color:var(--muted);margin-bottom:10px;line-height:1.35}
+.crowd-buttons{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+@media (max-width:380px){.crowd-buttons{grid-template-columns:1fr}}
+.crowd-btn{height:40px;padding:0 10px;border-radius:11px;border:1px solid var(--line);
+  background:var(--bg);color:var(--ink);font-size:.81rem;font-weight:600;
+  display:inline-flex;align-items:center;justify-content:center;gap:5px;
+  transition:transform .12s,background .15s,border-color .15s,box-shadow .15s}
+.crowd-btn:active{transform:scale(.97)}
+.crowd-btn.tranquilo[aria-pressed="true"]{background:#ECFDF5;color:#065F46;border-color:#10B981;box-shadow:0 0 0 2px rgba(16,185,129,.18)}
+.crowd-btn.moderado[aria-pressed="true"]{background:#FEF9C3;color:#854D0E;border-color:#EAB308;box-shadow:0 0 0 2px rgba(234,179,8,.2)}
+.crowd-btn.lleno[aria-pressed="true"]{background:#FEE2E2;color:#991B1B;border-color:#EF4444;box-shadow:0 0 0 2px rgba(239,68,68,.18)}
+.crowd-meta{margin-top:9px;font-size:.76rem;color:var(--muted);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.crowd-clear-btn{font-size:.74rem;font-weight:600;color:var(--muted);text-decoration:underline;padding:2px 4px}
+.crowd-clear-btn:hover{color:var(--danger)}
 
 /* ============ Enlace a Web Oficial y Fallback a Google Maps ============ */
 .external-links-wrap{display:grid;gap:8px;margin-top:12px}
