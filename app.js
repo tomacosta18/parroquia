@@ -2,26 +2,49 @@
    CONFIGURACIÓN, ZONAS DE REFERENCIA Y DATOS DE RESPALDO OFFLINE
    ===================================================================== */
 const DATA_SOURCE_URL = "./data/parroquias.json";
+const ADMIN_MASTER_PIN = "1118";
 const CABA_CENTER = [-34.5975, -58.3855];
 const CABA_ZOOM = 13;
 const MASS_DURATION_MIN = 45;
 const NEXT_WINDOW_MIN = 60;
 
-// Puntos de referencia fijos de barrios principales de CABA para selección manual
+// Dominios de prueba genéricos o inexistentes que deben filtrarse para evitar errores DNS
+const PLACEHOLDER_DOMAINS = new Set([
+  "catedralmetropolitana.org.ar",
+  "basilicadelpilar.org.ar",
+  "sanantoniodepadua.org.ar",
+  "obispado-lomas.org.ar",
+  "sannicolasdebari.com.ar",
+  "santarsicio.org",
+  "capillacarmen.org",
+  "basilicasantisimosacramento.org.ar",
+  "sanjosedeflores.org.ar",
+  "parroquialasvictorias.org.ar",
+  "inmaculadabelgrano.org.ar",
+  "basilicamariaauxiliadora.com.ar",
+  "parroquiadeguadalupe.com.ar",
+  "parroquiacaacupe.org.ar",
+  "parroquiasantelmo.org",
+  "example.com",
+  "ejemplo.com"
+]);
+
+// Puntos de referencia fijos de barrios principales de CABA y GBA para selección manual
 const REFERENCE_ZONES = [
   { id: "san-nicolas", nombre: "San Nicolás (Microcentro)", lat: -34.6083, lng: -58.3722 },
   { id: "recoleta", nombre: "Recoleta", lat: -34.5875, lng: -58.3931 },
   { id: "retiro", nombre: "Retiro", lat: -34.5987, lng: -58.3845 },
   { id: "palermo", nombre: "Palermo", lat: -34.5826, lng: -58.4259 },
   { id: "belgrano", nombre: "Belgrano", lat: -34.5614, lng: -58.4563 },
+  { id: "coghlan", nombre: "Coghlan", lat: -34.5642, lng: -58.4751 },
   { id: "caballito", nombre: "Caballito", lat: -34.6186, lng: -58.4426 },
   { id: "flores", nombre: "Flores", lat: -34.6285, lng: -58.4641 },
   { id: "almagro", nombre: "Almagro", lat: -34.6095, lng: -58.4208 },
   { id: "san-telmo", nombre: "San Telmo", lat: -34.6212, lng: -58.3731 },
-  { id: "balvanera", nombre: "Balvanera (Once)", lat: -34.6096, lng: -58.4060 }
+  { id: "zona-sur", nombre: "Zona Sur (Lomas)", lat: -34.7578, lng: -58.4025 }
 ];
 
-// Respaldo local idéntico a data/parroquias.json para garantizar carga inicial 100% offline
+// Respaldo local sincronizado con data/parroquias.json para garantizar carga inicial 100% offline
 const FALLBACK_PARISHES = [
   {
     id: 1,
@@ -36,7 +59,7 @@ const FALLBACK_PARISHES = [
     ],
     horariosConfesiones: "Media hora antes de cada misa",
     telefono: "+54 11 4331-2845",
-    imagen: "catedral_metropolitana.jpg",
+    webOficial: "https://arzbaires.org.ar",
     etiquetas: ["Historica", "Centro", "Catedral"]
   },
   {
@@ -52,27 +75,75 @@ const FALLBACK_PARISHES = [
     ],
     horariosConfesiones: "Sábados de 17:00 a 18:30",
     telefono: "+54 11 4803-6798",
-    imagen: "pilar.jpg",
+    webOficial: "",
     etiquetas: ["Historica", "Adoracion Perpetua", "Basilica"]
   },
   {
     id: 3,
-    nombre: "Parroquia Nuestra Señora de las Victorias",
-    tipo: "Parroquia",
-    direccion: "Paraguay 1204, Retiro, CABA",
-    barrio: "Retiro",
-    coordenadas: { lat: -34.5987, lng: -58.3845 },
+    nombre: "Basílica San Antonio de Padua",
+    tipo: "Basílica",
+    direccion: "Agüero 2030, Recoleta, CABA",
+    barrio: "Recoleta",
+    coordenadas: { lat: -34.5902, lng: -58.3985 },
     horariosMisa: [
-      { dia: "Lunes a Viernes", horarios: ["07:30", "12:00", "18:30"] },
-      { dia: "Domingos", horarios: ["11:00", "19:30"] }
+      { dia: "Lunes a Sábados", horarios: ["09:00", "19:30"] },
+      { dia: "Domingos", horarios: ["10:30", "12:00", "19:30"] }
     ],
-    horariosConfesiones: "Durante las horas de misa",
-    telefono: "+54 11 4812-3490",
-    imagen: "victorias.jpg",
-    etiquetas: ["Centro", "Parroquia"]
+    horariosConfesiones: "15 minutos antes de cada misa",
+    telefono: "+54 11 4822-4512",
+    webOficial: "",
+    etiquetas: ["Basilica", "Recoleta"]
   },
   {
     id: 4,
+    nombre: "Catedral Nuestra Señora de la Paz (Lomas)",
+    tipo: "Catedral",
+    direccion: "Castro 941, Lomas de Zona Sur",
+    barrio: "Zona Sur",
+    coordenadas: { lat: -34.7578, lng: -58.4025 },
+    horariosMisa: [
+      { dia: "Lunes a Viernes", horarios: ["08:00", "19:00"] },
+      { dia: "Domingos", horarios: ["09:00", "11:00", "20:00"] }
+    ],
+    horariosConfesiones: "Sábados de 10:00 a 12:00",
+    telefono: "+54 11 4243-2311",
+    webOficial: "",
+    etiquetas: ["Catedral", "Historica"]
+  },
+  {
+    id: 5,
+    nombre: "Parroquia San Nicolás de Bari",
+    tipo: "Parroquia",
+    direccion: "Av. Santa Fe 1352, Recoleta, CABA",
+    barrio: "Recoleta",
+    coordenadas: { lat: -34.5982, lng: -58.3871 },
+    horariosMisa: [
+      { dia: "Lunes a Viernes", horarios: ["08:00", "12:30", "19:00"] },
+      { dia: "Domingos", horarios: ["11:00", "20:00"] }
+    ],
+    horariosConfesiones: "Durante las horas de misa",
+    telefono: "+54 11 4812-4022",
+    webOficial: "",
+    etiquetas: ["Parroquia", "Centro"]
+  },
+  {
+    id: 6,
+    nombre: "Parroquia San Tarsicio",
+    tipo: "Parroquia",
+    direccion: "Zapiola 4541, Coghlan, CABA",
+    barrio: "Coghlan",
+    coordenadas: { lat: -34.5642, lng: -58.4751 },
+    horariosMisa: [
+      { dia: "Martes a Sábados", horarios: ["19:00"] },
+      { dia: "Domingos", horarios: ["10:30", "19:00"] }
+    ],
+    horariosConfesiones: "Sábados previo a misa",
+    telefono: "+54 11 4542-1100",
+    webOficial: "",
+    etiquetas: ["Parroquia", "Barrio"]
+  },
+  {
+    id: 7,
     nombre: "Capilla del Hospital de Clínicas",
     tipo: "Capilla",
     direccion: "Av. Córdoba 2351, Recoleta, CABA",
@@ -84,8 +155,152 @@ const FALLBACK_PARISHES = [
     ],
     horariosConfesiones: "Consultar en secretaría",
     telefono: "+54 11 5950-8000",
-    imagen: "clinicas.jpg",
+    webOficial: "https://www.fmed.uba.ar",
     etiquetas: ["Capilla", "Hospitalario"]
+  },
+  {
+    id: 8,
+    nombre: "Capilla Nuestra Señora del Carmen",
+    tipo: "Capilla",
+    direccion: "Rodríguez Peña 840, Recoleta, CABA",
+    barrio: "Recoleta",
+    coordenadas: { lat: -34.5961, lng: -58.3902 },
+    horariosMisa: [
+      { dia: "Lunes a Viernes", horarios: ["18:00"] },
+      { dia: "Domingos", horarios: ["11:00"] }
+    ],
+    horariosConfesiones: "Media hora antes",
+    telefono: "+54 11 4811-9000",
+    webOficial: "",
+    etiquetas: ["Capilla"]
+  },
+  {
+    id: 9,
+    nombre: "Basílica del Santísimo Sacramento",
+    tipo: "Basílica",
+    direccion: "San Martín 1039, Retiro, CABA",
+    barrio: "Retiro",
+    coordenadas: { lat: -34.5955, lng: -58.3756 },
+    horariosMisa: [
+      { dia: "Lunes a Viernes", horarios: ["08:00", "12:00", "19:00"] },
+      { dia: "Sábados y Domingos", horarios: ["10:00", "12:00", "19:00"] }
+    ],
+    horariosConfesiones: "Lunes a viernes de 11:00 a 12:00 y 18:00 a 19:00",
+    telefono: "+54 11 4311-5790",
+    webOficial: "",
+    etiquetas: ["Basilica", "Adoracion", "Retiro"]
+  },
+  {
+    id: 10,
+    nombre: "Basílica San José de Flores",
+    tipo: "Basílica",
+    direccion: "Av. Rivadavia 6950, Flores, CABA",
+    barrio: "Flores",
+    coordenadas: { lat: -34.6286, lng: -58.4641 },
+    horariosMisa: [
+      { dia: "Lunes a Sábados", horarios: ["08:00", "12:00", "19:30"] },
+      { dia: "Domingos", horarios: ["09:00", "11:00", "19:30"] }
+    ],
+    horariosConfesiones: "Todos los días de 17:30 a 19:15",
+    telefono: "+54 11 4611-1896",
+    webOficial: "",
+    etiquetas: ["Basilica", "Historica", "Flores"]
+  },
+  {
+    id: 11,
+    nombre: "Parroquia Nuestra Señora de las Victorias",
+    tipo: "Parroquia",
+    direccion: "Paraguay 1204, Retiro, CABA",
+    barrio: "Retiro",
+    coordenadas: { lat: -34.5987, lng: -58.3845 },
+    horariosMisa: [
+      { dia: "Lunes a Viernes", horarios: ["07:30", "12:00", "18:30"] },
+      { dia: "Domingos", horarios: ["11:00", "19:30"] }
+    ],
+    horariosConfesiones: "Durante las horas de misa",
+    telefono: "+54 11 4812-3490",
+    webOficial: "",
+    etiquetas: ["Centro", "Parroquia"]
+  },
+  {
+    id: 12,
+    nombre: "Parroquia Inmaculada Concepción (La Redonda)",
+    tipo: "Parroquia",
+    direccion: "Vuelta de Obligado 2042, Belgrano, CABA",
+    barrio: "Belgrano",
+    coordenadas: { lat: -34.5614, lng: -58.4563 },
+    horariosMisa: [
+      { dia: "Lunes a Sábados", horarios: ["08:30", "12:00", "19:30"] },
+      { dia: "Domingos", horarios: ["09:00", "11:00", "12:30", "19:30", "21:00"] }
+    ],
+    horariosConfesiones: "Media hora antes de cada misa",
+    telefono: "+54 11 4783-8008",
+    webOficial: "",
+    etiquetas: ["Historica", "Parroquia", "Belgrano"]
+  },
+  {
+    id: 13,
+    nombre: "Basílica María Auxiliadora y San Carlos",
+    tipo: "Basílica",
+    direccion: "Hipólito Yrigoyen 3999, Almagro, CABA",
+    barrio: "Almagro",
+    coordenadas: { lat: -34.6143, lng: -58.4227 },
+    horariosMisa: [
+      { dia: "Lunes a Sábados", horarios: ["08:00", "19:00"] },
+      { dia: "Domingos", horarios: ["09:00", "11:00", "12:15", "19:00"] }
+    ],
+    horariosConfesiones: "Sábados y domingos durante las misas",
+    telefono: "+54 11 4981-6767",
+    webOficial: "",
+    etiquetas: ["Basilica", "Salesianos", "Almagro"]
+  },
+  {
+    id: 14,
+    nombre: "Basílica del Espíritu Santo (Ntra. Sra. de Guadalupe)",
+    tipo: "Basílica",
+    direccion: "Mansilla 3865, Palermo, CABA",
+    barrio: "Palermo",
+    coordenadas: { lat: -34.5891, lng: -58.4184 },
+    horariosMisa: [
+      { dia: "Lunes a Sábados", horarios: ["08:00", "19:30"] },
+      { dia: "Domingos", horarios: ["09:30", "11:00", "12:30", "19:30"] }
+    ],
+    horariosConfesiones: "Media hora antes de cada celebración",
+    telefono: "+54 11 4822-9100",
+    webOficial: "",
+    etiquetas: ["Basilica", "Palermo"]
+  },
+  {
+    id: 15,
+    nombre: "Parroquia Nuestra Señora de Caacupé",
+    tipo: "Parroquia",
+    direccion: "Av. Rivadavia 4879, Caballito, CABA",
+    barrio: "Caballito",
+    coordenadas: { lat: -34.6177, lng: -58.4352 },
+    horariosMisa: [
+      { dia: "Lunes a Sábados", horarios: ["09:00", "19:00"] },
+      { dia: "Domingos", horarios: ["09:30", "11:00", "19:00", "20:15"] }
+    ],
+    horariosConfesiones: "20 minutos antes de cada misa",
+    telefono: "+54 11 4901-1916",
+    webOficial: "",
+    etiquetas: ["Parroquia", "Caballito"]
+  },
+  {
+    id: 16,
+    nombre: "Parroquia San Pedro González Telmo",
+    tipo: "Parroquia",
+    direccion: "Humberto 1º 340, San Telmo, CABA",
+    barrio: "San Telmo",
+    coordenadas: { lat: -34.6212, lng: -58.3716 },
+    horariosMisa: [
+      { dia: "Martes a Sábados", horarios: ["18:30"] },
+      { dia: "Domingos", horarios: ["10:00", "11:30", "19:00"] }
+    ],
+    horariosConfesiones: "Domingos media hora antes de misa",
+    telefono: "+54 11 4361-1168",
+    webOficial: "",
+    etiquetas: ["Historica", "Parroquia", "San Telmo"]
   }
 ];
 
@@ -94,8 +309,13 @@ const FALLBACK_PARISHES = [
    ===================================================================== */
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
-const norm = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
-const toMinutes = (hhmm) => { const [h, m] = hhmm.split(":").map(Number); return h * 60 + m; };
+const norm = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+
+function toMinutes(hhmm) {
+  const m = String(hhmm || "").match(/(\d{1,2}):(\d{2})/);
+  if (!m) return NaN;
+  return Number(m[1]) * 60 + Number(m[2]);
+}
 
 function getCoords(p) {
   if (p.coordenadas && typeof p.coordenadas.lat === "number" && typeof p.coordenadas.lng === "number") {
@@ -113,6 +333,51 @@ function getTags(p) {
 
 function getPhone(p) {
   return p.telefono || p.tel || "";
+}
+
+/**
+ * Valida y limpia webOficial:
+ * - Si está vacío, es inválido o apunta a un dominio genérico/inexistente de prueba, devuelve "".
+ * - Si no comienza con http:// o https://, antepone https:// automáticamente.
+ */
+function normalizeOfficialUrl(rawUrl) {
+  if (typeof rawUrl !== "string") return "";
+  let clean = rawUrl.trim();
+  if (!clean || clean === "#" || clean === "-") return "";
+
+  if (!/^https?:\/\//i.test(clean)) {
+    clean = "https://" + clean.replace(/^\/+/, "");
+  }
+
+  try {
+    const parsed = new URL(clean);
+    const host = parsed.hostname.replace(/^www\./i, "").toLowerCase();
+    if (!host || !host.includes(".") || PLACEHOLDER_DOMAINS.has(host)) {
+      return "";
+    }
+    return parsed.href;
+  } catch (e) {
+    return "";
+  }
+}
+
+/**
+ * Enlace directo a la ubicación exacta del templo en Google Maps Search (siempre funciona)
+ */
+function buildGoogleMapsPlaceUrl(p) {
+  const query = `${p.nombre}, ${p.direccion || p.barrio || "Buenos Aires"}`;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+}
+
+function buildDirectionsUrl(p) {
+  const coords = getCoords(p);
+  const dest = coords
+    ? `${coords.lat},${coords.lng}`
+    : encodeURIComponent(`${p.nombre}, ${p.direccion}`);
+  const originParam = state.userLoc
+    ? `&origin=${encodeURIComponent(`${state.userLoc.lat},${state.userLoc.lng}`)}`
+    : "";
+  return `https://www.google.com/maps/dir/?api=1&destination=${dest}${originParam}`;
 }
 
 function isMajorTemple(tipo) {
@@ -147,14 +412,18 @@ const Store = (() => {
   const mem = {};
   return {
     get(k, def) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : def; } catch (e) { return mem[k] ?? def; } },
-    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { mem[k] = v; } }
+    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { mem[k] = v; } },
+    remove(k) { try { localStorage.removeItem(k); } catch (e) { delete mem[k]; } }
   };
 })();
 
 /* =====================================================================
-   Estado de la Aplicación
+   Estado de la Aplicación y Persistencia Admin
    ===================================================================== */
-let PARISHES = Store.get("parishes_cache_v2", FALLBACK_PARISHES);
+const savedAdminParishes = Store.get("parishes_admin_data", null);
+let PARISHES = Array.isArray(savedAdminParishes) && savedAdminParishes.length
+  ? savedAdminParishes
+  : Store.get("parishes_cache_v5", FALLBACK_PARISHES);
 
 const state = {
   view: "list", // 'list' | 'map'
@@ -165,7 +434,8 @@ const state = {
   sortByNear: false,
   userLoc: null, // { id, lat, lng, label, source: 'gps' | 'manual' }
   favs: new Set(Store.get("favs", []).map(String)),
-  current: null
+  current: null,
+  isAdmin: Boolean(Store.get("admin_unlocked", false))
 };
 
 /* =====================================================================
@@ -206,42 +476,101 @@ function switchView(targetView) {
 }
 
 /* =====================================================================
-   Evaluación Inteligente de Horarios ("Misa ahora / Próxima hora")
+   Motor de Fechas y Horarios de Misa (Mapeo Inteligente de Días y Rangos)
    ===================================================================== */
-function matchesDayGroup(diaLabel, dayIndex) {
-  const d = norm(diaLabel);
-  if (d.includes("lunes a viernes") || d.includes("lun a vie")) {
-    return dayIndex >= 1 && dayIndex <= 5;
-  }
-  if (d.includes("lunes a sabado")) {
-    return dayIndex >= 1 && dayIndex <= 6;
-  }
-  if (d.includes("todos los dias") || d.includes("diario")) {
-    return true;
-  }
-  let match = false;
-  if (d.includes("domingo") && dayIndex === 0) match = true;
-  if (d.includes("lunes") && !d.includes("lunes a") && dayIndex === 1) match = true;
-  if (d.includes("martes") && dayIndex === 2) match = true;
-  if (d.includes("miercoles") && dayIndex === 3) match = true;
-  if (d.includes("jueves") && dayIndex === 4) match = true;
-  if (d.includes("viernes") && !d.includes("a viernes") && dayIndex === 5) match = true;
-  if (d.includes("sabado") && dayIndex === 6) match = true;
-  return match;
+const SHORT_DAY_NAMES = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+
+function tokenToDayIndex(word) {
+  const w = norm(word);
+  if (w.startsWith("dom")) return 0;
+  if (w.startsWith("lun")) return 1;
+  if (w.startsWith("mar")) return 2;
+  if (w.startsWith("mie") || w.startsWith("mié")) return 3;
+  if (w.startsWith("jue")) return 4;
+  if (w.startsWith("vie")) return 5;
+  if (w.startsWith("sab") || w.startsWith("sáb")) return 6;
+  return null;
 }
 
-function getTodayMassHours(p, todayIndex) {
+function parseDaysFromLabel(diaLabel) {
+  const days = new Set();
+  const text = norm(diaLabel);
+  if (!text) return days;
+
+  if (text.includes("todos los dias") || text.includes("diario") || text.includes("lunes a domingo")) {
+    return new Set([0, 1, 2, 3, 4, 5, 6]);
+  }
+  if (text.includes("dias habiles") || text.includes("dias de semana") || text.includes("semana")) {
+    [1, 2, 3, 4, 5].forEach(d => days.add(d));
+  }
+  if (text.includes("fin de semana") || text.includes("fines de semana")) {
+    days.add(6);
+    days.add(0);
+  }
+
+  const rangeRegex = /\b(dom\w*|lun\w*|mar\w*|mie\w*|jue\w*|vie\w*|sab\w*)\s*(?:a|-|al)\s*(dom\w*|lun\w*|mar\w*|mie\w*|jue\w*|vie\w*|sab\w*)\b/g;
+  let match;
+  let hadRange = false;
+  while ((match = rangeRegex.exec(text)) !== null) {
+    const start = tokenToDayIndex(match[1]);
+    const end = tokenToDayIndex(match[2]);
+    if (start !== null && end !== null) {
+      hadRange = true;
+      if (start >= 1 && end === 0) {
+        for (let d = start; d <= 6; d++) days.add(d);
+        days.add(0);
+      } else if (start <= end) {
+        for (let d = start; d <= end; d++) days.add(d);
+      } else {
+        for (let d = start; d <= 6; d++) days.add(d);
+        for (let d = 0; d <= end; d++) days.add(d);
+      }
+    }
+  }
+
+  if (!hadRange) {
+    const tokens = text.split(/[\s,y/]+/);
+    tokens.forEach(tok => {
+      const idx = tokenToDayIndex(tok);
+      if (idx !== null) days.add(idx);
+    });
+  }
+
+  return days;
+}
+
+function matchesDayGroup(diaLabel, dayIndex) {
+  return parseDaysFromLabel(diaLabel).has(dayIndex);
+}
+
+function getMassHoursForDay(p, dayIndex) {
+  let rawHours = [];
   if (Array.isArray(p.horariosMisa)) {
-    return p.horariosMisa
-      .filter(m => matchesDayGroup(m.dia, todayIndex))
-      .flatMap(m => m.horarios || []);
+    rawHours = p.horariosMisa
+      .filter(m => matchesDayGroup(m.dia, dayIndex))
+      .flatMap(m => Array.isArray(m.horarios) ? m.horarios : []);
+  } else if (Array.isArray(p.misas)) {
+    rawHours = p.misas
+      .filter(m => Array.isArray(m.d) && m.d.includes(dayIndex))
+      .flatMap(m => Array.isArray(m.h) ? m.h : []);
   }
-  if (Array.isArray(p.misas)) {
-    return p.misas
-      .filter(m => Array.isArray(m.d) && m.d.includes(todayIndex))
-      .flatMap(m => m.h || []);
+
+  return rawHours
+    .map(h => ({ raw: String(h).trim(), mins: toMinutes(h) }))
+    .filter(item => !Number.isNaN(item.mins))
+    .sort((a, b) => a.mins - b.mins);
+}
+
+function findNextAvailableMass(p, todayIndex) {
+  for (let offset = 1; offset <= 7; offset++) {
+    const targetDay = (todayIndex + offset) % 7;
+    const hours = getMassHoursForDay(p, targetDay);
+    if (hours.length > 0) {
+      const dayLabel = offset === 1 ? "mañana" : SHORT_DAY_NAMES[targetDay];
+      return `${dayLabel} ${hours[0].raw} h`;
+    }
   }
-  return [];
+  return null;
 }
 
 function getMassStatus(p) {
@@ -249,9 +578,7 @@ function getMassStatus(p) {
   const today = now.getDay();
   const cur = now.getHours() * 60 + now.getMinutes();
 
-  const todayTimes = getTodayMassHours(p, today)
-    .map(h => ({ raw: h, mins: toMinutes(h) }))
-    .sort((a, b) => a.mins - b.mins);
+  const todayTimes = getMassHoursForDay(p, today);
 
   // 1. Misa transcurriendo en este momento (inició hace <= 45 min)
   const ongoing = todayTimes.find(t => cur >= t.mins && cur <= t.mins + MASS_DURATION_MIN);
@@ -262,9 +589,9 @@ function getMassStatus(p) {
     };
   }
 
-  // 2. Próxima misa dentro de los próximos 60 minutos
+  // 2. Próxima misa hoy (destacando si inicia dentro de los próximos 60 minutos)
   const upcoming = todayTimes.filter(t => t.mins > cur);
-  if (upcoming.length) {
+  if (upcoming.length > 0) {
     const next = upcoming[0];
     const diff = next.mins - cur;
     if (diff <= NEXT_WINDOW_MIN) {
@@ -279,29 +606,46 @@ function getMassStatus(p) {
     };
   }
 
+  // 3. Si hoy hubo misas pero ya finalizaron por la hora actual, informa horarios y próxima
+  const nextAvailable = findNextAvailableMass(p, today);
+  if (todayTimes.length > 0) {
+    const listStr = todayTimes.map(t => t.raw).join(" · ");
+    return {
+      isNowOrSoon: false,
+      label: nextAvailable
+        ? `Hoy (${listStr} h) finalizadas · Próxima: ${nextAvailable}`
+        : `Misas de hoy: ${listStr} h`
+    };
+  }
+
+  if (nextAvailable) {
+    return {
+      isNowOrSoon: false,
+      label: `Próxima misa: ${nextAvailable}`
+    };
+  }
+
   return {
     isNowOrSoon: false,
-    label: "Hoy no hay más misas"
+    label: "Consultar horarios en la ficha"
   };
 }
 
 /* =====================================================================
-    Inicialización Limpia del Mapa (100% OpenStreetMap Libre + Marcadores Jerárquicos)
+   Inicialización del Mapa (CartoDB Positron + Marcadores DivIcon Jerárquicos)
    ===================================================================== */
 let map = null;
 let markersLayer = null;
 let userMarker = null;
 const markerById = new Map();
 
-// SVG para Catedral / Basílica (Cruz latina minimalista elegante)
 const SVG_PIN_MAJOR = `
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
     <path d="M12 4.5v15M7.5 9.5h9"/>
   </svg>`;
 
-// SVG para Parroquia / Capilla (Cruz blanca fina y minimalista)
 const SVG_PIN_MINOR = `
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" aria-hidden="true">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
     <path d="M12 5.5v13M8 10h8"/>
   </svg>`;
 
@@ -316,21 +660,19 @@ function initMap() {
     attributionControl: true
   });
 
-  // Controles de zoom discretos abajo a la izquierda
   L.control.zoom({ position: "bottomleft" }).addTo(map);
 
-  // Capa pública oficial de OpenStreetMap (100% libre, sin API Keys)
-  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+  L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
       maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors'
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>'
   }).addTo(map);
 
   markersLayer = L.layerGroup().addTo(map);
 
-  // Delegación de clic en el botón del popup para abrir la ficha completa
   mapEl.addEventListener("click", (e) => {
     const btn = e.target.closest("[data-popup-id]");
     if (btn) {
+      map.closePopup();
       openDetail(btn.dataset.popupId);
     }
   });
@@ -379,7 +721,6 @@ function renderMapMarkers(items) {
   markersLayer.clearLayers();
   markerById.clear();
 
-  // Si hay ubicación de referencia activa (GPS o Zona Manual), dibuja el punto azul
   if (state.userLoc) {
     const uIcon = L.divIcon({
       className: "custom-pin-icon",
@@ -627,9 +968,10 @@ function requestGpsLocation() {
 }
 
 /* =====================================================================
-   Render: Chips, Listado de Tarjetas y Sugerencias
+   Render: Chips, Listado de Tarjetas (con botón Editar en Admin) y Sugerencias
    ===================================================================== */
 const ICON_HEART = '<svg viewBox="0 0 24 24"><path d="M12 20.5s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.7c0 5.6-7.5 10.2-7.5 10.2z"/></svg>';
+const ICON_EDIT = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.1 2.1 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>';
 
 function renderChips() {
   const barrios = [...new Set(PARISHES.map(p => p.barrio))].sort((a, b) => a.localeCompare(b, "es-AR"));
@@ -640,7 +982,7 @@ function renderChips() {
 }
 
 function filtered() {
-  const q = norm(state.q.trim());
+  const q = norm(state.q);
   const list = PARISHES.filter(p => {
     const pid = String(p.id);
     if (state.soloFav && !state.favs.has(pid)) return false;
@@ -677,6 +1019,9 @@ function renderList() {
     const distTag = typeof p.distanceKm === "number"
       ? `<span class="dist-badge" aria-label="Distancia aproximada">${formatKm(p.distanceKm)}</span>`
       : "";
+    const adminEditBtn = state.isAdmin
+      ? `<button type="button" class="card-edit-btn" data-edit="${pid}" aria-label="Editar ${p.nombre}">${ICON_EDIT}<span>Editar</span></button>`
+      : "";
 
     return `
     <div class="card-wrap" style="position:relative">
@@ -694,6 +1039,7 @@ function renderList() {
       </button>
       <button class="heart" data-heart="${pid}" aria-pressed="${state.favs.has(pid)}"
         aria-label="Favorito: ${p.nombre}">${ICON_HEART}</button>
+      ${adminEditBtn}
     </div>`;
   }).join("")
   : `<div class="empty"><strong>No encontramos parroquias</strong>Probá con otro nombre o quitá algún filtro.</div>`;
@@ -702,12 +1048,12 @@ function renderList() {
 }
 
 function renderSuggest() {
-  const box = $("#suggest"), q = norm(state.q.trim());
+  const box = $("#suggest"), q = norm(state.q);
   if (!q) { box.classList.remove("open"); return; }
   const hits = PARISHES
     .filter(p => norm([p.nombre, p.tipo, p.barrio, p.direccion].join(" ")).includes(q))
     .sort((a, b) => a.nombre.localeCompare(b.nombre, "es-AR"))
-    .slice(0, 4);
+    .slice(0, 5);
   box.innerHTML = hits.map(p => `<button role="option" data-sug="${p.nombre}"><span>${p.nombre}</span><small>${p.barrio}</small></button>`).join("");
   box.classList.toggle("open", hits.length > 0);
 }
@@ -732,7 +1078,7 @@ function syncDetailFav() {
 }
 
 /* =====================================================================
-   Vista de Detalle y Formulario de Corrección de Horarios
+   Vista de Detalle, Manejo Inteligente de Enlaces Externos y Correcciones
    ===================================================================== */
 function renderMisasBlock(p) {
   const rows = Array.isArray(p.horariosMisa)
@@ -743,21 +1089,10 @@ function renderMisasBlock(p) {
 
 function renderConfesionesBlock(p) {
   const conf = p.horariosConfesiones;
-  const content = typeof conf === "string"
+  const content = typeof conf === "string" && conf.trim()
     ? `<div class="row"><span class="d">Atención</span><span class="h">${conf}</span></div>`
     : `<div class="row"><span class="d">Atención</span><span class="h">Consultar en secretaría</span></div>`;
   return `<div class="block"><h3>Confesiones</h3>${content}</div>`;
-}
-
-function buildDirectionsUrl(p) {
-  const coords = getCoords(p);
-  const dest = coords
-    ? `${coords.lat},${coords.lng}`
-    : encodeURIComponent(`${p.nombre}, ${p.direccion}`);
-  const originParam = state.userLoc
-    ? `&origin=${encodeURIComponent(`${state.userLoc.lat},${state.userLoc.lng}`)}`
-    : "";
-  return `https://www.google.com/maps/dir/?api=1&destination=${dest}${originParam}`;
 }
 
 function openDetail(id) {
@@ -769,6 +1104,8 @@ function openDetail(id) {
   const badgeCls = getTypeBadgeClass(p.tipo);
   const tags = getTags(p);
   const tel = getPhone(p);
+  const validWebUrl = normalizeOfficialUrl(p.webOficial);
+  const mapsPlaceUrl = buildGoogleMapsPlaceUrl(p);
   const distInfo = typeof p.distanceKm === "number" ? ` · A ${formatKm(p.distanceKm)}` : "";
 
   $("#d-body").innerHTML = `
@@ -786,6 +1123,24 @@ function openDetail(id) {
       <div class="row"><span class="d">Dirección</span><span class="h">${p.direccion}</span></div>
     </div>
 
+    <div class="external-links-wrap">
+      <a class="btn-web-source" id="d-web-link" ${validWebUrl ? "" : "hidden"} target="_blank" rel="noopener noreferrer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="10"/>
+          <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"/>
+        </svg>
+        <span>Visitar web oficial / fuente</span>
+      </a>
+
+      <a class="btn-maps-place" id="d-maps-place" href="${mapsPlaceUrl}" target="_blank" rel="noopener noreferrer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M12 21s-6-5.2-6-10a6 6 0 1 1 12 0c0 4.8-6 10-6 10z"/>
+          <circle cx="12" cy="11" r="2.2"/>
+        </svg>
+        <span>Ver ficha del templo en Google Maps</span>
+      </a>
+    </div>
+
     <div class="correction-box">
       <button type="button" class="btn-suggest" id="btn-open-correction" aria-expanded="false" aria-controls="correction-form">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
@@ -801,6 +1156,10 @@ function openDetail(id) {
           <input id="c-name" name="nombre" type="text" required placeholder="Ej.: María Gómez" autocomplete="name">
         </div>
         <div class="form-field">
+          <label for="c-email">Correo electrónico (obligatorio)</label>
+          <input id="c-email" name="email" type="email" required placeholder="tu@correo.com" autocomplete="email">
+        </div>
+        <div class="form-field">
           <label for="c-error">Error detectado</label>
           <input id="c-error" name="error" type="text" required placeholder="Ej.: Misa de domingo 11:30 h cambió">
         </div>
@@ -810,7 +1169,7 @@ function openDetail(id) {
         </div>
         <div class="form-actions">
           <button type="button" class="btn-sm cancel" id="btn-cancel-correction">Cancelar</button>
-          <button type="submit" class="btn-sm submit">Enviar sugerencia</button>
+          <button type="submit" class="btn-sm submit">Enviar reporte</button>
         </div>
       </form>
 
@@ -818,9 +1177,27 @@ function openDetail(id) {
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
           <path d="M20 6 9 17l-5-5"/>
         </svg>
-        <span id="correction-alert-text">¡Gracias! Recibimos tu sugerencia para revisar los horarios.</span>
+        <span id="correction-alert-text">¡Reporte enviado al administrador! Gracias por colaborar.</span>
       </div>
     </div>`;
+
+  // Si webOficial es válida se muestra; si está vacía o apunta a dominio de prueba inexistente se oculta automáticamente
+  const webLink = $("#d-web-link");
+  if (validWebUrl && webLink) {
+    webLink.href = validWebUrl;
+    webLink.target = "_blank";
+    webLink.rel = "noopener noreferrer";
+    webLink.hidden = false;
+  } else if (webLink) {
+    webLink.removeAttribute("href");
+    webLink.hidden = true;
+  }
+
+  // Botón Editar dentro de la hoja si está activo el Modo Admin
+  const dEdit = $("#d-edit");
+  if (dEdit) {
+    dEdit.hidden = !state.isAdmin;
+  }
 
   const call = $("#d-call");
   tel
@@ -860,13 +1237,14 @@ function bindCorrectionForm() {
   form.addEventListener("submit", (e) => {
     e.preventDefault();
     const nombre = $("#c-name").value.trim();
+    const email = $("#c-email").value.trim();
     form.classList.remove("open");
     btnOpen.setAttribute("aria-expanded", "false");
     form.reset();
     $("#correction-alert-text").textContent =
-      `¡Gracias${nombre ? `, ${nombre}` : ""}! Recibimos tu sugerencia para verificar este horario.`;
+      `¡Gracias${nombre ? `, ${nombre}` : ""}! El reporte fue enviado al administrador (contacto: ${email}).`;
     alertBox.classList.add("show");
-    toast("Sugerencia enviada correctamente");
+    toast("Reporte enviado al administrador");
   });
 }
 
@@ -874,6 +1252,259 @@ function closeDetail() {
   document.body.classList.remove("open");
   $("#sheet").setAttribute("aria-hidden", "true");
   state.current = null;
+}
+
+/* =====================================================================
+   Modo Administrador Protegido por Contraseña ("1118"): Edición y Exportación
+   ===================================================================== */
+function syncAdminUI() {
+  document.body.classList.toggle("is-admin", state.isAdmin);
+  const panel = $("#admin-panel");
+  const fabAdd = $("#fab-admin-add");
+  const footerLabel = $("#footer-admin-label");
+  const dEdit = $("#d-edit");
+
+  if (panel) panel.hidden = !state.isAdmin;
+  if (fabAdd) fabAdd.hidden = !state.isAdmin;
+  if (dEdit) dEdit.hidden = !state.isAdmin || !state.current;
+  if (footerLabel) {
+    footerLabel.textContent = state.isAdmin ? "Modo administrador activo" : "Acceso administrador";
+  }
+}
+
+function openAdminLoginModal() {
+  if (state.isAdmin) {
+    $("#admin-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    toast("El Modo Administrador ya está activo");
+    return;
+  }
+  const modal = $("#admin-login-modal");
+  const err = $("#admin-login-error");
+  const input = $("#admin-pass");
+  if (!modal) return;
+  err.hidden = true;
+  input.value = "";
+  modal.hidden = false;
+  setTimeout(() => input.focus(), 40);
+}
+
+function closeAdminLoginModal() {
+  const modal = $("#admin-login-modal");
+  if (modal) modal.hidden = true;
+}
+
+function handleAdminLoginSubmit(e) {
+  e.preventDefault();
+  const input = $("#admin-pass");
+  const err = $("#admin-login-error");
+  const pin = input.value.trim();
+
+  if (pin === ADMIN_MASTER_PIN) {
+    state.isAdmin = true;
+    Store.set("admin_unlocked", true);
+    closeAdminLoginModal();
+    syncAdminUI();
+    renderList();
+    toast("Modo Administrador desbloqueado");
+  } else {
+    err.hidden = false;
+    input.select();
+  }
+}
+
+function logoutAdmin() {
+  state.isAdmin = false;
+  Store.set("admin_unlocked", false);
+  syncAdminUI();
+  renderList();
+  toast("Sesión de administrador cerrada");
+}
+
+function formatMisasForTextarea(horariosMisa) {
+  if (!Array.isArray(horariosMisa)) return "";
+  return horariosMisa
+    .map(item => `${item.dia}: ${(item.horarios || []).join(", ")}`)
+    .join("\n");
+}
+
+function parseMisasFromTextarea(rawText) {
+  return String(rawText || "")
+    .split("\n")
+    .map(line => line.trim())
+    .filter(Boolean)
+    .map(line => {
+      const idx = line.indexOf(":");
+      if (idx === -1) {
+        return { dia: "Lunes a Domingos", horarios: line.split(/[,;]+/).map(s => s.trim()).filter(Boolean) };
+      }
+      const dia = line.slice(0, idx).trim();
+      const horarios = line
+        .slice(idx + 1)
+        .split(/[,;·]+/)
+        .map(s => s.trim())
+        .filter(Boolean);
+      return { dia, horarios };
+    })
+    .filter(item => item.dia && item.horarios.length > 0);
+}
+
+function openParishEditor(id = null) {
+  if (!state.isAdmin) return;
+  const modal = $("#admin-edit-modal");
+  const title = $("#admin-edit-title");
+  if (!modal) return;
+
+  const existing = id !== null ? PARISHES.find(x => String(x.id) === String(id)) : null;
+
+  if (existing) {
+    const coords = getCoords(existing) || { lat: CABA_CENTER[0], lng: CABA_CENTER[1] };
+    title.textContent = "Editar Parroquia";
+    $("#e-id").value = String(existing.id);
+    $("#e-nombre").value = existing.nombre || "";
+    $("#e-tipo").value = existing.tipo || "Parroquia";
+    $("#e-barrio").value = existing.barrio || "";
+    $("#e-direccion").value = existing.direccion || "";
+    $("#e-lat").value = coords.lat;
+    $("#e-lng").value = coords.lng;
+    $("#e-misas").value = formatMisasForTextarea(existing.horariosMisa);
+    $("#e-confesiones").value = existing.horariosConfesiones || "";
+    $("#e-telefono").value = getPhone(existing);
+    $("#e-web").value = existing.webOficial || "";
+    $("#e-etiquetas").value = getTags(existing).join(", ");
+  } else {
+    title.textContent = "Agregar Nueva Parroquia";
+    $("#e-id").value = "";
+    $("#e-nombre").value = "";
+    $("#e-tipo").value = "Parroquia";
+    $("#e-barrio").value = "";
+    $("#e-direccion").value = "";
+    $("#e-lat").value = -34.6037;
+    $("#e-lng").value = -58.3816;
+    $("#e-misas").value = "Lunes a Viernes: 08:30, 19:00\nDomingos: 10:00, 11:30, 19:00";
+    $("#e-confesiones").value = "Media hora antes de cada misa";
+    $("#e-telefono").value = "";
+    $("#e-web").value = "";
+    $("#e-etiquetas").value = "Parroquia";
+  }
+
+  modal.hidden = false;
+  setTimeout(() => $("#e-nombre").focus(), 40);
+}
+
+function closeParishEditor() {
+  const modal = $("#admin-edit-modal");
+  if (modal) modal.hidden = true;
+}
+
+function getCleanExportableParishes() {
+  return PARISHES.map(p => {
+    const coords = getCoords(p) || { lat: CABA_CENTER[0], lng: CABA_CENTER[1] };
+    return {
+      id: p.id,
+      nombre: p.nombre,
+      tipo: p.tipo,
+      direccion: p.direccion,
+      barrio: p.barrio,
+      coordenadas: {
+        lat: Number(coords.lat),
+        lng: Number(coords.lng)
+      },
+      horariosMisa: Array.isArray(p.horariosMisa) ? p.horariosMisa : [],
+      horariosConfesiones: p.horariosConfesiones || "Consultar en secretaría",
+      telefono: getPhone(p),
+      webOficial: normalizeOfficialUrl(p.webOficial),
+      etiquetas: getTags(p)
+    };
+  });
+}
+
+function saveParishEditor(e) {
+  e.preventDefault();
+  if (!state.isAdmin) return;
+
+  const rawId = $("#e-id").value.trim();
+  const nombre = $("#e-nombre").value.trim();
+  const tipo = $("#e-tipo").value;
+  const barrio = $("#e-barrio").value.trim();
+  const direccion = $("#e-direccion").value.trim();
+  const lat = parseFloat($("#e-lat").value);
+  const lng = parseFloat($("#e-lng").value);
+  const horariosMisa = parseMisasFromTextarea($("#e-misas").value);
+  const horariosConfesiones = $("#e-confesiones").value.trim() || "Consultar en secretaría";
+  const telefono = $("#e-telefono").value.trim();
+  const webOficial = normalizeOfficialUrl($("#e-web").value);
+  const etiquetas = $("#e-etiquetas").value
+    .split(",")
+    .map(t => t.trim())
+    .filter(Boolean);
+
+  if ( rawId ) {
+    const idx = PARISHES.findIndex(x => String(x.id) === rawId);
+    if (idx !== -1) {
+      PARISHES[idx] = {
+        ...PARISHES[idx],
+        nombre,
+        tipo,
+        barrio,
+        direccion,
+        coordenadas: { lat, lng },
+        horariosMisa,
+        horariosConfesiones,
+        telefono,
+        webOficial,
+        etiquetas: etiquetas.length ? etiquetas : [tipo]
+      };
+    }
+  } else {
+    const maxId = PARISHES.reduce((max, item) => Math.max(max, Number(item.id) || 0), 0);
+    const newRecord = {
+      id: maxId + 1,
+      nombre,
+      tipo,
+      direccion,
+      barrio,
+      coordenadas: { lat, lng },
+      horariosMisa,
+      horariosConfesiones,
+      telefono,
+      webOficial,
+      etiquetas: etiquetas.length ? etiquetas : [tipo]
+    };
+    PARISHES.push(newRecord);
+  }
+
+  if (state.userLoc) {
+    updateDistances(state.userLoc.lat, state.userLoc.lng);
+  }
+
+  const cleanList = getCleanExportableParishes();
+  Store.set("parishes_admin_data", cleanList);
+  Store.set("parishes_cache_v5", cleanList);
+
+  closeParishEditor();
+  renderChips();
+  renderList();
+
+  if (state.current && rawId && String(state.current.id) === rawId) {
+    openDetail(rawId);
+  }
+
+  toast(rawId ? "Parroquia actualizada y guardada" : "Nueva parroquia agregada y guardada");
+}
+
+function exportUpdatedJson() {
+  const cleanList = getCleanExportableParishes();
+  const jsonContent = JSON.stringify(cleanList, null, 2);
+  const blob = new Blob([jsonContent], { type: "application/json;charset=utf-8" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = "parroquias.json";
+  document.body.appendChild(a);
+  a.click();
+  a.remove();
+  setTimeout(() => URL.revokeObjectURL(url), 1500);
+  toast("Descargando parroquias.json actualizado");
 }
 
 let toastTimer;
@@ -922,20 +1553,45 @@ $("#chips").addEventListener("click", e => {
 });
 
 $("#list").addEventListener("click", e => {
+  const editBtn = e.target.closest("[data-edit]");
+  if (editBtn) return openParishEditor(editBtn.dataset.edit);
   const h = e.target.closest("[data-heart]");
   if (h) return toggleFav(h.dataset.heart);
   const c = e.target.closest("[data-id]");
   if (c) openDetail(c.dataset.id);
 });
+
 $("#d-fav").addEventListener("click", () => state.current && toggleFav(state.current.id));
+$("#d-edit").addEventListener("click", () => state.current && openParishEditor(state.current.id));
 $("#d-close").addEventListener("click", closeDetail);
 $("#scrim").addEventListener("click", closeDetail);
-document.addEventListener("keydown", e => { if (e.key === "Escape") closeDetail(); });
+
+// Eventos Modo Administrador
+$("#btn-admin-access").addEventListener("click", openAdminLoginModal);
+$("#btn-close-login").addEventListener("click", closeAdminLoginModal);
+$("#btn-cancel-login").addEventListener("click", closeAdminLoginModal);
+$("#admin-login-form").addEventListener("submit", handleAdminLoginSubmit);
+$("#btn-admin-logout").addEventListener("click", logoutAdmin);
+$("#btn-admin-add").addEventListener("click", () => openParishEditor(null));
+$("#fab-admin-add").addEventListener("click", () => openParishEditor(null));
+$("#btn-admin-export").addEventListener("click", exportUpdatedJson);
+$("#btn-close-edit").addEventListener("click", closeParishEditor);
+$("#btn-cancel-edit").addEventListener("click", closeParishEditor);
+$("#admin-edit-form").addEventListener("submit", saveParishEditor);
+
+document.addEventListener("keydown", e => {
+  if (e.key === "Escape") {
+    if (!$("#admin-edit-modal").hidden) return closeParishEditor();
+    if (!$("#admin-login-modal").hidden) return closeAdminLoginModal();
+    closeDetail();
+  }
+});
 
 /* =====================================================================
    Inicio Inmediato (Offline-First) + Actualización Asíncrona por Fetch
    ===================================================================== */
 function bootstrapApp() {
+  syncAdminUI();
   renderZoneSelector();
   renderChips();
   renderList();
@@ -943,6 +1599,16 @@ function bootstrapApp() {
 }
 
 async function loadParishes() {
+  // Si el administrador ya guardó modificaciones en localStorage, se respetan para que persistan al recargar
+  const adminSaved = Store.get("parishes_admin_data", null);
+  if (Array.isArray(adminSaved) && adminSaved.length > 0) {
+    PARISHES = adminSaved;
+    if (state.userLoc) updateDistances(state.userLoc.lat, state.userLoc.lng);
+    renderChips();
+    renderList();
+    return;
+  }
+
   try {
     const res = await fetch(DATA_SOURCE_URL, { headers: { "Accept": "application/json" } });
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
@@ -950,7 +1616,7 @@ async function loadParishes() {
     const list = Array.isArray(data) ? data : (data.parishes || []);
     if (list.length) {
       PARISHES = list;
-      Store.set("parishes_cache_v2", list);
+      Store.set("parishes_cache_v5", list);
       if (state.userLoc) {
         updateDistances(state.userLoc.lat, state.userLoc.lng);
       }

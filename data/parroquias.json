@@ -12,7 +12,7 @@
     ],
     "horariosConfesiones": "Media hora antes de cada misa",
     "telefono": "+54 11 4331-2845",
-    "imagen": "catedral_metropolitana.jpg",
+    "webOficial": "https://arzbaires.org.ar",
     "etiquetas": ["Historica", "Centro", "Catedral"]
   },
   {
@@ -28,27 +28,75 @@
     ],
     "horariosConfesiones": "Sábados de 17:00 a 18:30",
     "telefono": "+54 11 4803-6798",
-    "imagen": "pilar.jpg",
+    "webOficial": "",
     "etiquetas": ["Historica", "Adoracion Perpetua", "Basilica"]
   },
   {
     "id": 3,
-    "nombre": "Parroquia Nuestra Señora de las Victorias",
-    "tipo": "Parroquia",
-    "direccion": "Paraguay 1204, Retiro, CABA",
-    "barrio": "Retiro",
-    "coordenadas": { "lat": -34.5987, "lng": -58.3845 },
+    "nombre": "Basílica San Antonio de Padua",
+    "tipo": "Basílica",
+    "direccion": "Agüero 2030, Recoleta, CABA",
+    "barrio": "Recoleta",
+    "coordenadas": { "lat": -34.5902, "lng": -58.3985 },
     "horariosMisa": [
-      { "dia": "Lunes a Viernes", "horarios": ["07:30", "12:00", "18:30"] },
-      { "dia": "Domingos", "horarios": ["11:00", "19:30"] }
+      { "dia": "Lunes a Sábados", "horarios": ["09:00", "19:30"] },
+      { "dia": "Domingos", "horarios": ["10:30", "12:00", "19:30"] }
     ],
-    "horariosConfesiones": "Durante las horas de misa",
-    "telefono": "+54 11 4812-3490",
-    "imagen": "victorias.jpg",
-    "etiquetas": ["Centro", "Parroquia"]
+    "horariosConfesiones": "15 minutos antes de cada misa",
+    "telefono": "+54 11 4822-4512",
+    "webOficial": "",
+    "etiquetas": ["Basilica", "Recoleta"]
   },
   {
     "id": 4,
+    "nombre": "Catedral Nuestra Señora de la Paz (Lomas)",
+    "tipo": "Catedral",
+    "direccion": "Castro 941, Lomas de Zona Sur",
+    "barrio": "Zona Sur",
+    "coordenadas": { "lat": -34.7578, "lng": -58.4025 },
+    "horariosMisa": [
+      { "dia": "Lunes a Viernes", "horarios": ["08:00", "19:00"] },
+      { "dia": "Domingos", "horarios": ["09:00", "11:00", "20:00"] }
+    ],
+    "horariosConfesiones": "Sábados de 10:00 a 12:00",
+    "telefono": "+54 11 4243-2311",
+    "webOficial": "",
+    "etiquetas": ["Catedral", "Historica"]
+  },
+  {
+    "id": 5,
+    "nombre": "Parroquia San Nicolás de Bari",
+    "tipo": "Parroquia",
+    "direccion": "Av. Santa Fe 1352, Recoleta, CABA",
+    "barrio": "Recoleta",
+    "coordenadas": { "lat": -34.5982, "lng": -58.3871 },
+    "horariosMisa": [
+      { "dia": "Lunes a Viernes", "horarios": ["08:00", "12:30", "19:00"] },
+      { "dia": "Domingos", "horarios": ["11:00", "20:00"] }
+    ],
+    "horariosConfesiones": "Durante las horas de misa",
+    "telefono": "+54 11 4812-4022",
+    "webOficial": "",
+    "etiquetas": ["Parroquia", "Centro"]
+  },
+  {
+    "id": 6,
+    "nombre": "Parroquia San Tarsicio",
+    "tipo": "Parroquia",
+    "direccion": "Zapiola 4541, Coghlan, CABA",
+    "barrio": "Coghlan",
+    "coordenadas": { "lat": -34.5642, "lng": -58.4751 },
+    "horariosMisa": [
+      { "dia": "Martes a Sábados", "horarios": ["19:00"] },
+      { "dia": "Domingos", "horarios": ["10:30", "19:00"] }
+    ],
+    "horariosConfesiones": "Sábados previo a misa",
+    "telefono": "+54 11 4542-1100",
+    "webOficial": "",
+    "etiquetas": ["Parroquia", "Barrio"]
+  },
+  {
+    "id": 7,
     "nombre": "Capilla del Hospital de Clínicas",
     "tipo": "Capilla",
     "direccion": "Av. Córdoba 2351, Recoleta, CABA",
@@ -60,7 +108,151 @@
     ],
     "horariosConfesiones": "Consultar en secretaría",
     "telefono": "+54 11 5950-8000",
-    "imagen": "clinicas.jpg",
+    "webOficial": "https://www.fmed.uba.ar",
     "etiquetas": ["Capilla", "Hospitalario"]
+  },
+  {
+    "id": 8,
+    "nombre": "Capilla Nuestra Señora del Carmen",
+    "tipo": "Capilla",
+    "direccion": "Rodríguez Peña 840, Recoleta, CABA",
+    "barrio": "Recoleta",
+    "coordenadas": { "lat": -34.5961, "lng": -58.3902 },
+    "horariosMisa": [
+      { "dia": "Lunes a Viernes", "horarios": ["18:00"] },
+      { "dia": "Domingos", "horarios": ["11:00"] }
+    ],
+    "horariosConfesiones": "Media hora antes",
+    "telefono": "+54 11 4811-9000",
+    "webOficial": "",
+    "etiquetas": ["Capilla"]
+  },
+  {
+    "id": 9,
+    "nombre": "Basílica del Santísimo Sacramento",
+    "tipo": "Basílica",
+    "direccion": "San Martín 1039, Retiro, CABA",
+    "barrio": "Retiro",
+    "coordenadas": { "lat": -34.5955, "lng": -58.3756 },
+    "horariosMisa": [
+      { "dia": "Lunes a Viernes", "horarios": ["08:00", "12:00", "19:00"] },
+      { "dia": "Sábados y Domingos", "horarios": ["10:00", "12:00", "19:00"] }
+    ],
+    "horariosConfesiones": "Lunes a viernes de 11:00 a 12:00 y 18:00 a 19:00",
+    "telefono": "+54 11 4311-5790",
+    "webOficial": "",
+    "etiquetas": ["Basilica", "Adoracion", "Retiro"]
+  },
+  {
+    "id": 10,
+    "nombre": "Basílica San José de Flores",
+    "tipo": "Basílica",
+    "direccion": "Av. Rivadavia 6950, Flores, CABA",
+    "barrio": "Flores",
+    "coordenadas": { "lat": -34.6286, "lng": -58.4641 },
+    "horariosMisa": [
+      { "dia": "Lunes a Sábados", "horarios": ["08:00", "12:00", "19:30"] },
+      { "dia": "Domingos", "horarios": ["09:00", "11:00", "19:30"] }
+    ],
+    "horariosConfesiones": "Todos los días de 17:30 a 19:15",
+    "telefono": "+54 11 4611-1896",
+    "webOficial": "",
+    "etiquetas": ["Basilica", "Historica", "Flores"]
+  },
+  {
+    "id": 11,
+    "nombre": "Parroquia Nuestra Señora de las Victorias",
+    "tipo": "Parroquia",
+    "direccion": "Paraguay 1204, Retiro, CABA",
+    "barrio": "Retiro",
+    "coordenadas": { "lat": -34.5987, "lng": -58.3845 },
+    "horariosMisa": [
+      { "dia": "Lunes a Viernes", "horarios": ["07:30", "12:00", "18:30"] },
+      { "dia": "Domingos", "horarios": ["11:00", "19:30"] }
+    ],
+    "horariosConfesiones": "Durante las horas de misa",
+    "telefono": "+54 11 4812-3490",
+    "webOficial": "",
+    "etiquetas": ["Centro", "Parroquia"]
+  },
+  {
+    "id": 12,
+    "nombre": "Parroquia Inmaculada Concepción (La Redonda)",
+    "tipo": "Parroquia",
+    "direccion": "Vuelta de Obligado 2042, Belgrano, CABA",
+    "barrio": "Belgrano",
+    "coordenadas": { "lat": -34.5614, "lng": -58.4563 },
+    "horariosMisa": [
+      { "dia": "Lunes a Sábados", "horarios": ["08:30", "12:00", "19:30"] },
+      { "dia": "Domingos", "horarios": ["09:00", "11:00", "12:30", "19:30", "21:00"] }
+    ],
+    "horariosConfesiones": "Media hora antes de cada misa",
+    "telefono": "+54 11 4783-8008",
+    "webOficial": "",
+    "etiquetas": ["Historica", "Parroquia", "Belgrano"]
+  },
+  {
+    "id": 13,
+    "nombre": "Basílica María Auxiliadora y San Carlos",
+    "tipo": "Basílica",
+    "direccion": "Hipólito Yrigoyen 3999, Almagro, CABA",
+    "barrio": "Almagro",
+    "coordenadas": { "lat": -34.6143, "lng": -58.4227 },
+    "horariosMisa": [
+      { "dia": "Lunes a Sábados", "horarios": ["08:00", "19:00"] },
+      { "dia": "Domingos", "horarios": ["09:00", "11:00", "12:15", "19:00"] }
+    ],
+    "horariosConfesiones": "Sábados y domingos durante las misas",
+    "telefono": "+54 11 4981-6767",
+    "webOficial": "",
+    "etiquetas": ["Basilica", "Salesianos", "Almagro"]
+  },
+  {
+    "id": 14,
+    "nombre": "Basílica del Espíritu Santo (Ntra. Sra. de Guadalupe)",
+    "tipo": "Basílica",
+    "direccion": "Mansilla 3865, Palermo, CABA",
+    "barrio": "Palermo",
+    "coordenadas": { "lat": -34.5891, "lng": -58.4184 },
+    "horariosMisa": [
+      { "dia": "Lunes a Sábados", "horarios": ["08:00", "19:30"] },
+      { "dia": "Domingos", "horarios": ["09:30", "11:00", "12:30", "19:30"] }
+    ],
+    "horariosConfesiones": "Media hora antes de cada celebración",
+    "telefono": "+54 11 4822-9100",
+    "webOficial": "",
+    "etiquetas": ["Basilica", "Palermo"]
+  },
+  {
+    "id": 15,
+    "nombre": "Parroquia Nuestra Señora de Caacupé",
+    "tipo": "Parroquia",
+    "direccion": "Av. Rivadavia 4879, Caballito, CABA",
+    "barrio": "Caballito",
+    "coordenadas": { "lat": -34.6177, "lng": -58.4352 },
+    "horariosMisa": [
+      { "dia": "Lunes a Sábados", "horarios": ["09:00", "19:00"] },
+      { "dia": "Domingos", "horarios": ["09:30", "11:00", "19:00", "20:15"] }
+    ],
+    "horariosConfesiones": "20 minutos antes de cada misa",
+    "telefono": "+54 11 4901-1916",
+    "webOficial": "",
+    "etiquetas": ["Parroquia", "Caballito"]
+  },
+  {
+    "id": 16,
+    "nombre": "Parroquia San Pedro González Telmo",
+    "tipo": "Parroquia",
+    "direccion": "Humberto 1º 340, San Telmo, CABA",
+    "barrio": "San Telmo",
+    "coordenadas": { "lat": -34.6212, "lng": -58.3716 },
+    "horariosMisa": [
+      { "dia": "Martes a Sábados", "horarios": ["18:30"] },
+      { "dia": "Domingos", "horarios": ["10:00", "11:30", "19:00"] }
+    ],
+    "horariosConfesiones": "Domingos media hora antes de misa",
+    "telefono": "+54 11 4361-1168",
+    "webOficial": "",
+    "etiquetas": ["Historica", "Parroquia", "San Telmo"]
   }
 ]

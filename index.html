@@ -16,6 +16,7 @@
 <link rel="manifest" href="manifest.json">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="preconnect" href="https://a.basemaps.cartocdn.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
 <link rel="stylesheet" href="style.css">
@@ -28,6 +29,27 @@
     <h1>Parroquias de Buenos Aires</h1>
     <p class="sub">Encontrá misas y confesiones cerca tuyo.</p>
   </header>
+
+  <!-- Panel de Administración (visible solo en Modo Admin) -->
+  <section class="admin-panel" id="admin-panel" hidden aria-label="Panel de administración">
+    <div class="admin-panel-head">
+      <span class="admin-badge">
+        <span class="admin-dot" aria-hidden="true"></span>
+        Modo Administrador Activo
+      </span>
+      <button type="button" class="admin-logout-btn" id="btn-admin-logout">Cerrar sesión</button>
+    </div>
+    <div class="admin-panel-actions">
+      <button type="button" class="admin-action-btn primary" id="btn-admin-add">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+        Agregar Nueva Parroquia
+      </button>
+      <button type="button" class="admin-action-btn export" id="btn-admin-export">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+        Exportar JSON Actualizado
+      </button>
+    </div>
+  </section>
 
   <div class="search">
     <div class="field">
@@ -66,6 +88,17 @@
 
   <p class="count" id="count" aria-live="polite"></p>
   <main class="list" id="list"></main>
+
+  <footer class="app-footer">
+    <p>Guía colaborativa de templos católicos · CABA y GBA</p>
+    <button type="button" class="footer-admin-link" id="btn-admin-access" aria-label="Acceso administrador">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+        <rect x="4" y="11" width="16" height="10" rx="2"/>
+        <path d="M8 11V7a4 4 0 0 1 8 0v4"/>
+      </svg>
+      <span id="footer-admin-label">Acceso administrador</span>
+    </button>
+  </footer>
 </div>
 
 <!-- ==================== VISTA 2: MAPA COMPLETO ==================== -->
@@ -91,7 +124,14 @@
   <div id="map" class="map-canvas-full" role="region" aria-label="Mapa interactivo a pantalla completa de parroquias en CABA"></div>
 </section>
 
-<!-- ==================== BOTÓN FLOTANTE "CERCA DE MÍ" ==================== -->
+<!-- ==================== BOTONES FLOTANTES ==================== -->
+<button class="fab-admin-add" id="fab-admin-add" type="button" hidden aria-label="Agregar nueva parroquia">
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" aria-hidden="true">
+    <path d="M12 5v14M5 12h14"/>
+  </svg>
+  <span>Agregar Parroquia</span>
+</button>
+
 <button class="fab-near" id="btn-near" type="button" aria-pressed="false" aria-label="Ordenar parroquias cerca de mí">
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
     <path d="M12 21s-6-5.2-6-10a6 6 0 1 1 12 0c0 4.8-6 10-6 10z"/>
@@ -124,14 +164,116 @@
   <span class="grab"></span>
   <div class="sheet-top">
     <button class="icon-btn" id="d-close" aria-label="Cerrar"><svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
-    <button class="icon-btn" id="d-fav" aria-label="Agregar a favoritos"><svg viewBox="0 0 24 24"><path d="M12 20.5s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.7c0 5.6-7.5 10.2-7.5 10.2z"/></svg></button>
+    <div class="sheet-top-right">
+      <button class="btn-sheet-edit" id="d-edit" type="button" hidden aria-label="Editar esta parroquia">Editar</button>
+      <button class="icon-btn" id="d-fav" aria-label="Agregar a favoritos"><svg viewBox="0 0 24 24"><path d="M12 20.5s-7.5-4.6-7.5-10.2A4.3 4.3 0 0 1 12 7.6a4.3 4.3 0 0 1 7.5 2.7c0 5.6-7.5 10.2-7.5 10.2z"/></svg></button>
+    </div>
   </div>
   <div class="sheet-body" id="d-body"></div>
   <div class="actions">
     <a class="btn ghost" id="d-call">Llamar</a>
-    <a class="btn primary" id="d-map" target="_blank" rel="noopener">Cómo llegar</a>
+    <a class="btn primary" id="d-map" target="_blank" rel="noopener noreferrer">Cómo llegar</a>
   </div>
 </section>
+
+<!-- ==================== MODAL 1: ACCESO ADMINISTRADOR (CONTRASEÑA) ==================== -->
+<div class="modal-backdrop" id="admin-login-modal" role="dialog" aria-modal="true" aria-labelledby="admin-login-title" hidden>
+  <div class="modal-card modal-sm">
+    <div class="modal-head">
+      <h2 id="admin-login-title">Acceso Administrador</h2>
+      <button type="button" class="icon-btn modal-close" id="btn-close-login" aria-label="Cerrar">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
+    <p class="modal-sub">Ingresá la clave maestra numérica para habilitar la edición y exportación de parroquias.</p>
+    <form id="admin-login-form" autocomplete="off">
+      <div class="form-field">
+        <label for="admin-pass">Contraseña numérica</label>
+        <input id="admin-pass" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" placeholder="••••" required>
+      </div>
+      <p class="modal-error" id="admin-login-error" role="alert" hidden>Contraseña incorrecta. Verificá el código e intentá de nuevo.</p>
+      <div class="form-actions">
+        <button type="button" class="btn-sm cancel" id="btn-cancel-login">Cancelar</button>
+        <button type="submit" class="btn-sm submit">Desbloquear</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ==================== MODAL 2: CREAR / EDITAR PARROQUIA (MODO ADMIN) ==================== -->
+<div class="modal-backdrop" id="admin-edit-modal" role="dialog" aria-modal="true" aria-labelledby="admin-edit-title" hidden>
+  <div class="modal-card modal-lg">
+    <div class="modal-head">
+      <h2 id="admin-edit-title">Editar Parroquia</h2>
+      <button type="button" class="icon-btn modal-close" id="btn-close-edit" aria-label="Cerrar">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
+    <form id="admin-edit-form" class="admin-edit-form">
+      <input type="hidden" id="e-id">
+      <div class="form-field">
+        <label for="e-nombre">Nombre del templo</label>
+        <input id="e-nombre" type="text" required placeholder="Ej.: Parroquia San Nicolás de Bari">
+      </div>
+      <div class="form-row-2">
+        <div class="form-field">
+          <label for="e-tipo">Jerarquía / Tipo</label>
+          <select id="e-tipo" required>
+            <option value="Catedral">Catedral</option>
+            <option value="Basílica">Basílica</option>
+            <option value="Parroquia">Parroquia</option>
+            <option value="Capilla">Capilla</option>
+          </select>
+        </div>
+        <div class="form-field">
+          <label for="e-barrio">Barrio</label>
+          <input id="e-barrio" type="text" required placeholder="Ej.: Recoleta">
+        </div>
+      </div>
+      <div class="form-field">
+        <label for="e-direccion">Dirección completa</label>
+        <input id="e-direccion" type="text" required placeholder="Ej.: Av. Santa Fe 1352, Recoleta, CABA">
+      </div>
+      <div class="form-row-2">
+        <div class="form-field">
+          <label for="e-lat">Latitud</label>
+          <input id="e-lat" type="number" step="any" required placeholder="-34.5982">
+        </div>
+        <div class="form-field">
+          <label for="e-lng">Longitud</label>
+          <input id="e-lng" type="number" step="any" required placeholder="-58.3871">
+        </div>
+      </div>
+      <div class="form-field">
+        <label for="e-misas">Horarios de misa (un grupo por línea: <code>Día: HH:MM, HH:MM</code>)</label>
+        <textarea id="e-misas" rows="3" required placeholder="Lunes a Viernes: 08:00, 19:00&#10;Domingos: 10:00, 11:30, 19:00"></textarea>
+      </div>
+      <div class="form-field">
+        <label for="e-confesiones">Horarios de confesiones</label>
+        <input id="e-confesiones" type="text" placeholder="Ej.: Media hora antes de cada misa">
+      </div>
+      <div class="form-row-2">
+        <div class="form-field">
+          <label for="e-telefono">Teléfono</label>
+          <input id="e-telefono" type="text" placeholder="+54 11 4812-4022">
+        </div>
+        <div class="form-field">
+          <label for="e-web">Web oficial (opcional)</label>
+          <input id="e-web" type="text" placeholder="https://...">
+        </div>
+      </div>
+      <div class="form-field">
+        <label for="e-etiquetas">Etiquetas (separadas por coma)</label>
+        <input id="e-etiquetas" type="text" placeholder="Parroquia, Centro, Historica">
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn-sm cancel" id="btn-cancel-edit">Cancelar</button>
+        <button type="submit" class="btn-sm submit">Guardar cambios</button>
+      </div>
+    </form>
+  </div>
+</div>
+
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin="" defer></script>

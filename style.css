@@ -4,6 +4,7 @@
   --brand:#243B8F; --brand-soft:#E8ECF9; --night:#182238; --slate:#334155;
   --gold:#8F6417; --gold-champagne:#C89D3C; --gold-soft:#F7EFE0;
   --ok:#166534; --ok-soft:#DCFCE7;
+  --danger:#B91C1C; --danger-soft:#FEE2E2;
   --r-lg:20px; --r-md:14px; --r-pill:999px;
   --nav-h:64px;
   --serif:'Newsreader',Georgia,'Times New Roman',serif;
@@ -17,6 +18,7 @@ body{font-family:var(--sans);background:var(--bg);color:var(--ink);font-size:16p
 body[data-active-view="map"]{overflow:hidden}
 button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
 :focus-visible{outline:3px solid var(--brand);outline-offset:2px}
+[hidden]{display:none!important}
 
 /* ============ Sistema de Vistas (Listado vs Mapa Completo) ============ */
 .view-panel{opacity:0;visibility:hidden;pointer-events:none;transition:opacity .22s var(--ease),visibility .22s}
@@ -24,10 +26,27 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
 #view-list:not(.is-active){display:none}
 
 /* ============ Layout de Vista Listado ============ */
-.app{max-width:640px;margin:0 auto;padding:0 16px calc(var(--nav-h) + 86px + env(safe-area-inset-bottom,0px))}
+.app{max-width:640px;margin:0 auto;padding:0 16px calc(var(--nav-h) + 96px + env(safe-area-inset-bottom,0px))}
 header{padding:24px 4px 12px}
 h1{font-family:var(--serif);font-weight:600;font-size:1.95rem;letter-spacing:-.02em;line-height:1.1}
 .sub{color:var(--muted);margin-top:4px;font-size:.95rem}
+
+/* ============ Panel de Administración ============ */
+.admin-panel{background:var(--surface);border:1px solid rgba(36,59,143,.25);border-radius:var(--r-md);
+  padding:12px 14px;margin:6px 0 10px;box-shadow:0 4px 16px rgba(36,59,143,.06)}
+.admin-panel-head{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:10px}
+.admin-badge{display:inline-flex;align-items:center;gap:7px;font-size:.8rem;font-weight:600;color:var(--brand)}
+.admin-dot{width:8px;height:8px;border-radius:50%;background:var(--ok)}
+.admin-logout-btn{font-size:.78rem;font-weight:600;color:var(--muted);padding:4px 10px;border-radius:8px;
+  border:1px solid var(--line);background:var(--bg)}
+.admin-panel-actions{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+@media (max-width:440px){.admin-panel-actions{grid-template-columns:1fr}}
+.admin-action-btn{height:40px;padding:0 12px;border-radius:10px;font-size:.83rem;font-weight:600;
+  display:inline-flex;align-items:center;justify-content:center;gap:7px;transition:opacity .15s,transform .15s}
+.admin-action-btn:active{transform:scale(.98)}
+.admin-action-btn svg{width:16px;height:16px;flex:none}
+.admin-action-btn.primary{background:var(--brand);color:#fff}
+.admin-action-btn.export{background:var(--ok-soft);color:var(--ok);border:1px solid rgba(22,101,52,.22)}
 
 /* ============ Buscador y Ubicación Híbrida ============ */
 .search{position:sticky;top:0;z-index:400;background:linear-gradient(var(--bg) 90%,transparent);padding:8px 0 10px}
@@ -63,7 +82,6 @@ h1{font-family:var(--serif);font-weight:600;font-size:1.95rem;letter-spacing:-.0
 .loc-banner{display:flex;align-items:flex-start;gap:10px;margin-top:8px;padding:10px 12px;
   border-radius:12px;background:var(--gold-soft);border:1px solid rgba(143,100,23,.24);
   color:var(--ink);font-size:.83rem;line-height:1.35}
-.loc-banner[hidden]{display:none!important}
 .loc-banner>svg{width:18px;height:18px;color:var(--gold);flex:none;margin-top:1px}
 .loc-banner span{flex:1}
 .loc-banner-close{width:24px;height:24px;border-radius:50%;display:grid;place-items:center;color:var(--muted);flex:none}
@@ -79,24 +97,22 @@ h1{font-family:var(--serif);font-weight:600;font-size:1.95rem;letter-spacing:-.0
 .chip .dot{width:7px;height:7px;border-radius:50%;background:var(--ok);flex:none}
 .chip[aria-pressed="true"] .dot{background:#fff}
 
-/* ============ Vista Dedicada: Mapa Minimalista (OpenStreetMap Estilizado) ============ */
+/* ============ Vista Dedicada: Mapa Minimalista (CartoDB Positron) ============ */
 .map-fullscreen{position:fixed;left:0;right:0;top:0;
   bottom:calc(var(--nav-h) + env(safe-area-inset-bottom,0px));
-  z-index:300;background:#F2F4F7;display:flex;flex-direction:column}
-.map-canvas-full{width:100%;height:100%;flex:1;z-index:1;background:#F2F4F7}
+  z-index:300;background:#F5F6F8;display:flex;flex-direction:column}
+.map-canvas-full{width:100%;height:100%;flex:1;z-index:1;background:#F5F6F8;touch-action:pan-x pan-y}
 
-/* Estilización Moderna del Mapa por CSS (escala de grises limpia estilo Apple/Google Maps Pro) */
-.leaflet-tile-pane {
-    filter: grayscale(85%) contrast(110%) brightness(95%);
-}
+/* Sin filtros CSS pesados: CartoDB Positron ya entrega tonos blancos y grises suaves ultralimpios */
+.leaflet-tile-pane{filter:none}
 
 /* Controles discretos para no competir con los pines */
 .leaflet-control-zoom{border:1px solid rgba(20,24,31,.08)!important;border-radius:14px!important;overflow:hidden;
   box-shadow:0 4px 16px rgba(20,24,31,.07)!important;margin-bottom:22px!important;margin-left:14px!important}
-.leaflet-control-zoom a{background:rgba(255,255,255,.92)!important;backdrop-filter:blur(8px);
+.leaflet-control-zoom a{background:rgba(255,255,255,.94)!important;backdrop-filter:blur(8px);
   color:var(--ink)!important;width:36px!important;height:36px!important;line-height:36px!important;
   border-bottom-color:var(--line)!important;font-weight:500!important}
-.leaflet-control-attribution{background:rgba(255,255,255,.75)!important;backdrop-filter:blur(4px);
+.leaflet-control-attribution{background:rgba(255,255,255,.82)!important;backdrop-filter:blur(4px);
   font-size:10px!important;color:#6E7787!important;border-radius:8px 0 0 0;padding:2px 6px!important}
 .leaflet-control-attribution a{color:#586070!important;text-decoration:none}
 
@@ -109,8 +125,8 @@ h1{font-family:var(--serif);font-weight:600;font-size:1.95rem;letter-spacing:-.0
   box-shadow:0 6px 20px rgba(20,24,31,.08)}
 .legend-item{display:inline-flex;align-items:center;gap:6px;font-weight:500;white-space:nowrap}
 .legend-dot{display:inline-block;border-radius:50%}
-.legend-dot.major{width:11px;height:11px;background:linear-gradient(145deg,#D5B048,#9A6F18);
-  box-shadow:0 0 0 2px #FAF3E0,0 0 0 3px rgba(154,111,24,.3)}
+.legend-dot.major{width:11px;height:11px;background:#D4AF37;
+  box-shadow:0 0 0 2px #FAF3E0,0 0 0 3px rgba(212,175,55,.35)}
 .legend-dot.minor{width:9px;height:9px;background:var(--night);box-shadow:0 0 0 2px #E2E8F0}
 
 .map-recenter-btn{pointer-events:auto;height:34px;padding:0 13px;border-radius:var(--r-pill);
@@ -119,34 +135,34 @@ h1{font-family:var(--serif);font-weight:600;font-size:1.95rem;letter-spacing:-.0
   display:inline-flex;align-items:center;gap:5px;box-shadow:0 6px 20px rgba(20,24,31,.08)}
 .map-recenter-btn svg{width:14px;height:14px;color:var(--muted)}
 
-/* ============ Marcadores Estilizados (Custom Leaflet DivIcon) ============ */
+/* ============ Marcadores Personalizados Flotantes (Custom Leaflet DivIcon) ============ */
 .custom-pin-icon{background:transparent;border:0}
 .pin-wrap{position:relative;display:grid;place-items:center;border-radius:50%;color:#fff;
   transition:transform .22s var(--ease),box-shadow .22s var(--ease)}
 .pin-wrap:hover{transform:translateY(-2px) scale(1.08)}
 
-/* Jerarquía Mayor: Catedral y Basílica (Dorado / Champagne elegante, tamaño mayor) */
+/* Catedral y Basílica: Contenedor dorado/champagne elegante (#D4AF37) con cruz minimalista y sombra suave */
 .pin-wrap.major{
   width:42px;height:42px;
-  background:linear-gradient(145deg,#D4AF37 0%,#9A6F18 100%);
+  background:linear-gradient(145deg,#DFC15D 0%,#D4AF37 55%,#B38B22 100%);
   border:2.5px solid #FFFFFF;
-  box-shadow:0 0 0 3px rgba(154,111,24,.32),0 8px 20px rgba(20,24,31,.3),0 2px 6px rgba(20,24,31,.18);
+  box-shadow:0 0 0 3px rgba(212,175,55,.28),0 8px 20px rgba(20,24,31,.22),0 2px 6px rgba(20,24,31,.14);
 }
 .pin-wrap.major::after{
   content:"";position:absolute;inset:3px;border-radius:50%;
-  border:1px solid rgba(255,255,255,.35);pointer-events:none;
+  border:1px solid rgba(255,255,255,.4);pointer-events:none;
 }
-.pin-wrap.major svg{width:20px;height:20px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.18))}
+.pin-wrap.major svg{width:20px;height:20px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.16))}
 
-/* Jerarquía Estándar: Parroquia y Capilla (Azul oscuro / Pizarra sofisticado, cruz blanca fina) */
+/* Parroquia y Capilla: Contenedor azul noche / gris oscuro sofisticado con cruz blanca fina */
 .pin-wrap.minor{
   width:32px;height:32px;
-  background:linear-gradient(145deg,#243B8F 0%,#141D30 100%);
-  border:2.5px solid #FFFFFF;
-  box-shadow:0 0 0 2px rgba(20,29,48,.18),0 6px 14px rgba(20,29,48,.3),0 2px 4px rgba(20,24,31,.16);
+  background:linear-gradient(145deg,#24344D 0%,#182238 100%);
+  border:2px solid #FFFFFF;
+  box-shadow:0 6px 14px rgba(24,34,56,.24),0 2px 5px rgba(20,24,31,.14);
 }
 .pin-wrap.minor.capilla{
-  background:linear-gradient(145deg,#475569 0%,#293548 100%);
+  background:linear-gradient(145deg,#475569 0%,#334155 100%);
 }
 .pin-wrap.minor svg{width:15px;height:15px}
 
@@ -180,14 +196,14 @@ h1{font-family:var(--serif);font-weight:600;font-size:1.95rem;letter-spacing:-.0
   transition:background .15s}
 .map-popup .p-btn:hover{background:var(--brand)}
 
-/* ============ Tarjetas y Badges de Jerarquía ============ */
+/* ============ Tarjetas, Botón Admin de Edición y Badges ============ */
 .count{color:var(--muted);font-size:.85rem;padding:12px 4px 8px}
 .list{display:grid;gap:12px}
 .card{display:block;width:100%;text-align:left;background:var(--surface);border:1px solid var(--line);
   border-radius:var(--r-lg);padding:18px;position:relative;transition:transform .15s}
 .card:active{transform:scale(.985)}
 .card.card-major{border-color:rgba(143,100,23,.28)}
-.card-head{display:flex;align-items:center;gap:6px;margin-bottom:6px;padding-right:40px}
+.card-head{display:flex;align-items:center;gap:6px;margin-bottom:6px;padding-right:44px}
 .type-badge{display:inline-flex;align-items:center;gap:4px;font-size:.72rem;font-weight:600;
   padding:2px 9px;border-radius:var(--r-pill);letter-spacing:.01em}
 .type-badge.major{background:var(--gold-soft);color:var(--gold);border:1px solid rgba(143,100,23,.22)}
@@ -208,10 +224,23 @@ h1{font-family:var(--serif);font-weight:600;font-size:1.95rem;letter-spacing:-.0
 .heart{position:absolute;top:10px;right:10px;width:44px;height:44px;display:grid;place-items:center;border-radius:50%}
 .heart svg{width:24px;height:24px;fill:none;stroke:var(--muted);stroke-width:1.8;transition:transform .2s}
 .heart[aria-pressed="true"] svg{fill:var(--gold);stroke:var(--gold);transform:scale(1.1)}
+.card-edit-btn{position:absolute;bottom:14px;right:14px;height:32px;padding:0 12px;border-radius:var(--r-pill);
+  background:var(--brand-soft);color:var(--brand);border:1px solid rgba(36,59,143,.22);
+  font-size:.78rem;font-weight:600;display:inline-flex;align-items:center;gap:5px;z-index:2}
+.card-edit-btn svg{width:13px;height:13px}
 .empty{text-align:center;color:var(--muted);padding:48px 16px}
 .empty strong{display:block;color:var(--ink);font-size:1.05rem;margin-bottom:4px}
 
-/* ============ Botón flotante "Cerca de mí" ============ */
+/* ============ Footer Discreto con Acceso Administrador ============ */
+.app-footer{margin-top:28px;padding:18px 4px 8px;border-top:1px solid var(--line);
+  display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px;
+  font-size:.78rem;color:var(--muted)}
+.footer-admin-link{display:inline-flex;align-items:center;gap:5px;font-size:.78rem;font-weight:500;
+  color:var(--muted);padding:4px 8px;border-radius:8px;transition:color .15s,background .15s}
+.footer-admin-link:hover{color:var(--brand);background:var(--brand-soft)}
+.footer-admin-link svg{width:14px;height:14px}
+
+/* ============ Botones Flotantes ("Cerca de mí" y "+ Agregar Parroquia") ============ */
 .fab-near{position:fixed;right:max(16px,calc((100vw - 640px)/2 + 16px));
   bottom:calc(var(--nav-h) + 16px + env(safe-area-inset-bottom,0px));z-index:520;height:46px;padding:0 18px;
   border-radius:var(--r-pill);background:var(--surface);color:var(--brand);border:1px solid var(--brand);
@@ -221,7 +250,15 @@ h1{font-family:var(--serif);font-weight:600;font-size:1.95rem;letter-spacing:-.0
 .fab-near:active{transform:scale(.96)}
 .fab-near[aria-pressed="true"]{background:var(--brand);color:#fff}
 .fab-near.loading{opacity:.75;pointer-events:none}
-body.open .fab-near{opacity:0;pointer-events:none}
+
+.fab-admin-add{position:fixed;right:max(16px,calc((100vw - 640px)/2 + 16px));
+  bottom:calc(var(--nav-h) + 70px + env(safe-area-inset-bottom,0px));z-index:520;height:44px;padding:0 16px;
+  border-radius:var(--r-pill);background:var(--night);color:#fff;border:1px solid rgba(255,255,255,.15);
+  box-shadow:0 8px 24px rgba(20,24,31,.22);display:inline-flex;align-items:center;gap:7px;
+  font-size:.86rem;font-weight:600;transition:transform .15s,opacity .2s}
+.fab-admin-add svg{width:17px;height:17px;flex:none}
+.fab-admin-add:active{transform:scale(.96)}
+body.open .fab-near,body.open .fab-admin-add{opacity:0;pointer-events:none}
 
 /* ============ Barra de Navegación Inferior (Bottom Nav) ============ */
 .bottom-nav{position:fixed;left:0;right:0;bottom:0;
@@ -244,6 +281,9 @@ body.open .fab-near{opacity:0;pointer-events:none}
 body.open .scrim{opacity:1;pointer-events:auto}
 body.open .sheet{transform:none;visibility:visible}
 .sheet-top{display:flex;justify-content:space-between;align-items:center;padding:14px 12px 4px 20px}
+.sheet-top-right{display:flex;align-items:center;gap:8px}
+.btn-sheet-edit{height:36px;padding:0 13px;border-radius:var(--r-pill);background:var(--brand-soft);
+  color:var(--brand);font-size:.82rem;font-weight:600}
 .grab{width:40px;height:5px;border-radius:3px;background:var(--line);position:absolute;top:8px;left:50%;margin-left:-20px}
 .icon-btn{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;background:var(--surface);border:1px solid var(--line)}
 .icon-btn svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.8}
@@ -258,6 +298,16 @@ body.open .sheet{transform:none;visibility:visible}
 .row .d{color:var(--muted)}
 .row .h{font-weight:500;text-align:right;font-variant-numeric:tabular-nums}
 .note{color:var(--muted);font-size:.9rem;margin-top:8px}
+
+/* ============ Enlace a Web Oficial y Fallback a Google Maps ============ */
+.external-links-wrap{display:grid;gap:8px;margin-top:12px}
+.btn-web-source,.btn-maps-place{width:100%;height:44px;border-radius:var(--r-md);border:1px solid var(--line);
+  background:var(--surface);color:var(--brand);font-size:.88rem;font-weight:600;
+  display:flex;align-items:center;justify-content:center;gap:8px;text-decoration:none;
+  transition:background .15s,border-color .15s}
+.btn-web-source:hover,.btn-web-source:focus-visible,
+.btn-maps-place:hover,.btn-maps-place:focus-visible{background:var(--brand-soft);border-color:var(--brand)}
+.btn-web-source svg,.btn-maps-place svg{width:17px;height:17px;flex:none}
 
 /* ============ Formulario de corrección de horarios ============ */
 .correction-box{margin-top:14px}
@@ -277,8 +327,10 @@ body.open .sheet{transform:none;visibility:visible}
 .form-field textarea{resize:vertical;min-height:68px}
 .form-field input:focus,.form-field select:focus,.form-field textarea:focus{
   outline:none;border-color:var(--brand);background:var(--surface);box-shadow:0 0 0 3px var(--brand-soft)}
-.form-actions{display:flex;gap:8px;margin-top:2px}
-.btn-sm{flex:1;height:40px;border-radius:10px;font-size:.88rem;font-weight:600;
+.form-row-2{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+@media (max-width:420px){.form-row-2{grid-template-columns:1fr}}
+.form-actions{display:flex;gap:8px;margin-top:4px}
+.btn-sm{flex:1;height:42px;border-radius:10px;font-size:.88rem;font-weight:600;
   display:inline-flex;align-items:center;justify-content:center}
 .btn-sm.cancel{background:var(--bg);color:var(--muted);border:1px solid var(--line)}
 .btn-sm.submit{background:var(--brand);color:#fff}
@@ -287,6 +339,23 @@ body.open .sheet{transform:none;visibility:visible}
   font-size:.88rem;font-weight:500}
 .correction-alert.show{display:flex}
 .correction-alert svg{width:20px;height:20px;flex:none}
+
+/* ============ Modales de Modo Administrador ============ */
+.modal-backdrop{position:fixed;inset:0;z-index:680;background:rgba(20,24,31,.52);
+  backdrop-filter:blur(4px);-webkit-backdrop-filter:blur(4px);
+  display:flex;align-items:center;justify-content:center;padding:16px}
+.modal-card{width:100%;background:var(--surface);border:1px solid var(--line);
+  border-radius:var(--r-lg);padding:20px;box-shadow:0 20px 48px rgba(20,24,31,.22);
+  max-height:calc(100dvh - 32px);overflow-y:auto}
+.modal-card.modal-sm{max-width:380px}
+.modal-card.modal-lg{max-width:540px}
+.modal-head{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:8px}
+.modal-head h2{font-family:var(--serif);font-size:1.35rem;font-weight:600}
+.modal-close{width:36px;height:36px}
+.modal-sub{font-size:.86rem;color:var(--muted);margin-bottom:14px}
+.modal-error{background:var(--danger-soft);color:var(--danger);border-radius:10px;
+  padding:9px 12px;font-size:.82rem;font-weight:500;margin-top:10px}
+.admin-edit-form{display:grid;gap:11px;margin-top:6px}
 
 .actions{position:absolute;left:0;right:0;bottom:0;display:flex;gap:10px;padding:14px 20px calc(14px + env(safe-area-inset-bottom,0px));
   background:linear-gradient(transparent,var(--bg) 35%)}
@@ -297,6 +366,6 @@ body.open .sheet{transform:none;visibility:visible}
 .btn[aria-disabled="true"]{opacity:.45;pointer-events:none}
 .toast{position:fixed;left:50%;bottom:calc(var(--nav-h) + 20px + env(safe-area-inset-bottom,0px));transform:translate(-50%,20px);
   background:var(--ink);color:#fff;padding:10px 18px;border-radius:var(--r-pill);font-size:.9rem;opacity:0;
-  transition:.25s;z-index:700;pointer-events:none;white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis}
+  transition:.25s;z-index:750;pointer-events:none;white-space:nowrap;max-width:92vw;overflow:hidden;text-overflow:ellipsis}
 .toast.show{opacity:1;transform:translate(-50%,0)}
 @media (prefers-reduced-motion:reduce){*{transition-duration:.01ms!important}}
