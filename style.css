@@ -79,11 +79,17 @@ h1{font-family:var(--serif);font-weight:600;font-size:1.95rem;letter-spacing:-.0
 .chip .dot{width:7px;height:7px;border-radius:50%;background:var(--ok);flex:none}
 .chip[aria-pressed="true"] .dot{background:#fff}
 
-/* ============ Vista Dedicada: Mapa Minimalista (CartoDB Positron) ============ */
+/* ============ Vista Dedicada: Mapa Minimalista (OpenStreetMap Estilizado) ============ */
 .map-fullscreen{position:fixed;left:0;right:0;top:0;
   bottom:calc(var(--nav-h) + env(safe-area-inset-bottom,0px));
-  z-index:300;background:#F4F5F7;display:flex;flex-direction:column}
-.map-canvas-full{width:100%;height:100%;flex:1;z-index:1;background:#F4F5F7}
+  z-index:300;background:#F2F4F7;display:flex;flex-direction:column}
+.map-canvas-full{width:100%;height:100%;flex:1;z-index:1;background:#F2F4F7}
+
+/* Estilización minimalista aplicada solo a los mosaicos para que los pines destaquen a todo color */
+.leaflet-tile-pane{
+  filter:grayscale(85%) contrast(108%) brightness(104%) opacity(92%);
+  -webkit-filter:grayscale(85%) contrast(108%) brightness(104%) opacity(92%);
+}
 
 /* Controles discretos para no competir con los pines */
 .leaflet-control-zoom{border:1px solid rgba(20,24,31,.08)!important;border-radius:14px!important;overflow:hidden;
@@ -124,12 +130,12 @@ h1{font-family:var(--serif);font-weight:600;font-size:1.95rem;letter-spacing:-.0
 .pin-wrap.major{
   width:42px;height:42px;
   background:linear-gradient(145deg,#D4AF37 0%,#9A6F18 100%);
-  border:2.5px solid #FCF8EC;
-  box-shadow:0 0 0 1px rgba(154,111,24,.28),0 8px 20px rgba(143,100,23,.32),0 2px 6px rgba(20,24,31,.16);
+  border:2.5px solid #FFFFFF;
+  box-shadow:0 0 0 3px rgba(154,111,24,.28),0 8px 20px rgba(20,24,31,.28),0 2px 6px rgba(20,24,31,.18);
 }
 .pin-wrap.major::after{
   content:"";position:absolute;inset:3px;border-radius:50%;
-  border:1px solid rgba(255,255,255,.32);pointer-events:none;
+  border:1px solid rgba(255,255,255,.35);pointer-events:none;
 }
 .pin-wrap.major svg{width:20px;height:20px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.18))}
 
@@ -137,8 +143,8 @@ h1{font-family:var(--serif);font-weight:600;font-size:1.95rem;letter-spacing:-.0
 .pin-wrap.minor{
   width:32px;height:32px;
   background:linear-gradient(145deg,#22304E 0%,#141D30 100%);
-  border:2px solid #FFFFFF;
-  box-shadow:0 6px 14px rgba(20,29,48,.24),0 2px 4px rgba(20,24,31,.12);
+  border:2.5px solid #FFFFFF;
+  box-shadow:0 0 0 2px rgba(20,29,48,.16),0 6px 14px rgba(20,29,48,.28),0 2px 4px rgba(20,24,31,.14);
 }
 .pin-wrap.minor.capilla{
   background:linear-gradient(145deg,#475569 0%,#293548 100%);

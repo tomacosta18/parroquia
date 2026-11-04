@@ -319,11 +319,10 @@ function initMap() {
   // Controles de zoom discretos abajo a la izquierda para no competir con el contenido
   L.control.zoom({ position: "bottomleft" }).addTo(mapInstance);
 
-  // Mapa base minimalista CartoDB Positron (tonos grises, blancos y pasteles suaves sin ruido visual)
-  L.tileLayer("https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png", {
-    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OSM</a> &copy; <a href="https://carto.com/attributions">CARTO</a>',
-    subdomains: "abcd",
-    maxZoom: 20
+  // Capa base libre de errores y sin API Keys: OpenStreetMap oficial
+  L.tileLayer("https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png", {
+    maxZoom: 19,
+    attribution: "&copy; OpenStreetMap contributors"
   }).addTo(mapInstance);
 
   markersLayer = L.layerGroup().addTo(mapInstance);
