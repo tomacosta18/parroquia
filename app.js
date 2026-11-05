@@ -661,7 +661,9 @@ let PARISHES = prepareDataset(
 );
 
 const state = {
-  view: "list", // 'list' | 'map'
+  view: "list", // 'list' | 'map' | 'community' | 'profile'
+  commTab: "all", // 'all' | 'following' | 'ranking' | 'people'
+  detailSection: "horarios", // 'horarios' | 'actividades'
   q: "",
   region: "ALL", // 'ALL' | 'CABA' | 'Zona Norte' | 'Zona Oeste' | 'Zona Sur'
   barrio: null,
@@ -677,32 +679,40 @@ const state = {
 };
 
 /* =====================================================================
-   Navegación por Pestañas (Listado vs Mapa Completo)
+   Navegación por Pestañas (Listado, Mapa, Comunidad y Perfil)
    ===================================================================== */
 function switchView(targetView) {
-  if (targetView !== "list" && targetView !== "map") return;
+  const validViews = ["list", "map", "community", "profile"];
+  if (!validViews.includes(targetView)) return;
   state.view = targetView;
   document.body.setAttribute("data-active-view", targetView);
 
-  const viewList = $("#view-list");
-  const viewMap = $("#view-map");
-  const tabList = $("#tab-list");
-  const tabMap = $("#tab-map");
+  const panels = {
+    list: $("#view-list"),
+    map: $("#view-map"),
+    community: $("#view-community"),
+    profile: $("#view-profile")
+  };
+  const tabs = {
+    list: $("#tab-list"),
+    map: $("#tab-map"),
+    community: $("#tab-community"),
+    profile: $("#tab-profile")
+  };
 
-  const isList = targetView === "list";
-  viewList.classList.toggle("is-active", isList);
-  viewList.setAttribute("aria-hidden", String(!isList));
+  validViews.forEach(v => {
+    const active = v === targetView;
+    if (panels[v]) {
+      panels[v].classList.toggle("is-active", active);
+      panels[v].setAttribute("aria-hidden", String(!active));
+    }
+    if (tabs[v]) {
+      tabs[v].classList.toggle("is-active", active);
+      tabs[v].setAttribute("aria-selected", String(active));
+    }
+  });
 
-  viewMap.classList.toggle("is-active", !isList);
-  viewMap.setAttribute("aria-hidden", String(isList));
-
-  tabList.classList.toggle("is-active", isList);
-  tabList.setAttribute("aria-selected", String(isList));
-
-  tabMap.classList.toggle("is-active", !isList);
-  tabMap.setAttribute("aria-selected", String(!isList));
-
-  if (!isList) {
+  if (targetView === "map") {
     initMap();
     requestAnimationFrame(() => {
       if (map) {
@@ -710,6 +720,12 @@ function switchView(targetView) {
         fitMapToBounds(filtered());
       }
     });
+  } else if (targetView === "community") {
+    renderCommunityView();
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  } else if (targetView === "profile") {
+    renderProfileView();
+    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 }
 
@@ -1397,6 +1413,7 @@ function renderChips() {
   $("#chips").innerHTML =
     `<button class="chip live" data-now aria-pressed="${state.soloNow}"><span class="dot" aria-hidden="true"></span>Misa ahora / Próxima hora</button>` +
     `<button class="chip fav" data-fav aria-pressed="${state.soloFav}">Favoritos</button>` +
+    `<button class="chip" data-open-ranking="true">🏆 Ranking</button>` +
     barrios.map(b => `<button class="chip" data-barrio="${b}" aria-pressed="${state.barrio === b}">${b}</button>`).join("");
 }
 
@@ -1601,6 +1618,7 @@ function openDetail(id) {
   if (!p) return;
   state.current = p;
   state.selectedServiceHour = getDefaultServiceHour(p);
+  state.detailSection = "horarios";
 
   const badgeCls = getTypeBadgeClass(p.tipo);
   const region = p._region || inferRegion(p);
@@ -1609,6 +1627,9 @@ function openDetail(id) {
   const validWebUrl = normalizeOfficialUrl(p.webOficial);
   const mapsPlaceUrl = buildGoogleMapsPlaceUrl(p);
   const distInfo = typeof p.distanceKm === "number" ? ` · A ${formatKm(p.distanceKm)}` : "";
+  const isFollowingParish = isCurrentUserFollowingParish(pid);
+  const parishFollowers = getParishFollowersCount(pid);
+  const activities = getParishActivities(p);
 
   $("#d-body").innerHTML = `
     <div class="sheet-type-row">
@@ -1618,8 +1639,34 @@ function openDetail(id) {
     <h2 id="d-name">${p.nombre}</h2>
     <p class="sub">${p.direccion}${distInfo}</p>
     <div class="tags">${tags.map(t => `<span class="tag">${t}</span>`).join("")}</div>
-    <div id="d-misas-container">${renderMisasBlock(p, state.selectedServiceHour)}</div>
-    ${renderConfesionesBlock(p)}
+
+    <div class="parish-social-bar" id="parish-social-bar">
+      <div class="parish-followers-count">
+        Comunidad: <strong id="d-parish-followers">${parishFollowers}</strong> seguidores
+      </div>
+      <button type="button" class="btn-follow-parish ${isFollowingParish ? "is-following" : ""}" id="btn-follow-parish" data-follow-parish="${pid}">
+        <span>${isFollowingParish ? "Siguiendo Parroquia ✓" : "+ Seguir Parroquia"}</span>
+      </button>
+    </div>
+
+    <div class="sheet-section-tabs" role="tablist" aria-label="Secciones de la parroquia">
+      <button type="button" class="sheet-sec-tab is-active" data-sheet-sec="horarios">Horarios y Misa</button>
+      <button type="button" class="sheet-sec-tab" data-sheet-sec="actividades">Actividades / Grupos (${activities.length})</button>
+    </div>
+
+    <div id="d-sec-horarios">
+      <div id="d-misas-container">${renderMisasBlock(p, state.selectedServiceHour)}</div>
+      ${renderConfesionesBlock(p)}
+    </div>
+
+    <div id="d-sec-actividades" class="block">
+      <h3>Actividades y Grupos Parroquiales</h3>
+      <p class="note" style="margin-top:0;margin-bottom:8px">Sumate a los espacios de oración, coro, catequesis y misión de esta comunidad:</p>
+      <div class="activities-grid" id="d-activities-grid">
+        ${renderActivitiesCardsHtml(p)}
+      </div>
+    </div>
+
     <div class="block"><h3>Contacto y Ubicación</h3>
       <div class="row"><span class="d">Teléfono</span><span class="h">${tel || "No disponible"}</span></div>
       <div class="row"><span class="d">Región</span><span class="h">${region}</span></div>
@@ -1709,6 +1756,7 @@ function openDetail(id) {
   $("#d-body").scrollTop = 0;
   syncDetailFav();
   bindCrowdWidget();
+  bindDetailSocialEvents(p);
   bindCorrectionForm();
   document.body.classList.add("open");
   $("#sheet").setAttribute("aria-hidden", "false");
@@ -2055,6 +2103,840 @@ function exportUpdatedJson() {
   toast("Descargando parroquias.json actualizado");
 }
 
+/* =====================================================================
+   ECOSISTEMA SOCIAL COMUNITARIO (Perfil Local, Feed, Amistad, Ranking y Actividades)
+   ===================================================================== */
+const SOCIAL_STORAGE_KEY = "social_ecosystem_v1";
+const AVATAR_PRESETS = ["✝️", "🕊️", "🕯️", "⛪", "🎵", "🌿", "⭐", "🙏"];
+
+// Seguidores base de cada parroquia para el Ranking Comunitario inicial
+const BASE_PARISH_FOLLOWERS = {
+  "1": 342, "2": 289, "3": 195, "4": 210, "5": 164, "6": 118,
+  "7": 94,  "8": 88,  "9": 236, "10": 274, "11": 142, "12": 318,
+  "13": 265, "14": 251, "15": 176, "16": 159, "17": 298, "18": 184,
+  "19": 137, "20": 412, "21": 192, "22": 146, "23": 188, "24": 171
+};
+
+function getParishActivities(p) {
+  const pid = String(p.id);
+  const slug = norm(p.nombre)
+    .replace(/[^a-z0-9\s]/g, "")
+    .trim()
+    .split(/\s+/)
+    .slice(0, 3)
+    .join("");
+
+  if (Array.isArray(p.actividades) && p.actividades.length) {
+    return p.actividades;
+  }
+
+  return [
+    {
+      id: `act_${pid}_oracion`,
+      parishId: pid,
+      parishName: p.nombre,
+      categoria: "Grupo de Oración",
+      nombre: "Grupo de Oración y Adoración Eucarística",
+      descripcion: "Encuentro semanal de alabanza, lectio divina y adoración abierta a toda la comunidad.",
+      horario: "Jueves 19:45 h",
+      instagram: `@oracion.${slug || "parroquia"}`
+    },
+    {
+      id: `act_${pid}_coro`,
+      parishId: pid,
+      parishName: p.nombre,
+      categoria: "Coro y Música",
+      nombre: "Coro Litúrgico y Ministerio de Música",
+      descripcion: "Preparación de cantos para las misas dominicales y solemnidades. No requiere experiencia previa.",
+      horario: "Sábados 17:30 h",
+      instagram: `@coro.${slug || "parroquia"}`
+    },
+    {
+      id: `act_${pid}_catequesis`,
+      parishId: pid,
+      parishName: p.nombre,
+      categoria: "Catequesis",
+      nombre: "Catequesis Familiar, Jóvenes y Confirmación",
+      descripcion: "Espacio de formación en la fe para niños, adolescentes y adultos que se preparan para los sacramentos.",
+      horario: "Sábados 10:30 h",
+      instagram: `@catequesis.${slug || "parroquia"}`
+    },
+    {
+      id: `act_${pid}_misiones`,
+      parishId: pid,
+      parishName: p.nombre,
+      categoria: "Misiones y Caridad",
+      nombre: "Grupo Misionero y Noche de la Caridad",
+      descripcion: "Recorridas solidarias, visitas a enfermos y misiones barriales junto a jóvenes y familias.",
+      horario: "Viernes 20:00 h",
+      instagram: `@misioneros.${slug || "parroquia"}`
+    }
+  ];
+}
+
+function getInitialSocialDB() {
+  const now = Date.now();
+  return {
+    currentUser: null, // username activo o null (invitado)
+    users: {
+      "martina.recoleta": {
+        username: "martina.recoleta",
+        password: "1234",
+        apodo: "Martina Gómez",
+        bio: "Coordinadora del coro dominical y adoradora en Recoleta. ¡Bienvenidos a cantar! 🎵",
+        avatarIcon: "🎵",
+        avatarUrl: "",
+        instagram: "@martina.coropilar",
+        twitter: "@martinarecoleta",
+        followingUsers: ["padre.tomas", "lucas.coro", "sofi.misiones"],
+        followedParishes: ["2", "1", "14"],
+        joinedActivities: ["act_2_coro", "act_2_oracion", "act_14_misiones"]
+      },
+      "padre.tomas": {
+        username: "padre.tomas",
+        password: "1234",
+        apodo: "P. Tomás Herrera",
+        bio: "Sacerdote en CABA. Compartiendo avisos parroquiales, horarios de confesión y reflexiones diarias.",
+        avatarIcon: "✝️",
+        avatarUrl: "",
+        instagram: "@padretomas.ba",
+        twitter: "@padretomas_ar",
+        followingUsers: ["martina.recoleta", "lucas.coro", "sofi.misiones", "juan.sanisidro"],
+        followedParishes: ["1", "12", "20"],
+        joinedActivities: ["act_1_oracion", "act_12_catequesis"]
+      },
+      "lucas.coro": {
+        username: "lucas.coro",
+        password: "1234",
+        apodo: "Lucas Benítez",
+        bio: "Guitarrista en La Redonda de Belgrano y misionero universitario en Zona Norte.",
+        avatarIcon: "🕯️",
+        avatarUrl: "",
+        instagram: "@lucas.benitez.musica",
+        twitter: "@lucascoro_ba",
+        followingUsers: ["martina.recoleta", "padre.tomas", "juan.sanisidro"],
+        followedParishes: ["12", "17", "6"],
+        joinedActivities: ["act_12_coro", "act_17_misiones"]
+      },
+      "sofi.misiones": {
+        username: "sofi.misiones",
+        password: "1234",
+        apodo: "Sofía Pereyra",
+        bio: "Catequista de confirmación y voluntaria en la Noche de la Caridad en Flores y Caballito.",
+        avatarIcon: "🕊️",
+        avatarUrl: "",
+        instagram: "@sofi.misionera",
+        twitter: "@sofipereyra_ok",
+        followingUsers: ["martina.recoleta", "padre.tomas"],
+        followedParishes: ["10", "15", "20"],
+        joinedActivities: ["act_10_misiones", "act_15_catequesis"]
+      },
+      "juan.sanisidro": {
+        username: "juan.sanisidro",
+        password: "1234",
+        apodo: "Juan Ignacio Paz",
+        bio: "Vecino de Zona Norte. Peregrino a Luján cada octubre y servidor en la Catedral de San Isidro.",
+        avatarIcon: "⛪",
+        avatarUrl: "",
+        instagram: "@juani.sanisidro",
+        twitter: "@juanipaz_gba",
+        followingUsers: ["padre.tomas", "lucas.coro"],
+        followedParishes: ["17", "20", "18"],
+        joinedActivities: ["act_17_oracion", "act_20_misiones"]
+      }
+    },
+    posts: [
+      {
+        id: "post_1",
+        author: "padre.tomas",
+        parishId: "1",
+        text: "¡Buen día comunidad! Hoy después de la misa de 12:30 h en la Catedral tendremos adoración al Santísimo y confesiones disponibles.",
+        createdAt: now - 22 * 60 * 1000,
+        likes: ["martina.recoleta", "lucas.coro", "sofi.misiones"]
+      },
+      {
+        id: "post_2",
+        author: "martina.recoleta",
+        parishId: "2",
+        text: "Este sábado a las 17:30 h sumamos voces nuevas al Coro de la Basílica del Pilar. Si te gusta cantar o tocar algún instrumento, ¡escribinos!",
+        createdAt: now - 75 * 60 * 1000,
+        likes: ["padre.tomas", "lucas.coro"]
+      },
+      {
+        id: "post_3",
+        author: "sofi.misiones",
+        parishId: "10",
+        text: "Preparamos viandas calientes con el Grupo Misionero de San José de Flores para la recorrida del viernes a las 20 h. ¡Toda ayuda suma!",
+        createdAt: now - 160 * 60 * 1000,
+        likes: ["martina.recoleta", "padre.tomas", "juan.sanisidro"]
+      },
+      {
+        id: "post_4",
+        author: "juan.sanisidro",
+        parishId: "17",
+        text: "Hermosa celebración hoy en la Catedral de San Isidro. Muy tranquilo el templo a la mañana y excelente acústica del coro.",
+        createdAt: now - 290 * 60 * 1000,
+        likes: ["lucas.coro"]
+      }
+    ]
+  };
+}
+
+let socialDB = Store.get(SOCIAL_STORAGE_KEY, null);
+if (!socialDB || !socialDB.users || !Array.isArray(socialDB.posts)) {
+  socialDB = getInitialSocialDB();
+  Store.set(SOCIAL_STORAGE_KEY, socialDB);
+}
+
+function saveSocialDB() {
+  Store.set(SOCIAL_STORAGE_KEY, socialDB);
+}
+
+function getCurrentUserObj() {
+  if (!socialDB.currentUser) return null;
+  return socialDB.users[socialDB.currentUser] || null;
+}
+
+function renderAvatarContent(user) {
+  if (!user) return "👤";
+  if (user.avatarUrl && /^https?:\/\//i.test(user.avatarUrl.trim())) {
+    return `<img src="${user.avatarUrl.trim()}" alt="${user.apodo}" loading="lazy">`;
+  }
+  return user.avatarIcon || "✝️";
+}
+
+function syncHeaderUserPill() {
+  const user = getCurrentUserObj();
+  const avatarEl = $("#header-user-avatar");
+  const labelEl = $("#header-user-label");
+  const navLabel = $("#nav-profile-label");
+
+  if (user) {
+    if (avatarEl) avatarEl.innerHTML = renderAvatarContent(user);
+    if (labelEl) labelEl.textContent = user.apodo.split(" ")[0];
+    if (navLabel) navLabel.textContent = user.apodo.split(" ")[0];
+  } else {
+    if (avatarEl) avatarEl.innerHTML = "👤";
+    if (labelEl) labelEl.textContent = "Ingresar";
+    if (navLabel) navLabel.textContent = "Perfil / Cuenta";
+  }
+}
+
+/**
+ * Si un invitado intenta realizar una acción social (seguir, publicar, unirse a grupo),
+ * lo dirige amablemente a la vista de Perfil / Cuenta sin bloquear el resto de la app.
+ */
+function requireAuth(actionDescription) {
+  const user = getCurrentUserObj();
+  if (user) return user;
+  closeDetail();
+  closePublicProfileModal();
+  switchView("profile");
+  toast(`Iniciá sesión o creá tu cuenta para ${actionDescription}`);
+  return null;
+}
+
+/**
+ * Sistema de Amistad:
+ * Si Usuario A sigue a Usuario B y Usuario B sigue a Usuario A, son automáticamente "Amigos".
+ */
+function isFollowingUser(sourceUsername, targetUsername) {
+  const u = socialDB.users[sourceUsername];
+  if (!u || !Array.isArray(u.followingUsers)) return false;
+  return u.followingUsers.includes(targetUsername);
+}
+
+function areFriends(usernameA, usernameB) {
+  if (!usernameA || !usernameB || usernameA === usernameB) return false;
+  return isFollowingUser(usernameA, usernameB) && isFollowingUser(usernameB, usernameA);
+}
+
+function getFollowersOfUser(username) {
+  return Object.values(socialDB.users).filter(
+    u => u.username !== username && Array.isArray(u.followingUsers) && u.followingUsers.includes(username)
+  );
+}
+
+function getFriendsOfUser(username) {
+  const u = socialDB.users[username];
+  if (!u || !Array.isArray(u.followingUsers)) return [];
+  return u.followingUsers.filter(target => areFriends(username, target));
+}
+
+function toggleFollowUser(targetUsername) {
+  const me = requireAuth("seguir a otros miembros");
+  if (!me || me.username === targetUsername) return;
+  if (!Array.isArray(me.followingUsers)) me.followingUsers = [];
+
+  const idx = me.followingUsers.indexOf(targetUsername);
+  const targetUser = socialDB.users[targetUsername];
+  const targetName = targetUser ? targetUser.apodo : `@${targetUsername}`;
+
+  if (idx >= 0) {
+    me.followingUsers.splice(idx, 1);
+    toast(`Dejaste de seguir a ${targetName}`);
+  } else {
+    me.followingUsers.push(targetUsername);
+    if (areFriends(me.username, targetUsername)) {
+      toast(`¡Ahora vos y ${targetName} son Amigos! 🤝`);
+    } else {
+      toast(`Ahora seguís a ${targetName}`);
+    }
+  }
+  saveSocialDB();
+  if (state.view === "community") renderCommunityView();
+  if (state.view === "profile") renderProfileView();
+}
+
+/* --- Seguimiento de Parroquias y Ranking Comunitario --- */
+function isCurrentUserFollowingParish(parishId) {
+  const me = getCurrentUserObj();
+  if (!me || !Array.isArray(me.followedParishes)) return false;
+  return me.followedParishes.includes(String(parishId));
+}
+
+function getParishFollowersCount(parishId) {
+  const pid = String(parishId);
+  const base = BASE_PARISH_FOLLOWERS[pid] || 75;
+  let localCount = 0;
+  Object.values(socialDB.users).forEach(u => {
+    if (Array.isArray(u.followedParishes) && u.followedParishes.includes(pid)) {
+      localCount++;
+    }
+  });
+  return base + localCount;
+}
+
+function toggleFollowParish(parishId) {
+  const me = requireAuth("seguir una parroquia");
+  if (!me) return;
+  const pid = String(parishId);
+  if (!Array.isArray(me.followedParishes)) me.followedParishes = [];
+
+  const p = PARISHES.find(x => String(x.id) === pid);
+  const idx = me.followedParishes.indexOf(pid);
+  if (idx >= 0) {
+    me.followedParishes.splice(idx, 1);
+    toast(`Dejaste de seguir a ${p ? p.nombre : "la parroquia"}`);
+  } else {
+    me.followedParishes.push(pid);
+    toast(`¡Te sumaste a la comunidad de ${p ? p.nombre : "la parroquia"}!`);
+  }
+  saveSocialDB();
+
+  // Actualiza barra de seguimiento en la ficha si está abierta
+  const btn = $("#btn-follow-parish");
+  const countEl = $("#d-parish-followers");
+  if (btn && String(btn.dataset.followParish) === pid) {
+    const nowFollowing = isCurrentUserFollowingParish(pid);
+    btn.classList.toggle("is-following", nowFollowing);
+    btn.innerHTML = `<span>${nowFollowing ? "Siguiendo Parroquia ✓" : "+ Seguir Parroquia"}</span>`;
+  }
+  if (countEl) {
+    countEl.textContent = String(getParishFollowersCount(pid));
+  }
+
+  if (state.view === "community") renderCommunityView();
+  if (state.view === "profile") renderProfileView();
+}
+
+/* --- Seguimiento de Actividades y Grupos Parroquiales --- */
+function isCurrentUserInActivity(activityId) {
+  const me = getCurrentUserObj();
+  if (!me || !Array.isArray(me.joinedActivities)) return false;
+  return me.joinedActivities.includes(String(activityId));
+}
+
+function findActivityById(activityId) {
+  for (let i = 0; i < PARISHES.length; i++) {
+    const acts = getParishActivities(PARISHES[i]);
+    const match = acts.find(a => a.id === activityId);
+    if (match) return match;
+  }
+  return null;
+}
+
+function toggleFollowActivity(activityId) {
+  const me = requireAuth("sumarte a un grupo o actividad parroquial");
+  if (!me) return;
+  if (!Array.isArray(me.joinedActivities)) me.joinedActivities = [];
+
+  const act = findActivityById(activityId);
+  const idx = me.joinedActivities.indexOf(activityId);
+  if (idx >= 0) {
+    me.joinedActivities.splice(idx, 1);
+    toast(`Saliste de ${act ? act.nombre : "la actividad"}`);
+  } else {
+    me.joinedActivities.push(activityId);
+    toast(`¡Ahora participás en ${act ? act.nombre : "la actividad"}!`);
+  }
+  saveSocialDB();
+
+  if (state.current && $("#d-activities-grid")) {
+    $("#d-activities-grid").innerHTML = renderActivitiesCardsHtml(state.current);
+  }
+  if (state.view === "profile") renderProfileView();
+}
+
+function normalizeSocialHandleUrl(handleOrUrl, platform) {
+  const raw = String(handleOrUrl || "").trim();
+  if (!raw) return "";
+  if (/^https?:\/\//i.test(raw)) return raw;
+  const cleanHandle = raw.replace(/^@+/, "");
+  if (!cleanHandle) return "";
+  return platform === "twitter"
+    ? `https://x.com/${encodeURIComponent(cleanHandle)}`
+    : `https://instagram.com/${encodeURIComponent(cleanHandle)}`;
+}
+
+function renderActivitiesCardsHtml(p) {
+  const activities = getParishActivities(p);
+  return activities.map(act => {
+    const joined = isCurrentUserInActivity(act.id);
+    const igUrl = normalizeSocialHandleUrl(act.instagram, "instagram");
+    return `
+      <div class="activity-card">
+        <div class="activity-top">
+          <span class="activity-cat">${act.categoria}</span>
+          <small style="color:var(--muted);font-weight:600">${act.horario || ""}</small>
+        </div>
+        <h4>${act.nombre}</h4>
+        <p class="activity-desc">${act.descripcion}</p>
+        <div class="activity-foot">
+          ${igUrl ? `<a class="activity-ig" href="${igUrl}" target="_blank" rel="noopener noreferrer">📸 ${act.instagram}</a>` : `<span></span>`}
+          <button type="button" class="btn-follow-activity ${joined ? "is-joined" : ""}" data-follow-activity="${act.id}">
+            ${joined ? "Participando ✓" : "+ Seguir Actividad"}
+          </button>
+        </div>
+      </div>`;
+  }).join("");
+}
+
+function bindDetailSocialEvents(p) {
+  const sheetBody = $("#d-body");
+  if (!sheetBody) return;
+
+  const followParishBtn = $("#btn-follow-parish");
+  if (followParishBtn) {
+    followParishBtn.onclick = () => toggleFollowParish(p.id);
+  }
+
+  // Pestañas internas en la ficha: Horarios y Misa vs Actividades / Grupos
+  sheetBody.querySelectorAll("[data-sheet-sec]").forEach(tabBtn => {
+    tabBtn.onclick = () => {
+      const targetSec = tabBtn.dataset.sheetSec;
+      sheetBody.querySelectorAll("[data-sheet-sec]").forEach(b => {
+        b.classList.toggle("is-active", b.dataset.sheetSec === targetSec);
+      });
+      const secHorarios = $("#d-sec-horarios");
+      const secAct = $("#d-sec-actividades");
+      if (targetSec === "actividades" && secAct) {
+        secAct.scrollIntoView({ behavior: "smooth", block: "start" });
+      } else if (secHorarios) {
+        secHorarios.scrollIntoView({ behavior: "smooth", block: "start" });
+      }
+    };
+  });
+
+  const actGrid = $("#d-activities-grid");
+  if (actGrid) {
+    actGrid.onclick = (e) => {
+      const btn = e.target.closest("[data-follow-activity]");
+      if (btn) {
+        toggleFollowActivity(btn.dataset.followActivity);
+      }
+    };
+  }
+}
+
+/* --- Renderizado de la Vista Comunidad (Feed Twitter + Ranking + Personas) --- */
+function renderCommunityView() {
+  const container = $("#community-content");
+  if (!container) return;
+
+  $$("#community-subtabs [data-comm-tab]").forEach(btn => {
+    const active = btn.dataset.commTab === state.commTab;
+    btn.classList.toggle("is-active", active);
+    btn.setAttribute("aria-selected", String(active));
+  });
+
+  if (state.commTab === "ranking") {
+    container.innerHTML = renderRankingSectionHtml();
+    return;
+  }
+
+  if (state.commTab === "people") {
+    container.innerHTML = renderPeopleDirectoryHtml();
+    return;
+  }
+
+  const me = getCurrentUserObj();
+  const followersCount = me ? getFollowersOfUser(me.username).length : 0;
+  const followingCount = me ? (me.followingUsers || []).length : 0;
+  const friendsCount = me ? getFriendsOfUser(me.username).length : 0;
+
+  const statsBarHtml = me ? `
+    <div class="social-stats-bar" aria-label="Tus estadísticas comunitarias">
+      <div class="stat-box"><strong>${followersCount}</strong><span>Seguidores</span></div>
+      <div class="stat-box"><strong>${followingCount}</strong><span>Seguidos</span></div>
+      <div class="stat-box"><strong>${friendsCount}</strong><span>🤝 Amigos</span></div>
+    </div>` : "";
+
+  const composerHtml = me ? `
+    <form class="composer-card" id="social-post-form">
+      <div class="composer-top">
+        <div class="avatar-circle">${renderAvatarContent(me)}</div>
+        <textarea class="composer-input" id="social-post-text" maxlength="280" required placeholder="¿Qué está pasando en tu parroquia, coro o grupo misionero?"></textarea>
+      </div>
+      <div class="composer-foot">
+        <select class="composer-select" id="social-post-parish" aria-label="Vincular parroquia opcional">
+          <option value="">📍 Vincular parroquia (opcional)</option>
+          ${PARISHES.map(p => `<option value="${p.id}">${p.nombre} (${p.barrio})</option>`).join("")}
+        </select>
+        <button type="submit" class="btn-post">Publicar</button>
+      </div>
+    </form>` : `
+    <div class="composer-card guest-invite">
+      <p><strong>Navegación libre activa.</strong> Para publicar mensajes cortos, seguir usuarios o sumarte a actividades, iniciá sesión con tu perfil local.</p>
+      <button type="button" class="btn-post" data-go-login="true">Iniciar sesión / Crear cuenta</button>
+    </div>`;
+
+  let posts = [...socialDB.posts].sort((a, b) => b.createdAt - a.createdAt);
+  if (state.commTab === "following") {
+    if (!me) {
+      container.innerHTML = composerHtml + `
+        <div class="empty">
+          <strong>Iniciá sesión para ver a quiénes seguís</strong>
+          En el Muro General podés leer todos los mensajes de la comunidad libremente.
+        </div>`;
+      return;
+    }
+    const allowedAuthors = new Set([me.username, ...(me.followingUsers || [])]);
+    posts = posts.filter(post => allowedAuthors.has(post.author));
+  }
+
+  const postsHtml = posts.length ? posts.map(post => {
+    const author = socialDB.users[post.author] || {
+      username: post.author,
+      apodo: post.author,
+      avatarIcon: "✝️"
+    };
+    const parish = post.parishId ? PARISHES.find(x => String(x.id) === String(post.parishId)) : null;
+    const isMe = me && me.username === author.username;
+    const isMutual = me && areFriends(me.username, author.username);
+    const followsMe = me && isFollowingUser(author.username, me.username) && !isMutual;
+    const amFollowing = me && isFollowingUser(me.username, author.username);
+    const liked = me && Array.isArray(post.likes) && post.likes.includes(me.username);
+    const likesCount = Array.isArray(post.likes) ? post.likes.length : 0;
+
+    return `
+      <article class="post-card">
+        <div class="post-head">
+          <button type="button" class="post-author" data-open-user="${author.username}">
+            <div class="avatar-circle">${renderAvatarContent(author)}</div>
+            <div class="post-author-info">
+              <div class="post-author-name">
+                <span>${author.apodo}</span>
+                ${isMutual ? `<span class="friend-badge">🤝 Amigos</span>` : ""}
+                ${followsMe ? `<span class="follows-you-tag">Te sigue</span>` : ""}
+              </div>
+              <div class="post-author-handle">@${author.username} · ${formatRelativeMinutes(post.createdAt)}</div>
+            </div>
+          </button>
+          ${!isMe ? `
+            <button type="button" class="btn-follow-sm ${amFollowing ? "is-following" : ""}" data-follow-user="${author.username}">
+              ${amFollowing ? "Siguiendo" : "+ Seguir"}
+            </button>` : ""}
+        </div>
+        ${parish ? `
+          <button type="button" class="post-parish-tag" data-open-parish="${parish.id}">
+            ⛪ ${parish.nombre}
+          </button>` : ""}
+        <p class="post-body">${post.text}</p>
+        <div class="post-foot">
+          <button type="button" class="post-amen-btn ${liked ? "liked" : ""}" data-like-post="${post.id}">
+            <span>🙏 Amén / Apoyar</span>
+            <strong>${likesCount}</strong>
+          </button>
+          <button type="button" style="font-weight:600;color:var(--brand)" data-open-user="${author.username}">
+            Ver perfil y grupos →
+          </button>
+        </div>
+      </article>`;
+  }).join("") : `
+    <div class="empty">
+      <strong>Todavía no hay mensajes en esta vista</strong>
+      Seguí a más miembros en la pestaña "Personas y Amigos" o publicá el primer mensaje.
+    </div>`;
+
+  container.innerHTML = `${statsBarHtml}${composerHtml}<div class="feed-list">${postsHtml}</div>`;
+}
+
+function renderRankingSectionHtml() {
+  const ranked = [...PARISHES]
+    .map(p => ({
+      parish: p,
+      followers: getParishFollowersCount(p.id),
+      groupsCount: getParishActivities(p).length
+    }))
+    .sort((a, b) => b.followers - a.followers);
+
+  return `
+    <div class="ranking-list">
+      ${ranked.map((item, idx) => {
+        const p = item.parish;
+        const pos = idx + 1;
+        const isFollowing = isCurrentUserFollowingParish(p.id);
+        const region = p._region || inferRegion(p);
+        return `
+          <div class="ranking-card ${pos <= 3 ? "top-3" : ""}">
+            <div class="rank-num">#${pos}</div>
+            <button type="button" class="ranking-info" data-open-parish="${p.id}">
+              <h3>${p.nombre}</h3>
+              <div class="ranking-meta">
+                <span class="ranking-followers">👥 ${item.followers} seguidores</span>
+                <span>· ${p.barrio} (${region})</span>
+                <span>· ${item.groupsCount} grupos activos</span>
+              </div>
+            </button>
+            <div class="ranking-actions">
+              <button type="button" class="btn-follow-sm ${isFollowing ? "is-following" : ""}" data-follow-parish-rank="${p.id}">
+                ${isFollowing ? "Siguiendo ✓" : "+ Seguir"}
+              </button>
+            </div>
+          </div>`;
+      }).join("")}
+    </div>`;
+}
+
+function renderPeopleDirectoryHtml() {
+  const me = getCurrentUserObj();
+  const usersList = Object.values(socialDB.users);
+
+  return `
+    <div class="feed-list">
+      ${usersList.map(u => {
+        const isMe = me && me.username === u.username;
+        const isMutual = me && areFriends(me.username, u.username);
+        const followsMe = me && isFollowingUser(u.username, me.username) && !isMutual;
+        const amFollowing = me && isFollowingUser(me.username, u.username);
+        const followersCount = getFollowersOfUser(u.username).length;
+        const followingCount = (u.followingUsers || []).length;
+
+        return `
+          <div class="post-card">
+            <div class="post-head">
+              <button type="button" class="post-author" data-open-user="${u.username}">
+                <div class="avatar-circle">${renderAvatarContent(u)}</div>
+                <div class="post-author-info">
+                  <div class="post-author-name">
+                    <span>${u.apodo}</span>
+                    ${isMe ? `<span class="follows-you-tag">Vos</span>` : ""}
+                    ${isMutual ? `<span class="friend-badge">🤝 Amigos</span>` : ""}
+                    ${followsMe ? `<span class="follows-you-tag">Te sigue</span>` : ""}
+                  </div>
+                  <div class="post-author-handle">@${u.username} · ${followersCount} seguidores · ${followingCount} seguidos</div>
+                </div>
+              </button>
+              ${!isMe ? `
+                <button type="button" class="btn-follow-sm ${amFollowing ? "is-following" : ""}" data-follow-user="${u.username}">
+                  ${amFollowing ? "Siguiendo" : "+ Seguir"}
+                </button>` : ""}
+            </div>
+            <p class="post-body" style="margin-bottom:8px">${u.bio || "Miembro de la comunidad parroquial."}</p>
+            <div class="post-foot">
+              <span>⛪ ${(u.followedParishes || []).length} parroquias · 🤝 ${(u.joinedActivities || []).length} grupos</span>
+              <button type="button" style="font-weight:600;color:var(--brand)" data-open-user="${u.username}">
+                Ver perfil completo →
+              </button>
+            </div>
+          </div>`;
+      }).join("")}
+    </div>`;
+}
+
+/* --- Renderizado de Perfil Público (Modal y Vista de Mi Perfil) --- */
+function renderUserPublicCardHtml(u, isOwnProfile = false) {
+  const me = getCurrentUserObj();
+  const isMutual = me && !isOwnProfile && areFriends(me.username, u.username);
+  const followsMe = me && !isOwnProfile && isFollowingUser(u.username, me.username) && !isMutual;
+  const amFollowing = me && !isOwnProfile && isFollowingUser(me.username, u.username);
+
+  const followers = getFollowersOfUser(u.username);
+  const following = u.followingUsers || [];
+  const friends = getFriendsOfUser(u.username);
+
+  const igUrl = normalizeSocialHandleUrl(u.instagram, "instagram");
+  const twUrl = normalizeSocialHandleUrl(u.twitter, "twitter");
+
+  const followedParishesObjs = (u.followedParishes || [])
+    .map(pid => PARISHES.find(p => String(p.id) === String(pid)))
+    .filter(Boolean);
+
+  const joinedActivitiesObjs = (u.joinedActivities || [])
+    .map(aid => findActivityById(aid))
+    .filter(Boolean);
+
+  return `
+    <div class="profile-card">
+      <div class="profile-hero">
+        <div class="avatar-circle lg">${renderAvatarContent(u)}</div>
+        <div class="profile-hero-info">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <h2>${u.apodo}</h2>
+            ${isMutual ? `<span class="friend-badge">🤝 Amigos</span>` : ""}
+            ${followsMe ? `<span class="follows-you-tag">Te sigue</span>` : ""}
+          </div>
+          <div class="profile-handle">@${u.username}</div>
+        </div>
+        ${!isOwnProfile ? `
+          <button type="button" class="btn-follow-parish ${amFollowing ? "is-following" : ""}" data-follow-user="${u.username}">
+            ${amFollowing ? "Siguiendo ✓" : "+ Seguir"}
+          </button>` : ""}
+      </div>
+
+      <p class="profile-bio">${u.bio || "Sin biografía cargada todavía."}</p>
+
+      ${(igUrl || twUrl) ? `
+        <div class="social-links-row">
+          ${igUrl ? `<a class="social-link-pill" href="${igUrl}" target="_blank" rel="noopener noreferrer">📸 Instagram: ${u.instagram}</a>` : ""}
+          ${twUrl ? `<a class="social-link-pill" href="${twUrl}" target="_blank" rel="noopener noreferrer">🐦 Twitter/X: ${u.twitter}</a>` : ""}
+        </div>` : ""}
+
+      <div class="social-stats-bar" style="margin-bottom:6px">
+        <div class="stat-box"><strong>${followers.length}</strong><span>Seguidores</span></div>
+        <div class="stat-box"><strong>${following.length}</strong><span>Seguidos</span></div>
+        <div class="stat-box"><strong>${friends.length}</strong><span>🤝 Amigos</span></div>
+      </div>
+
+      <div class="profile-section-title">⛪ Parroquias que sigue (${followedParishesObjs.length})</div>
+      <div class="membership-list">
+        ${followedParishesObjs.length
+          ? followedParishesObjs.map(p => `
+              <button type="button" class="membership-chip" data-open-parish="${p.id}">
+                <span>⛪ <strong>${p.nombre}</strong> <small>(${p.barrio})</small></span>
+              </button>`).join("")
+          : `<span class="note" style="margin:0">Todavía no sigue ninguna parroquia.</span>`}
+      </div>
+
+      <div class="profile-section-title">🙌 Grupos y Actividades Parroquiales (${joinedActivitiesObjs.length})</div>
+      <div class="membership-list">
+        ${joinedActivitiesObjs.length
+          ? joinedActivitiesObjs.map(act => `
+              <button type="button" class="membership-chip" data-open-parish="${act.parishId}">
+                <span>✨ <strong>${act.nombre}</strong> <small>· ${act.parishName}</small></span>
+              </button>`).join("")
+          : `<span class="note" style="margin:0">Todavía no participa en grupos parroquiales.</span>`}
+      </div>
+    </div>`;
+}
+
+function openPublicProfile(username) {
+  const u = socialDB.users[username];
+  if (!u) return;
+  const modal = $("#public-profile-modal");
+  const body = $("#public-profile-body");
+  if (!modal || !body) return;
+
+  const me = getCurrentUserObj();
+  body.innerHTML = renderUserPublicCardHtml(u, Boolean(me && me.username === u.username));
+  modal.hidden = false;
+}
+
+function closePublicProfileModal() {
+  const modal = $("#public-profile-modal");
+  if (modal) modal.hidden = true;
+}
+
+function renderProfileView() {
+  const container = $("#profile-content");
+  if (!container) return;
+
+  const me = getCurrentUserObj();
+  if (!me) {
+    container.innerHTML = `
+      <div class="profile-card">
+        <h2 style="font-family:var(--serif);font-size:1.45rem;margin-bottom:6px">Ingresar o Crear Cuenta Local</h2>
+        <p class="modal-sub">El uso del mapa, buscador y horarios es 100% libre. Iniciá sesión solo si querés publicar en el muro, seguir parroquias o sumarte a actividades.</p>
+
+        <form id="user-auth-form" class="admin-edit-form">
+          <div class="form-row-2">
+            <div class="form-field">
+              <label for="u-username">Usuario (sin espacios)</label>
+              <input id="u-username" type="text" required placeholder="ej: maria.flores" autocomplete="username">
+            </div>
+            <div class="form-field">
+              <label for="u-password">Contraseña</label>
+              <input id="u-password" type="password" required placeholder="••••" autocomplete="current-password">
+            </div>
+          </div>
+          <div class="form-field">
+            <label for="u-apodo">Apodo / Nombre visible (al registrarte)</label>
+            <input id="u-apodo" type="text" placeholder="Ej.: María Flores">
+          </div>
+          <div class="form-actions">
+            <button type="submit" class="btn-sm submit">Ingresar / Registrarme</button>
+          </div>
+        </form>
+
+        <div class="profile-section-title" style="margin-top:18px">Cuentas de prueba rápida (1 toque)</div>
+        <div class="demo-accounts">
+          <button type="button" class="demo-pill" data-demo-login="martina.recoleta">🎵 Martina (@martina.recoleta)</button>
+          <button type="button" class="demo-pill" data-demo-login="padre.tomas">✝️ P. Tomás (@padre.tomas)</button>
+          <button type="button" class="demo-pill" data-demo-login="lucas.coro">🕯️ Lucas (@lucas.coro)</button>
+        </div>
+      </div>`;
+    return;
+  }
+
+  const currentIcon = me.avatarIcon || "✝️";
+  container.innerHTML = `
+    ${renderUserPublicCardHtml(me, true)}
+
+    <div class="profile-card">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
+        <h3 style="font-size:1.05rem;font-weight:600">Editar Mi Perfil</h3>
+        <button type="button" class="admin-logout-btn" id="btn-user-logout">Cerrar sesión</button>
+      </div>
+      <form id="profile-edit-form" class="admin-edit-form">
+        <div class="form-field">
+          <label for="p-apodo">Apodo / Nombre público</label>
+          <input id="p-apodo" type="text" required value="${me.apodo || ""}">
+        </div>
+        <div class="form-field">
+          <label for="p-bio">Biografía corta</label>
+          <textarea id="p-bio" rows="2" maxlength="180" placeholder="Contá a qué parroquia asistís o en qué grupo participás">${me.bio || ""}</textarea>
+        </div>
+        <div class="form-field">
+          <label>Ícono de perfil</label>
+          <input type="hidden" id="p-avatar-icon" value="${currentIcon}">
+          <div class="avatar-picker" id="p-avatar-picker">
+            ${AVATAR_PRESETS.map(ic => `
+              <button type="button" class="avatar-opt ${ic === currentIcon ? "is-selected" : ""}" data-pick-icon="${ic}">${ic}</button>
+            `).join("")}
+          </div>
+        </div>
+        <div class="form-field">
+          <label for="p-avatar-url">O URL de foto de perfil (opcional)</label>
+          <input id="p-avatar-url" type="url" value="${me.avatarUrl || ""}" placeholder="https://...">
+        </div>
+        <div class="form-row-2">
+          <div class="form-field">
+            <label for="p-ig">Instagram</label>
+            <input id="p-ig" type="text" value="${me.instagram || ""}" placeholder="@tu.usuario">
+          </div>
+          <div class="form-field">
+            <label for="p-tw">Twitter / X</label>
+            <input id="p-tw" type="text" value="${me.twitter || ""}" placeholder="@tu_usuario">
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="submit" class="btn-sm submit">Guardar Perfil</button>
+        </div>
+      </form>
+    </div>`;
+}
+
 let toastTimer;
 function toast(msg) {
   const t = $("#toast");
@@ -2129,12 +3011,216 @@ function bindAppEvents() {
   $("#chips")?.addEventListener("click", e => {
     const b = e.target.closest(".chip");
     if (!b) return;
+    if ("openRanking" in b.dataset) {
+      state.commTab = "ranking";
+      switchView("community");
+      return;
+    }
     if ("now" in b.dataset) state.soloNow = !state.soloNow;
     else if ("fav" in b.dataset) state.soloFav = !state.soloFav;
     else state.barrio = state.barrio === b.dataset.barrio ? null : b.dataset.barrio;
     state.visibleLimit = PAGE_SIZE;
     renderChips();
     renderList();
+  });
+
+  // Botón superior de cuenta/perfil
+  $("#header-user-btn")?.addEventListener("click", () => switchView("profile"));
+
+  // Sub-pestañas de la vista Comunidad (Muro, Siguiendo, Ranking, Personas)
+  $("#community-subtabs")?.addEventListener("click", e => {
+    const btn = e.target.closest("[data-comm-tab]");
+    if (!btn) return;
+    state.commTab = btn.dataset.commTab;
+    renderCommunityView();
+  });
+
+  // Delegación de eventos en la vista Comunidad (publicar, apoyar, seguir usuario/parroquia, ver perfil/parroquia)
+  $("#community-content")?.addEventListener("submit", e => {
+    if (e.target && e.target.id === "social-post-form") {
+      e.preventDefault();
+      const me = requireAuth("publicar un mensaje");
+      if (!me) return;
+      const textEl = $("#social-post-text");
+      const parishEl = $("#social-post-parish");
+      const text = textEl ? textEl.value.trim() : "";
+      if (!text) return;
+
+      socialDB.posts.unshift({
+        id: "post_" + Date.now(),
+        author: me.username,
+        parishId: parishEl ? parishEl.value : "",
+        text,
+        createdAt: Date.now(),
+        likes: []
+      });
+      saveSocialDB();
+      renderCommunityView();
+      toast("Mensaje publicado en la comunidad");
+    }
+  });
+
+  $("#community-content")?.addEventListener("click", e => {
+    const goLogin = e.target.closest("[data-go-login]");
+    if (goLogin) {
+      switchView("profile");
+      return;
+    }
+    const openUserBtn = e.target.closest("[data-open-user]");
+    if (openUserBtn) {
+      openPublicProfile(openUserBtn.dataset.openUser);
+      return;
+    }
+    const followUserBtn = e.target.closest("[data-follow-user]");
+    if (followUserBtn) {
+      toggleFollowUser(followUserBtn.dataset.followUser);
+      return;
+    }
+    const openParishBtn = e.target.closest("[data-open-parish]");
+    if (openParishBtn) {
+      openDetail(openParishBtn.dataset.openParish);
+      return;
+    }
+    const followRankBtn = e.target.closest("[data-follow-parish-rank]");
+    if (followRankBtn) {
+      toggleFollowParish(followRankBtn.dataset.followParishRank);
+      return;
+    }
+    const likeBtn = e.target.closest("[data-like-post]");
+    if (likeBtn) {
+      const me = requireAuth("apoyar una publicación");
+      if (!me) return;
+      const post = socialDB.posts.find(x => x.id === likeBtn.dataset.likePost);
+      if (!post) return;
+      if (!Array.isArray(post.likes)) post.likes = [];
+      const idx = post.likes.indexOf(me.username);
+      if (idx >= 0) post.likes.splice(idx, 1);
+      else post.likes.push(me.username);
+      saveSocialDB();
+      renderCommunityView();
+    }
+  });
+
+  // Delegación de eventos en la vista Perfil / Cuenta (Login, Registro, Demo, Editar Perfil)
+  $("#profile-content")?.addEventListener("submit", e => {
+    if (e.target && e.target.id === "user-auth-form") {
+      e.preventDefault();
+      const rawUser = ($("#u-username")?.value || "").trim().toLowerCase().replace(/[^a-z0-9._-]/g, "");
+      const pass = ($("#u-password")?.value || "").trim();
+      const apodoInput = ($("#u-apodo")?.value || "").trim();
+      if (!rawUser || !pass) return;
+
+      const existing = socialDB.users[rawUser];
+      if (existing) {
+        if (existing.password && existing.password !== pass) {
+          toast("Contraseña incorrecta para @" + rawUser);
+          return;
+        }
+        socialDB.currentUser = rawUser;
+        saveSocialDB();
+        syncHeaderUserPill();
+        renderProfileView();
+        toast(`¡Hola de nuevo, ${existing.apodo}!`);
+      } else {
+        socialDB.users[rawUser] = {
+          username: rawUser,
+          password: pass,
+          apodo: apodoInput || rawUser,
+          bio: "Miembro de la comunidad parroquial en Buenos Aires.",
+          avatarIcon: "✝️",
+          avatarUrl: "",
+          instagram: "",
+          twitter: "",
+          followingUsers: ["padre.tomas"],
+          followedParishes: ["1"],
+          joinedActivities: ["act_1_oracion"]
+        };
+        // @martina.recoleta y @padre.tomas siguen de bienvenida al nuevo usuario para que al seguirlos se forme la relación "Amigos"
+        ["martina.recoleta", "padre.tomas"].forEach(seedHandle => {
+          const seedU = socialDB.users[seedHandle];
+          if (seedU && Array.isArray(seedU.followingUsers) && !seedU.followingUsers.includes(rawUser)) {
+            seedU.followingUsers.push(rawUser);
+          }
+        });
+        socialDB.currentUser = rawUser;
+        saveSocialDB();
+        syncHeaderUserPill();
+        renderProfileView();
+        toast(`¡Cuenta creada! Bienvenido/a, ${socialDB.users[rawUser].apodo}`);
+      }
+      return;
+    }
+
+    if (e.target && e.target.id === "profile-edit-form") {
+      e.preventDefault();
+      const me = getCurrentUserObj();
+      if (!me) return;
+      me.apodo = ($("#p-apodo")?.value || "").trim() || me.username;
+      me.bio = ($("#p-bio")?.value || "").trim();
+      me.avatarIcon = ($("#p-avatar-icon")?.value || "✝️").trim();
+      me.avatarUrl = ($("#p-avatar-url")?.value || "").trim();
+      me.instagram = ($("#p-ig")?.value || "").trim();
+      me.twitter = ($("#p-tw")?.value || "").trim();
+      saveSocialDB();
+      syncHeaderUserPill();
+      renderProfileView();
+      toast("Perfil actualizado correctamente");
+    }
+  });
+
+  $("#profile-content")?.addEventListener("click", e => {
+    const demoBtn = e.target.closest("[data-demo-login]");
+    if (demoBtn) {
+      const handle = demoBtn.dataset.demoLogin;
+      if (socialDB.users[handle]) {
+        socialDB.currentUser = handle;
+        saveSocialDB();
+        syncHeaderUserPill();
+        renderProfileView();
+        toast(`Sesión iniciada como ${socialDB.users[handle].apodo}`);
+      }
+      return;
+    }
+    const logoutBtn = e.target.closest("#btn-user-logout");
+    if (logoutBtn) {
+      socialDB.currentUser = null;
+      saveSocialDB();
+      syncHeaderUserPill();
+      renderProfileView();
+      toast("Sesión comunitaria cerrada");
+      return;
+    }
+    const pickIcon = e.target.closest("[data-pick-icon]");
+    if (pickIcon) {
+      const icon = pickIcon.dataset.pickIcon;
+      const hiddenInput = $("#p-avatar-icon");
+      if (hiddenInput) hiddenInput.value = icon;
+      $$("#p-avatar-picker [data-pick-icon]").forEach(b => {
+        b.classList.toggle("is-selected", b.dataset.pickIcon === icon);
+      });
+      return;
+    }
+    const openParishBtn = e.target.closest("[data-open-parish]");
+    if (openParishBtn) {
+      openDetail(openParishBtn.dataset.openParish);
+    }
+  });
+
+  // Modal de Perfil Público de cualquier usuario
+  $("#btn-close-pub-profile")?.addEventListener("click", closePublicProfileModal);
+  $("#public-profile-body")?.addEventListener("click", e => {
+    const followUserBtn = e.target.closest("[data-follow-user]");
+    if (followUserBtn) {
+      const targetHandle = followUserBtn.dataset.followUser;
+      toggleFollowUser(targetHandle);
+      openPublicProfile(targetHandle);
+      return;
+    }
+    const openParishBtn = e.target.closest("[data-open-parish]");
+    if (openParishBtn) {
+      closePublicProfileModal();
+      openDetail(openParishBtn.dataset.openParish);
+    }
   });
 
   $("#btn-load-more")?.addEventListener("click", () => {
@@ -2183,6 +3269,7 @@ function bindAppEvents() {
 
   document.addEventListener("keydown", e => {
     if (e.key === "Escape") {
+      if ($("#public-profile-modal") && !$("#public-profile-modal").hidden) return closePublicProfileModal();
       if ($("#admin-edit-modal") && !$("#admin-edit-modal").hidden) return closeParishEditor();
       if ($("#admin-login-modal") && !$("#admin-login-modal").hidden) return closeAdminLoginModal();
       closeDetail();
@@ -2195,9 +3282,12 @@ function bootstrapApp() {
   appInitialized = true;
   bindAppEvents();
   syncAdminUI();
+  syncHeaderUserPill();
   renderZoneSelector();
   renderChips();
   renderList();
+  renderCommunityView();
+  renderProfileView();
   loadParishes();
 }
 

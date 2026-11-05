@@ -20,16 +20,29 @@ button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
 :focus-visible{outline:3px solid var(--brand);outline-offset:2px}
 [hidden]{display:none!important}
 
-/* ============ Sistema de Vistas (Listado vs Mapa Completo) ============ */
+/* ============ Sistema de Vistas (Listado, Mapa, Comunidad y Perfil) ============ */
 .view-panel{opacity:0;visibility:hidden;pointer-events:none;transition:opacity .22s var(--ease),visibility .22s}
 .view-panel.is-active{opacity:1;visibility:visible;pointer-events:auto}
-#view-list:not(.is-active){display:none}
+#view-list:not(.is-active),
+#view-community:not(.is-active),
+#view-profile:not(.is-active){display:none}
+body[data-active-view="community"] .fab-near,
+body[data-active-view="profile"] .fab-near{opacity:0;pointer-events:none}
 
-/* ============ Layout de Vista Listado ============ */
+/* ============ Layout de Vistas ============ */
 .app{max-width:640px;margin:0 auto;padding:0 16px calc(var(--nav-h) + 96px + env(safe-area-inset-bottom,0px))}
 header{padding:24px 4px 12px}
+.app-header{display:flex;align-items:flex-start;justify-content:space-between;gap:12px}
 h1{font-family:var(--serif);font-weight:600;font-size:1.95rem;letter-spacing:-.02em;line-height:1.1}
 .sub{color:var(--muted);margin-top:4px;font-size:.95rem}
+.header-user-pill{flex:none;height:38px;padding:0 12px 0 8px;border-radius:var(--r-pill);
+  border:1px solid var(--line);background:var(--surface);display:inline-flex;align-items:center;gap:7px;
+  font-size:.82rem;font-weight:600;color:var(--ink);box-shadow:0 2px 8px rgba(20,24,31,.05);
+  transition:border-color .15s,background .15s}
+.header-user-pill:hover{border-color:var(--brand);background:var(--brand-soft)}
+.header-user-avatar{width:24px;height:24px;border-radius:50%;background:var(--brand-soft);
+  color:var(--brand);display:grid;place-items:center;font-size:.85rem;overflow:hidden;flex:none}
+.header-user-avatar img{width:100%;height:100%;object-fit:cover}
 
 /* ============ Panel de Administración ============ */
 .admin-panel{background:var(--surface);border:1px solid rgba(36,59,143,.25);border-radius:var(--r-md);
@@ -417,6 +430,141 @@ body.open .sheet{transform:none;visibility:visible}
 .modal-error{background:var(--danger-soft);color:var(--danger);border-radius:10px;
   padding:9px 12px;font-size:.82rem;font-weight:500;margin-top:10px}
 .admin-edit-form{display:grid;gap:11px;margin-top:6px}
+
+/* ============ Ecosistema Social: Comunidad, Feed, Ranking y Grupos ============ */
+.community-subnav{display:flex;gap:8px;overflow-x:auto;padding:4px 0 12px;scrollbar-width:none;
+  position:sticky;top:0;z-index:380;background:linear-gradient(var(--bg) 90%,transparent)}
+.community-subnav::-webkit-scrollbar{display:none}
+.comm-tab{flex:none;height:38px;padding:0 15px;border-radius:var(--r-pill);border:1px solid var(--line);
+  background:var(--surface);color:var(--muted);font-size:.85rem;font-weight:600;transition:all .15s}
+.comm-tab.is-active{background:var(--brand);border-color:var(--brand);color:#fff}
+
+.social-stats-bar{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.stat-box{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);
+  padding:10px 8px;text-align:center}
+.stat-box strong{display:block;font-size:1.1rem;font-weight:600;color:var(--ink);font-variant-numeric:tabular-nums}
+.stat-box span{font-size:.75rem;color:var(--muted);font-weight:500}
+
+.composer-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);
+  padding:16px;margin-bottom:14px;box-shadow:0 4px 16px rgba(20,24,31,.04)}
+.composer-top{display:flex;gap:12px;align-items:flex-start}
+.avatar-circle{width:42px;height:42px;border-radius:50%;background:var(--brand-soft);color:var(--brand);
+  border:1px solid rgba(36,59,143,.18);display:grid;place-items:center;font-size:1.25rem;flex:none;overflow:hidden}
+.avatar-circle.lg{width:64px;height:64px;font-size:1.85rem}
+.avatar-circle img{width:100%;height:100%;object-fit:cover}
+.composer-input{width:100%;border:1px solid var(--line);border-radius:12px;background:var(--bg);
+  padding:10px 12px;font:inherit;font-size:.93rem;color:var(--ink);resize:none;min-height:70px}
+.composer-input:focus{outline:none;border-color:var(--brand);background:var(--surface);box-shadow:0 0 0 3px var(--brand-soft)}
+.composer-foot{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:10px;flex-wrap:wrap}
+.composer-select{flex:1;min-width:170px;height:36px;border:1px solid var(--line);border-radius:10px;
+  background:var(--bg);padding:0 10px;font:inherit;font-size:.81rem;color:var(--ink)}
+.btn-post{height:36px;padding:0 16px;border-radius:var(--r-pill);background:var(--brand);color:#fff;
+  font-size:.84rem;font-weight:600;transition:transform .12s}
+.btn-post:active{transform:scale(.96)}
+
+.guest-invite{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+.guest-invite p{font-size:.88rem;color:var(--muted);flex:1;min-width:200px}
+
+.feed-list{display:grid;gap:12px}
+.post-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);padding:16px}
+.post-head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.post-author{display:flex;align-items:center;gap:10px;text-align:left;min-width:0}
+.post-author-info{min-width:0}
+.post-author-name{font-size:.93rem;font-weight:600;color:var(--ink);display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+.post-author-handle{font-size:.78rem;color:var(--muted)}
+.friend-badge{display:inline-flex;align-items:center;gap:3px;font-size:.7rem;font-weight:600;
+  padding:2px 8px;border-radius:var(--r-pill);background:var(--ok-soft);color:var(--ok);
+  border:1px solid rgba(22,101,52,.22)}
+.follows-you-tag{font-size:.69rem;font-weight:600;padding:1px 7px;border-radius:var(--r-pill);
+  background:var(--bg);color:var(--muted);border:1px solid var(--line)}
+.btn-follow-sm{height:30px;padding:0 12px;border-radius:var(--r-pill);font-size:.76rem;font-weight:600;
+  border:1px solid var(--brand);color:var(--brand);background:var(--surface);flex:none;transition:all .15s}
+.btn-follow-sm.is-following{background:var(--brand-soft);border-color:rgba(36,59,143,.28)}
+.post-body{font-size:.94rem;color:var(--ink);line-height:1.45;margin-bottom:10px;white-space:pre-wrap}
+.post-parish-tag{display:inline-flex;align-items:center;gap:5px;font-size:.76rem;font-weight:600;
+  color:var(--brand);background:var(--brand-soft);padding:3px 10px;border-radius:var(--r-pill);margin-bottom:10px}
+.post-foot{display:flex;align-items:center;justify-content:space-between;padding-top:8px;border-top:1px solid var(--line);
+  font-size:.78rem;color:var(--muted)}
+.post-amen-btn{display:inline-flex;align-items:center;gap:5px;font-size:.8rem;font-weight:600;
+  color:var(--muted);padding:4px 10px;border-radius:var(--r-pill);border:1px solid var(--line);background:var(--bg)}
+.post-amen-btn.liked{color:var(--gold);background:var(--gold-soft);border-color:rgba(143,100,23,.28)}
+
+/* Ranking de Parroquias */
+.ranking-list{display:grid;gap:10px}
+.ranking-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);
+  padding:15px 16px;display:flex;align-items:center;gap:13px}
+.ranking-card.top-3{border-color:rgba(212,175,55,.45);background:linear-gradient(to right,#FFFFFF,#FCF9F2)}
+.rank-num{width:34px;height:34px;border-radius:10px;background:var(--bg);color:var(--muted);
+  font-weight:700;font-size:.88rem;display:grid;place-items:center;flex:none;font-variant-numeric:tabular-nums}
+.ranking-card.top-3 .rank-num{background:linear-gradient(145deg,#DFC15D,#B38B22);color:#fff}
+.ranking-info{flex:1;min-width:0;text-align:left}
+.ranking-info h3{font-family:var(--serif);font-size:1.12rem;font-weight:600;line-height:1.2;color:var(--ink)}
+.ranking-meta{font-size:.79rem;color:var(--muted);margin-top:3px;display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.ranking-followers{font-weight:600;color:var(--brand)}
+.ranking-actions{display:flex;flex-direction:column;gap:6px;align-items:flex-end;flex:none}
+
+/* Ficha de Parroquia: Seguir Parroquia y Pestañas Horarios / Actividades */
+.parish-social-bar{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;
+  background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);padding:12px 14px;margin-top:12px}
+.parish-followers-count{font-size:.84rem;color:var(--muted)}
+.parish-followers-count strong{color:var(--ink);font-weight:600;font-variant-numeric:tabular-nums}
+.btn-follow-parish{height:36px;padding:0 15px;border-radius:var(--r-pill);background:var(--brand);
+  color:#fff;font-size:.83rem;font-weight:600;display:inline-flex;align-items:center;gap:6px;transition:all .15s}
+.btn-follow-parish.is-following{background:var(--brand-soft);color:var(--brand);border:1px solid rgba(36,59,143,.3)}
+
+.sheet-section-tabs{display:grid;grid-template-columns:1fr 1fr;gap:6px;background:var(--surface);
+  border:1px solid var(--line);border-radius:12px;padding:4px;margin-top:12px}
+.sheet-sec-tab{height:36px;border-radius:9px;font-size:.83rem;font-weight:600;color:var(--muted);
+  transition:background .15s,color .15s}
+.sheet-sec-tab.is-active{background:var(--night);color:#fff}
+
+/* Tarjetas de Actividades y Grupos Parroquiales */
+.activities-grid{display:grid;gap:10px;margin-top:10px}
+.activity-card{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:13px}
+.activity-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:6px}
+.activity-cat{font-size:.7rem;font-weight:600;padding:2px 8px;border-radius:var(--r-pill);
+  background:var(--brand-soft);color:var(--brand)}
+.activity-card h4{font-size:.94rem;font-weight:600;color:var(--ink);margin-bottom:4px}
+.activity-desc{font-size:.82rem;color:var(--muted);line-height:1.38;margin-bottom:9px}
+.activity-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;
+  padding-top:8px;border-top:1px solid var(--line)}
+.activity-ig{display:inline-flex;align-items:center;gap:4px;font-size:.77rem;font-weight:600;
+  color:var(--brand);text-decoration:none}
+.activity-ig:hover{text-decoration:underline}
+.btn-follow-activity{height:32px;padding:0 12px;border-radius:var(--r-pill);font-size:.77rem;font-weight:600;
+  background:var(--surface);color:var(--brand);border:1px solid var(--brand);transition:all .15s}
+.btn-follow-activity.is-joined{background:var(--ok-soft);color:var(--ok);border-color:rgba(22,101,52,.3)}
+
+/* Perfil de Usuario y Configuración */
+.profile-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);
+  padding:18px;margin-bottom:14px}
+.profile-hero{display:flex;align-items:center;gap:14px;margin-bottom:12px}
+.profile-hero-info{flex:1;min-width:0}
+.profile-hero-info h2{font-family:var(--serif);font-size:1.4rem;font-weight:600;line-height:1.15}
+.profile-handle{font-size:.83rem;color:var(--muted)}
+.profile-bio{font-size:.9rem;color:var(--ink);margin:8px 0 12px;line-height:1.4}
+.social-links-row{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px}
+.social-link-pill{display:inline-flex;align-items:center;gap:5px;font-size:.78rem;font-weight:600;
+  padding:4px 11px;border-radius:var(--r-pill);background:var(--bg);color:var(--ink);
+  border:1px solid var(--line);text-decoration:none}
+.social-link-pill:hover{border-color:var(--brand);color:var(--brand)}
+
+.profile-section-title{font-size:.82rem;font-weight:600;color:var(--muted);text-transform:uppercase;
+  letter-spacing:.03em;margin:14px 0 8px}
+.membership-list{display:flex;flex-wrap:wrap;gap:7px}
+.membership-chip{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;border-radius:10px;
+  background:var(--bg);border:1px solid var(--line);font-size:.8rem;font-weight:500;color:var(--ink);
+  text-align:left}
+.membership-chip small{color:var(--muted);font-size:.73rem}
+
+.avatar-picker{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.avatar-opt{width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--bg);
+  font-size:1.2rem;display:grid;place-items:center;transition:all .15s}
+.avatar-opt.is-selected{border-color:var(--brand);background:var(--brand-soft);box-shadow:0 0 0 2px rgba(36,59,143,.2)}
+
+.demo-accounts{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
+.demo-pill{font-size:.78rem;font-weight:600;padding:5px 11px;border-radius:var(--r-pill);
+  background:var(--brand-soft);color:var(--brand);border:1px solid rgba(36,59,143,.2)}
 
 .actions{position:absolute;left:0;right:0;bottom:0;display:flex;gap:10px;padding:14px 20px calc(14px + env(safe-area-inset-bottom,0px));
   background:linear-gradient(transparent,var(--bg) 35%)}
