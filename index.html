@@ -69,13 +69,29 @@
       </svg>
       <span data-i18n="nav_spiritual">Racha / Notas</span>
     </button>
+    <button type="button" class="nav-tab" id="tab-miparro" role="tab" aria-selected="false" aria-controls="view-miparro" data-target-view="miparro">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 2v4M10 4h4"/>
+        <path d="M5 21V12l7-5 7 5v9z"/>
+        <path d="M10 21v-5a2 2 0 0 1 4 0v5"/>
+      </svg>
+      <span data-i18n="nav_miparro">Mi Parro</span>
+    </button>
     <button type="button" class="nav-tab" id="tab-liturgy" role="tab" aria-selected="false" aria-controls="view-liturgy" data-target-view="liturgy">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
         <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
         <path d="M12 6v7M9.5 8.5h5"/>
       </svg>
-      <span data-i18n="nav_liturgy">Liturgia y Santos</span>
+      <span data-i18n="nav_liturgy">Liturgia</span>
+    </button>
+    <button type="button" class="nav-tab" id="tab-saints" role="tab" aria-selected="false" aria-controls="view-saints" data-target-view="saints">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <circle cx="12" cy="8" r="4"/>
+        <ellipse cx="12" cy="3.2" rx="5" ry="1.4"/>
+        <path d="M5.5 21a6.5 6.5 0 0 1 13 0"/>
+      </svg>
+      <span data-i18n="nav_saints">Santos del Día</span>
     </button>
     <button type="button" class="nav-tab" id="tab-community" role="tab" aria-selected="false" aria-controls="view-community" data-target-view="community">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -103,16 +119,17 @@
       <p class="sub" data-i18n="list_subheading">Encontrá misas, confesiones, grupos y concurrencia en CABA y GBA.</p>
     </div>
 
-    <!-- Panel de Administración (visible solo en Modo Admin) -->
-    <section class="admin-panel" id="admin-panel" hidden aria-label="Panel de administración">
+    <!-- Panel de Administración / Colaboración (visible en Modo Admin 1118 o Colaborador 0000) -->
+    <section class="admin-panel" id="admin-panel" hidden aria-label="Panel de administración y colaboración">
       <div class="admin-panel-head">
-        <span class="admin-badge">
+        <span class="admin-badge" id="admin-role-badge">
           <span class="admin-dot" aria-hidden="true"></span>
-          Modo Administrador Activo
+          <span id="admin-badge-text">Modo Administrador Activo</span>
         </span>
         <button type="button" class="admin-logout-btn" id="btn-admin-logout">Cerrar sesión</button>
       </div>
-      <div class="admin-panel-actions">
+      <p class="admin-role-desc" id="admin-role-desc">Tenés control total sobre templos, horarios y actividades parroquiales.</p>
+      <div class="admin-panel-actions" id="admin-master-actions">
         <button type="button" class="admin-action-btn primary" id="btn-admin-add">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
           Agregar Nueva Parroquia
@@ -120,6 +137,12 @@
         <button type="button" class="admin-action-btn export" id="btn-admin-export">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
           Exportar JSON Actualizado
+        </button>
+      </div>
+      <div class="admin-panel-actions" id="admin-collab-actions" hidden>
+        <button type="button" class="admin-action-btn primary" id="btn-collab-new-activity">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          Agregar Actividad o Grupo a un Templo
         </button>
       </div>
     </section>
@@ -225,14 +248,34 @@
     <div id="spiritual-content" class="spiritual-body"></div>
   </section>
 
-  <!-- ==================== VISTA 4: LITURGIA, EVANGELIO REAL Y SANTOS DEL DÍA ==================== -->
+  <!-- ==================== VISTA: MI PARRO (SIMULADOR DE PARROQUIA VIRTUAL) ==================== -->
+  <section class="app view-panel" id="view-miparro" role="tabpanel" aria-labelledby="tab-miparro" aria-hidden="true">
+    <div class="page-intro">
+      <h1 data-i18n="miparro_heading">Mi Parro</h1>
+      <p class="sub" data-i18n="miparro_subheading">Construí y decorá tu parroquia virtual con las Monedas de Gracia que ganás con tu Racha.</p>
+    </div>
+
+    <div id="miparro-content" class="miparro-body"></div>
+  </section>
+
+  <!-- ==================== VISTA 4: LITURGIA (EVANGELIO, SALMO, PRIMERA LECTURA Y EXPLICACIÓN PASTORAL) ==================== -->
   <section class="app view-panel" id="view-liturgy" role="tabpanel" aria-labelledby="tab-liturgy" aria-hidden="true">
     <div class="page-intro">
-      <h1 data-i18n="liturgy_heading">Liturgia y Santos del Día</h1>
-      <p class="sub" data-i18n="liturgy_subheading">Lecturas católicas oficiales en español de Argentina, reflexión homilética y santoral diario.</p>
+      <h1 data-i18n="liturgy_heading">Liturgia de la Palabra</h1>
+      <p class="sub" data-i18n="liturgy_subheading">Primera Lectura, Salmo Responsorial y Evangelio del día con explicación pastoral y teológica.</p>
     </div>
 
     <div id="liturgy-content" class="liturgy-body"></div>
+  </section>
+
+  <!-- ==================== VISTA 5: SANTOS DEL DÍA (VISTA INDEPENDIENTE) ==================== -->
+  <section class="app view-panel" id="view-saints" role="tabpanel" aria-labelledby="tab-saints" aria-hidden="true">
+    <div class="page-intro">
+      <h1 data-i18n="saints_heading">Santos del Día</h1>
+      <p class="sub" data-i18n="saints_subheading">Santoral católico diario, biografías inspiradoras, patronazgos y pensamientos espirituales.</p>
+    </div>
+
+    <div id="saints-content" class="liturgy-body"></div>
   </section>
 
   <!-- ==================== VISTA 5: COMUNIDAD (FEED SOCIAL + RANKING + BUSCADOR) ==================== -->
@@ -351,22 +394,22 @@
   </aside>
 </div>
 
-<!-- ==================== MODAL 1: ACCESO ADMINISTRADOR (CONTRASEÑA) ==================== -->
+<!-- ==================== MODAL 1: ACCESO ADMINISTRADOR / COLABORADOR (DOBLE ROL) ==================== -->
 <div class="modal-backdrop" id="admin-login-modal" role="dialog" aria-modal="true" aria-labelledby="admin-login-title" hidden>
   <div class="modal-card modal-sm">
     <div class="modal-head">
-      <h2 id="admin-login-title">Acceso Administrador</h2>
+      <h2 id="admin-login-title">Acceso de Gestión</h2>
       <button type="button" class="icon-btn modal-close" id="btn-close-login" aria-label="Cerrar">
         <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>
       </button>
     </div>
-    <p class="modal-sub">Ingresá la clave maestra numérica para habilitar la edición y exportación de parroquias.</p>
+    <p class="modal-sub">Ingresá tu clave según tu rol: <strong>Administrador Maestro (1118)</strong> para control total o <strong>Rol de Comunidad / Colaborador (0000)</strong> para gestionar actividades y grupos parroquiales.</p>
     <form id="admin-login-form" autocomplete="off">
       <div class="form-field">
-        <label for="admin-pass">Contraseña numérica</label>
+        <label for="admin-pass">Clave numérica de acceso (1118 o 0000)</label>
         <input id="admin-pass" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" placeholder="••••" required>
       </div>
-      <p class="modal-error" id="admin-login-error" role="alert" hidden>Contraseña incorrecta. Verificá el código e intentá de nuevo.</p>
+      <p class="modal-error" id="admin-login-error" role="alert" hidden>Clave incorrecta. Ingresá 1118 (Admin Maestro) o 0000 (Colaborador de Actividades).</p>
       <div class="form-actions">
         <button type="button" class="btn-sm cancel" id="btn-cancel-login">Cancelar</button>
         <button type="submit" class="btn-sm submit">Desbloquear</button>
@@ -458,7 +501,64 @@
   </div>
 </div>
 
-<!-- ==================== MODAL 3: PERFIL PÚBLICO DE USUARIO ==================== -->
+<!-- ==================== MODAL 3: CREAR / EDITAR ACTIVIDAD O GRUPO PARROQUIAL (ROL 0000 Y 1118) ==================== -->
+<div class="modal-backdrop" id="activity-edit-modal" role="dialog" aria-modal="true" aria-labelledby="act-edit-title" hidden>
+  <div class="modal-card modal-lg">
+    <div class="modal-head">
+      <h2 id="act-edit-title">Gestionar Actividad o Grupo Parroquial</h2>
+      <button type="button" class="icon-btn modal-close" id="btn-close-act-edit" aria-label="Cerrar">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
+    <p class="modal-sub" id="act-edit-sub">Modificá o sumá grupos, pastorales y actividades sin alterar los datos principales del templo.</p>
+    <form id="activity-edit-form" class="admin-edit-form">
+      <input type="hidden" id="act-idx" value="-1">
+      <div class="form-field">
+        <label for="act-parish-select">Templo / Parroquia</label>
+        <select id="act-parish-select" required></select>
+      </div>
+      <div class="form-row-2">
+        <div class="form-field">
+          <label for="act-nombre">Nombre del grupo o actividad</label>
+          <input id="act-nombre" type="text" required placeholder="Ej.: Grupo Juvenil San José, Cáritas, Coro">
+        </div>
+        <div class="form-field">
+          <label for="act-categoria">Categoría pastoral</label>
+          <select id="act-categoria" required>
+            <option value="Jóvenes">Jóvenes y Adolescentes</option>
+            <option value="Caridad">Caridad / Acción Social</option>
+            <option value="Oración">Oración y Adoración</option>
+            <option value="Catequesis">Catequesis y Formación</option>
+            <option value="Familia">Matrimonios y Familia</option>
+            <option value="Música">Coro y Ministerio de Música</option>
+            <option value="Scouts">Grupo Scout / Exploradores</option>
+            <option value="Comunidad">Vida Comunitaria</option>
+          </select>
+        </div>
+      </div>
+      <div class="form-row-2">
+        <div class="form-field">
+          <label for="act-horario">Días y horarios de encuentro</label>
+          <input id="act-horario" type="text" required placeholder="Ej.: Sábados 16:30 a 19:00 hs">
+        </div>
+        <div class="form-field">
+          <label for="act-instagram">Instagram o contacto (sin @)</label>
+          <input id="act-instagram" type="text" placeholder="Ej.: jovenes.sannicolas">
+        </div>
+      </div>
+      <div class="form-field">
+        <label for="act-descripcion">Descripción breve de la actividad</label>
+        <textarea id="act-descripcion" rows="2" required placeholder="Contá brevemente a quiénes está dirigido y qué hacen en los encuentros..."></textarea>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn-sm cancel" id="btn-cancel-act-edit">Cancelar</button>
+        <button type="submit" class="btn-sm submit">Guardar Actividad</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ==================== MODAL 4: PERFIL PÚBLICO DE USUARIO ==================== -->
 <div class="modal-backdrop" id="public-profile-modal" role="dialog" aria-modal="true" aria-labelledby="pub-profile-title" hidden>
   <div class="modal-card modal-lg">
     <div class="modal-head">

@@ -3,6 +3,8 @@
    ===================================================================== */
 const DATA_SOURCE_URL = "./data/parroquias.json";
 const ADMIN_MASTER_PIN = "1118";
+const ADMIN_COLLAB_PIN = "0000";
+const CUSTOM_ACTIVITIES_STORAGE_KEY = "parish_activities_custom_v1";
 const CABA_CENTER = [-34.5975, -58.3855];
 const CABA_ZOOM = 13;
 const MASS_DURATION_MIN = 45;
@@ -653,14 +655,46 @@ function formatKm(km) {
 const Store = (() => {
   const mem = {};
   return {
-    get(k, def) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : def; } catch (e) { return mem[k] ?? def; } },
-    set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { mem[k] = v; } },
-    remove(k) { try { localStorage.removeItem(k); } catch (e) { delete mem[k]; } }
+    get(k, def) {
+      try {
+        const v = window.localStorage.getItem(k);
+        if (v !== null && v !== undefined) {
+          const parsed = JSON.parse(v);
+          mem[k] = parsed;
+          return parsed;
+        }
+        return mem[k] !== undefined ? mem[k] : def;
+      } catch (e) {
+        return mem[k] !== undefined ? mem[k] : def;
+      }
+    },
+    set(k, v) {
+      mem[k] = v;
+      try {
+        window.localStorage.setItem(k, JSON.stringify(v));
+      } catch (e) {
+        console.warn("Aviso al persistir en localStorage (" + k + "):", e);
+      }
+    },
+    remove(k) {
+      delete mem[k];
+      try {
+        window.localStorage.removeItem(k);
+      } catch (e) {}
+    }
   };
 })();
 
+function getLocalTodayIso() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
 /* =====================================================================
-   Estado de la Aplicación
+   Estado de la Aplicación (Sincronizado con LocalStorage)
    ===================================================================== */
 const savedAdminParishes = Store.get("parishes_admin_data", null);
 let PARISHES = prepareDataset(
@@ -669,15 +703,31 @@ let PARISHES = prepareDataset(
     : Store.get("parishes_cache_v6", FALLBACK_PARISHES)
 );
 
+const initialAdminRole = (function resolveInitialRole() {
+  const savedRole = Store.get("admin_role_v1", null);
+  if (savedRole === "master" || savedRole === "collab") return savedRole;
+  if (Store.get("admin_unlocked", false)) return "master";
+  return null;
+})();
+
+const VALID_APP_VIEWS = ["list", "map", "spiritual", "miparro", "liturgy", "saints", "community", "profile"];
+const savedActiveView = Store.get("ui_active_view_v1", "list");
+
 const state = {
-  view: "list", // 'list' | 'map' | 'spiritual' | 'liturgy' | 'community' | 'profile'
-  commTab: "all", // 'all' | 'following' | 'ranking' | 'people'
-  spirTab: "streak", // 'streak' | 'notes' | 'stats'
-  litTab: "all", // 'all' | 'gospel' | 'saints'
+  view: VALID_APP_VIEWS.includes(savedActiveView) ? savedActiveView : "list",
+  commTab: Store.get("ui_comm_tab_v1", "all"), // 'all' | 'following' | 'ranking' | 'people'
+  spirTab: Store.get("ui_spir_tab_v1", "streak"), // 'streak' | 'notes' | 'stats'
   checkinSlot: "Mañana", // 'Mañana' | 'Tarde' | 'Noche'
+  streakDate: getLocalTodayIso(),
   editingNoteId: null,
-  liturgyDate: new Date().toISOString().slice(0, 10),
+  liturgyDate: Store.get("ui_liturgy_date_v1", null) || getLocalTodayIso(),
+  saintsDate: Store.get("ui_saints_date_v1", null) || getLocalTodayIso(),
+  openFirstReading: false,
+  openPsalm: false,
   liturgyExplainOpen: false,
+  openDatePickerId: null, // 'streak' | 'liturgy' | 'saints' | null
+  parroTab: Store.get("ui_parro_tab_v1", "structure"), // 'structure' | 'advocation' | 'exterior' | 'details'
+  datePickerViewMonth: {}, // { [pickerId]: { year, month } }
   detailSection: "horarios", // 'horarios' | 'actividades'
   q: "",
   region: "ALL", // 'ALL' | 'CABA' | 'Zona Norte' | 'Zona Oeste' | 'Zona Sur'
@@ -690,28 +740,33 @@ const state = {
   current: null,
   selectedServiceHour: null, // Hora de servicio seleccionada en el widget de concurrencia
   visibleLimit: PAGE_SIZE,
-  isAdmin: Boolean(Store.get("admin_unlocked", false))
+  adminRole: initialAdminRole, // 'master' (1118) | 'collab' (0000) | null
+  isAdmin: initialAdminRole === "master",
+  canEditActivities: initialAdminRole === "master" || initialAdminRole === "collab"
 };
 
 /* =====================================================================
    Navegación Superior con Scroll Horizontal y Animación de Libro
    ===================================================================== */
-function switchView(targetView) {
-  const validViews = ["list", "map", "spiritual", "liturgy", "community", "profile"];
-  if (!validViews.includes(targetView)) return;
+function switchView(targetView, skipScroll = false) {
+  if (!VALID_APP_VIEWS.includes(targetView)) return;
 
-  const prevIdx = validViews.indexOf(state.view);
-  const nextIdx = validViews.indexOf(targetView);
+  const prevIdx = VALID_APP_VIEWS.indexOf(state.view);
+  const nextIdx = VALID_APP_VIEWS.indexOf(targetView);
   const turnDirectionClass = nextIdx >= prevIdx ? "book-turn-next" : "book-turn-prev";
 
   state.view = targetView;
+  state.openDatePickerId = null;
+  Store.set("ui_active_view_v1", targetView);
   document.body.setAttribute("data-active-view", targetView);
 
   const panels = {
     list: $("#view-list"),
     map: $("#view-map"),
     spiritual: $("#view-spiritual"),
+    miparro: $("#view-miparro"),
     liturgy: $("#view-liturgy"),
+    saints: $("#view-saints"),
     community: $("#view-community"),
     profile: $("#view-profile")
   };
@@ -719,12 +774,14 @@ function switchView(targetView) {
     list: $("#tab-list"),
     map: $("#tab-map"),
     spiritual: $("#tab-spiritual"),
+    miparro: $("#tab-miparro"),
     liturgy: $("#tab-liturgy"),
+    saints: $("#tab-saints"),
     community: $("#tab-community"),
     profile: $("#tab-profile")
   };
 
-  validViews.forEach(v => {
+  VALID_APP_VIEWS.forEach(v => {
     const active = v === targetView;
     const panelEl = panels[v];
     const tabEl = tabs[v];
@@ -746,8 +803,9 @@ function switchView(targetView) {
     }
   });
 
-  // Scroll natural al inicio desde la cabecera sin contenedores bloqueados
-  window.scrollTo({ top: 0, behavior: "instant" });
+  if (!skipScroll) {
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }
 
   if (targetView === "map") {
     initMap();
@@ -759,8 +817,12 @@ function switchView(targetView) {
     });
   } else if (targetView === "spiritual") {
     renderSpiritualView();
+  } else if (targetView === "miparro") {
+    renderMiParroView();
   } else if (targetView === "liturgy") {
     renderLiturgyView();
+  } else if (targetView === "saints") {
+    renderSaintsView();
   } else if (targetView === "community") {
     renderCommunityView();
   } else if (targetView === "profile") {
@@ -1588,6 +1650,8 @@ function renderCardHtml(p) {
   const crowdTag = renderCrowdBadgeHtml(p);
   const adminEditBtn = state.isAdmin
     ? `<button type="button" class="card-edit-btn" data-edit="${pid}" aria-label="Editar ${p.nombre}">${ICON_EDIT}<span>Editar</span></button>`
+    : state.canEditActivities
+    ? `<button type="button" class="card-edit-btn" data-manage-acts="${pid}" aria-label="Gestionar actividades de ${p.nombre}">🙌<span>Actividades</span></button>`
     : "";
 
   return `
@@ -1824,8 +1888,18 @@ function openDetail(id) {
     </div>
 
     <div id="d-sec-actividades" class="block">
-      <h3>Actividades y Grupos Parroquiales</h3>
-      <p class="note" style="margin-top:0;margin-bottom:8px">Sumate a los espacios de oración, coro, catequesis y misión de esta comunidad:</p>
+      <div class="act-admin-header-bar">
+        <h3 style="margin:0">Actividades y Grupos Parroquiales</h3>
+        ${state.canEditActivities ? `
+          <button type="button" class="btn-add-parish-activity" id="btn-d-add-activity" data-add-act-parish="${pid}">
+            + Agregar Actividad / Grupo
+          </button>` : ""}
+      </div>
+      <p class="note" style="margin-top:0;margin-bottom:8px">
+        ${state.canEditActivities
+          ? "Modo Gestión Activo (" + (state.isAdmin ? "Admin 1118" : "Colaborador 0000") + "): Podés sumar, editar o quitar actividades de este templo."
+          : "Sumate a los espacios de oración, coro, catequesis y misión de esta comunidad:"}
+      </p>
       <div class="activities-grid" id="d-activities-grid">
         ${renderActivitiesCardsHtml(p)}
       </div>
@@ -2008,27 +2082,55 @@ function closeDetail() {
 }
 
 /* =====================================================================
-   Modo Administrador Protegido por Contraseña ("1118"): Edición y Exportación
+   Doble Rol de Administración ("1118" Admin Maestro / "0000" Colaborador de Actividades)
    ===================================================================== */
 function syncAdminUI() {
+  state.isAdmin = state.adminRole === "master";
+  state.canEditActivities = state.adminRole === "master" || state.adminRole === "collab";
+
   document.body.classList.toggle("is-admin", state.isAdmin);
+  document.body.classList.toggle("is-collab", state.adminRole === "collab");
+
   const panel = $("#admin-panel");
+  const badgeText = $("#admin-badge-text");
+  const roleDesc = $("#admin-role-desc");
+  const masterActions = $("#admin-master-actions");
+  const collabActions = $("#admin-collab-actions");
   const fabAdd = $("#fab-admin-add");
   const footerLabel = $("#footer-admin-label");
   const dEdit = $("#d-edit");
 
-  if (panel) panel.hidden = !state.isAdmin;
+  if (panel) {
+    panel.hidden = !state.canEditActivities;
+    panel.classList.toggle("is-collab", state.adminRole === "collab");
+  }
+  if (badgeText) {
+    badgeText.textContent = state.isAdmin
+      ? "Modo Administrador Maestro (1118)"
+      : "Rol Comunidad / Colaborador (0000)";
+  }
+  if (roleDesc) {
+    roleDesc.textContent = state.isAdmin
+      ? "Control total habilitado: podés agregar/editar templos, horarios, actividades y exportar el JSON oficial."
+      : "Permiso de Colaborador activo: podés agregar, editar y gestionar actividades y grupos parroquiales de cualquier templo sin alterar sus datos principales.";
+  }
+  if (masterActions) masterActions.hidden = !state.isAdmin;
+  if (collabActions) collabActions.hidden = !state.canEditActivities;
   if (fabAdd) fabAdd.hidden = !state.isAdmin;
   if (dEdit) dEdit.hidden = !state.isAdmin || !state.current;
   if (footerLabel) {
-    footerLabel.textContent = state.isAdmin ? "Modo administrador activo" : "Acceso administrador";
+    footerLabel.textContent = state.isAdmin
+      ? "Modo Admin Maestro (1118) activo"
+      : state.adminRole === "collab"
+      ? "Modo Colaborador (0000) activo"
+      : "Acceso administrador / colaborador";
   }
 }
 
 function openAdminLoginModal() {
-  if (state.isAdmin) {
+  if (state.canEditActivities) {
     $("#admin-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    toast("El Modo Administrador ya está activo");
+    toast(state.isAdmin ? "El Modo Administrador Maestro (1118) ya está activo" : "El Rol Colaborador (0000) ya está activo");
     return;
   }
   const modal = $("#admin-login-modal");
@@ -2053,12 +2155,27 @@ function handleAdminLoginSubmit(e) {
   const pin = input.value.trim();
 
   if (pin === ADMIN_MASTER_PIN) {
+    state.adminRole = "master";
     state.isAdmin = true;
+    state.canEditActivities = true;
+    Store.set("admin_role_v1", "master");
     Store.set("admin_unlocked", true);
     closeAdminLoginModal();
     syncAdminUI();
     renderList();
-    toast("Modo Administrador desbloqueado");
+    if (state.current) openDetail(state.current.id);
+    toast("🔓 Modo Administrador Maestro (1118) desbloqueado");
+  } else if (pin === ADMIN_COLLAB_PIN) {
+    state.adminRole = "collab";
+    state.isAdmin = false;
+    state.canEditActivities = true;
+    Store.set("admin_role_v1", "collab");
+    Store.set("admin_unlocked", false);
+    closeAdminLoginModal();
+    syncAdminUI();
+    renderList();
+    if (state.current) openDetail(state.current.id);
+    toast("🙌 Rol de Comunidad / Colaborador (0000) activado para gestionar actividades");
   } else {
     err.hidden = false;
     input.select();
@@ -2066,11 +2183,15 @@ function handleAdminLoginSubmit(e) {
 }
 
 function logoutAdmin() {
+  state.adminRole = null;
   state.isAdmin = false;
+  state.canEditActivities = false;
+  Store.set("admin_role_v1", null);
   Store.set("admin_unlocked", false);
   syncAdminUI();
   renderList();
-  toast("Sesión de administrador cerrada");
+  if (state.current) openDetail(state.current.id);
+  toast("Sesión de gestión cerrada");
 }
 
 function formatMisasForTextarea(horariosMisa) {
@@ -2281,7 +2402,16 @@ const BASE_PARISH_FOLLOWERS = {
   "19": 137, "20": 412, "21": 192, "22": 146, "23": 188, "24": 171
 };
 
-function getParishActivities(p) {
+let customActivitiesDB = (function loadCustomActivitiesDB() {
+  const saved = Store.get(CUSTOM_ACTIVITIES_STORAGE_KEY, null);
+  return saved && typeof saved === "object" ? saved : {};
+})();
+
+function saveCustomActivitiesDB() {
+  Store.set(CUSTOM_ACTIVITIES_STORAGE_KEY, customActivitiesDB);
+}
+
+function getDefaultActivitiesForParish(p) {
   const pid = String(p.id);
   const slug = norm(p.nombre)
     .replace(/[^a-z0-9\s]/g, "")
@@ -2290,16 +2420,12 @@ function getParishActivities(p) {
     .slice(0, 3)
     .join("");
 
-  if (Array.isArray(p.actividades) && p.actividades.length) {
-    return p.actividades;
-  }
-
   return [
     {
       id: `act_${pid}_oracion`,
       parishId: pid,
       parishName: p.nombre,
-      categoria: "Grupo de Oración",
+      categoria: "Oración",
       nombre: "Grupo de Oración y Adoración Eucarística",
       descripcion: "Encuentro semanal de alabanza, lectio divina y adoración abierta a toda la comunidad.",
       horario: "Jueves 19:45 h",
@@ -2309,7 +2435,7 @@ function getParishActivities(p) {
       id: `act_${pid}_coro`,
       parishId: pid,
       parishName: p.nombre,
-      categoria: "Coro y Música",
+      categoria: "Música",
       nombre: "Coro Litúrgico y Ministerio de Música",
       descripcion: "Preparación de cantos para las misas dominicales y solemnidades. No requiere experiencia previa.",
       horario: "Sábados 17:30 h",
@@ -2329,7 +2455,7 @@ function getParishActivities(p) {
       id: `act_${pid}_misiones`,
       parishId: pid,
       parishName: p.nombre,
-      categoria: "Misiones y Caridad",
+      categoria: "Caridad",
       nombre: "Grupo Misionero y Noche de la Caridad",
       descripcion: "Recorridas solidarias, visitas a enfermos y misiones barriales junto a jóvenes y familias.",
       horario: "Viernes 20:00 h",
@@ -2338,11 +2464,197 @@ function getParishActivities(p) {
   ];
 }
 
+function getParishById(parishId) {
+  const pid = String(parishId);
+  return PARISHES.find(p => String(p.id) === pid) || null;
+}
+
+function getParishActivities(p) {
+  if (!p) return [];
+  const pid = String(p.id);
+
+  if (Array.isArray(customActivitiesDB[pid])) {
+    return customActivitiesDB[pid].map((a, idx) => ({
+      ...a,
+      id: a.id || `act_${pid}_custom_${idx}`,
+      parishId: pid,
+      parishName: p.nombre
+    }));
+  }
+
+  if (Array.isArray(p.actividades) && p.actividades.length) {
+    return p.actividades.map((a, idx) => ({
+      ...a,
+      id: a.id || `act_${pid}_${idx}`,
+      parishId: pid,
+      parishName: p.nombre
+    }));
+  }
+
+  return getDefaultActivitiesForParish(p);
+}
+
+function setParishActivitiesList(parishId, newList) {
+  const pid = String(parishId);
+  const p = PARISHES.find(x => String(x.id) === pid);
+  const normalized = (Array.isArray(newList) ? newList : []).map((a, idx) => ({
+    id: a.id || `act_${pid}_${Date.now()}_${idx}`,
+    parishId: pid,
+    parishName: p ? p.nombre : (a.parishName || "Parroquia"),
+    categoria: String(a.categoria || "Comunidad").trim(),
+    nombre: String(a.nombre || "Grupo Parroquial").trim(),
+    descripcion: String(a.descripcion || "").trim(),
+    horario: String(a.horario || "A confirmar").trim(),
+    instagram: String(a.instagram || "").trim()
+  }));
+
+  customActivitiesDB[pid] = normalized;
+  saveCustomActivitiesDB();
+
+  if (p) {
+    p.actividades = normalized;
+  }
+}
+
+function openActivityEditor(parishId = null, actIndex = -1) {
+  if (!state.canEditActivities) {
+    openAdminLoginModal();
+    return;
+  }
+  const modal = $("#activity-edit-modal");
+  const selectEl = $("#act-parish-select");
+  if (!modal || !selectEl) return;
+
+  const targetPid = String(parishId || (state.current ? state.current.id : (PARISHES[0] ? PARISHES[0].id : "1")));
+
+  selectEl.innerHTML = PARISHES
+    .slice()
+    .sort((a, b) => a.nombre.localeCompare(b.nombre, "es-AR"))
+    .map(p => `<option value="${p.id}" ${String(p.id) === targetPid ? "selected" : ""}>${p.nombre} (${p.barrio})</option>`)
+    .join("");
+
+  const pObj = PARISHES.find(x => String(x.id) === targetPid) || PARISHES[0];
+  const acts = getParishActivities(pObj);
+  const existing = actIndex >= 0 && acts[actIndex] ? acts[actIndex] : null;
+
+  $("#act-idx").value = String(existing ? actIndex : -1);
+  $("#act-edit-title").textContent = existing ? "✏️ Editar Actividad o Grupo" : "🙌 Agregar Nueva Actividad o Grupo";
+  $("#act-nombre").value = existing ? existing.nombre : "";
+  $("#act-categoria").value = existing && existing.categoria ? existing.categoria : "Jóvenes";
+  $("#act-horario").value = existing ? existing.horario : "";
+  $("#act-instagram").value = existing ? String(existing.instagram || "").replace(/^@+/, "") : "";
+  $("#act-descripcion").value = existing ? existing.descripcion : "";
+
+  modal.hidden = false;
+  setTimeout(() => $("#act-nombre")?.focus(), 40);
+}
+
+function closeActivityEditor() {
+  const modal = $("#activity-edit-modal");
+  if (modal) modal.hidden = true;
+}
+
+function saveActivityEditor(e) {
+  e.preventDefault();
+  if (!state.canEditActivities) return;
+
+  const pid = String($("#act-parish-select")?.value || "1");
+  const idx = parseInt($("#act-idx")?.value || "-1", 10);
+  const nombre = ($("#act-nombre")?.value || "").trim();
+  const categoria = ($("#act-categoria")?.value || "Comunidad").trim();
+  const horario = ($("#act-horario")?.value || "").trim();
+  const rawIg = ($("#act-instagram")?.value || "").trim().replace(/^@+/, "");
+  const instagram = rawIg ? `@${rawIg}` : "";
+  const descripcion = ($("#act-descripcion")?.value || "").trim();
+
+  if (!nombre || !horario || !descripcion) return;
+
+  const pObj = PARISHES.find(x => String(x.id) === pid);
+  const currentActs = [...getParishActivities(pObj)];
+
+  if (idx >= 0 && idx < currentActs.length) {
+    currentActs[idx] = {
+      ...currentActs[idx],
+      nombre,
+      categoria,
+      horario,
+      instagram,
+      descripcion
+    };
+  } else {
+    currentActs.unshift({
+      id: `act_${pid}_${Date.now()}`,
+      parishId: pid,
+      parishName: pObj ? pObj.nombre : "Parroquia",
+      nombre,
+      categoria,
+      horario,
+      instagram,
+      descripcion
+    });
+  }
+
+  setParishActivitiesList(pid, currentActs);
+  closeActivityEditor();
+
+  if (state.current && String(state.current.id) === pid) {
+    openDetail(pid);
+  }
+  if (state.view === "community") {
+    renderCommunityView();
+  }
+  renderList();
+  toast(idx >= 0 ? "Actividad parroquial actualizada y guardada" : "Nueva actividad agregada a la parroquia");
+}
+
+function deleteParishActivity(parishId, actIndex) {
+  if (!state.canEditActivities) return;
+  const pid = String(parishId);
+  const pObj = PARISHES.find(x => String(x.id) === pid);
+  if (!pObj) return;
+
+  const currentActs = [...getParishActivities(pObj)];
+  const removed = currentActs[actIndex];
+  if (!removed) return;
+
+  currentActs.splice(actIndex, 1);
+  setParishActivitiesList(pid, currentActs);
+
+  if (state.current && String(state.current.id) === pid) {
+    openDetail(pid);
+  }
+  if (state.view === "community") {
+    renderCommunityView();
+  }
+  toast(`Actividad eliminada: ${removed.nombre}`);
+}
+
 function getInitialSocialDB() {
   const now = Date.now();
   return {
-    currentUser: null, // username activo o null (invitado)
+    currentUser: "mi.perfil", // Perfil personal local activo por defecto para guardar cambios sin perderlos
+    explicitGuest: false,
     users: {
+      "mi.perfil": {
+        username: "mi.perfil",
+        password: "1234",
+        apodo: "Mi Perfil Peregrino",
+        bio: "Caminando en comunidad por las parroquias de CABA y GBA. 🙏",
+        avatarIcon: "✝️",
+        avatarUrl: "",
+        miiConfig: {
+          skin: "#F5CBA7",
+          hair: "corto",
+          hairColor: "#2C1B18",
+          face: "sonrisa",
+          bg: "#DBEAFE"
+        },
+        instagram: "@mi.parroquia.ba",
+        twitter: "@peregrino_ba",
+        followingUsers: ["martina.recoleta", "padre.tomas"],
+        followedParishes: ["1", "2"],
+        joinedActivities: ["act_1_oracion"]
+      },
       "martina.recoleta": {
         username: "martina.recoleta",
         password: "1234",
@@ -2446,11 +2758,22 @@ function getInitialSocialDB() {
   };
 }
 
-let socialDB = Store.get(SOCIAL_STORAGE_KEY, null);
-if (!socialDB || !socialDB.users || !Array.isArray(socialDB.posts)) {
-  socialDB = getInitialSocialDB();
-  Store.set(SOCIAL_STORAGE_KEY, socialDB);
-}
+let socialDB = (function loadAndValidateSocialDB() {
+  const seed = getInitialSocialDB();
+  const saved = Store.get(SOCIAL_STORAGE_KEY, null);
+  if (!saved || typeof saved !== "object" || !saved.users || !Array.isArray(saved.posts)) {
+    Store.set(SOCIAL_STORAGE_KEY, seed);
+    return seed;
+  }
+  if (!saved.users["mi.perfil"]) {
+    saved.users["mi.perfil"] = seed.users["mi.perfil"];
+  }
+  if (!saved.currentUser && !saved.explicitGuest) {
+    saved.currentUser = "mi.perfil";
+  }
+  Store.set(SOCIAL_STORAGE_KEY, saved);
+  return saved;
+})();
 
 function saveSocialDB() {
   Store.set(SOCIAL_STORAGE_KEY, socialDB);
@@ -2853,11 +3176,20 @@ function normalizeSocialHandleUrl(handleOrUrl, platform) {
 }
 
 function renderActivitiesCardsHtml(p) {
+  const pid = String(p.id);
   const activities = getParishActivities(p);
-  return activities.map(act => {
+  if (!activities.length) {
+    return `<div class="empty"><strong>No hay actividades cargadas en este templo</strong>${state.canEditActivities ? "Usá el botón «+ Agregar Actividad / Grupo» para sumar la primera." : ""}</div>`;
+  }
+  return activities.map((act, idx) => {
     const joined = isCurrentUserInActivity(act.id);
     const followersCount = getActivityFollowersCount(act.id);
     const igUrl = normalizeSocialHandleUrl(act.instagram, "instagram");
+    const adminBtns = state.canEditActivities ? `
+      <div class="act-item-admin-actions">
+        <button type="button" class="btn-act-mini" data-edit-act-parish="${pid}" data-edit-act-idx="${idx}">✏️ Editar actividad</button>
+        <button type="button" class="btn-act-mini danger" data-del-act-parish="${pid}" data-del-act-idx="${idx}">🗑️ Eliminar</button>
+      </div>` : "";
     return `
       <div class="activity-card">
         <div class="activity-top">
@@ -2875,6 +3207,7 @@ function renderActivitiesCardsHtml(p) {
             ${joined ? "Participando ✓" : "+ Seguir Actividad"}
           </button>
         </div>
+        ${adminBtns}
       </div>`;
   }).join("");
 }
@@ -2886,6 +3219,11 @@ function bindDetailSocialEvents(p) {
   const followParishBtn = $("#btn-follow-parish");
   if (followParishBtn) {
     followParishBtn.onclick = () => toggleFollowParish(p.id);
+  }
+
+  const addActBtn = $("#btn-d-add-activity");
+  if (addActBtn) {
+    addActBtn.onclick = () => openActivityEditor(p.id, -1);
   }
 
   // Pestañas internas en la ficha: Horarios y Misa vs Actividades / Grupos
@@ -2908,6 +3246,16 @@ function bindDetailSocialEvents(p) {
   const actGrid = $("#d-activities-grid");
   if (actGrid) {
     actGrid.onclick = (e) => {
+      const editBtn = e.target.closest("[data-edit-act-idx]");
+      if (editBtn) {
+        openActivityEditor(editBtn.dataset.editActParish || p.id, parseInt(editBtn.dataset.editActIdx, 10));
+        return;
+      }
+      const delBtn = e.target.closest("[data-del-act-idx]");
+      if (delBtn) {
+        deleteParishActivity(delBtn.dataset.delActParish || p.id, parseInt(delBtn.dataset.delActIdx, 10));
+        return;
+      }
       const btn = e.target.closest("[data-follow-activity]");
       if (btn) {
         toggleFollowActivity(btn.dataset.followActivity);
@@ -3356,20 +3704,27 @@ function renderProfileView() {
   draftMiiConfig = { ...DEFAULT_MII_CONFIG, ...(me.miiConfig || {}) };
   const miiPreviewUrl = generateMiiSvgDataUrl(draftMiiConfig);
   const currentIcon = me.avatarIcon || "✝️";
-  const hasCustomPhoto = Boolean(me.avatarUrl && me.avatarUrl.trim());
+  const rawAvatarUrl = String(me.avatarUrl || "").trim();
+  const isDataAvatar = rawAvatarUrl.startsWith("data:image/");
+  const externalAvatarUrl = isDataAvatar ? "" : rawAvatarUrl;
+  const hasCustomPhoto = Boolean(rawAvatarUrl);
+  const safeApodo = String(me.apodo || "").replace(/"/g, "&quot;");
+  const safeIg = String(me.instagram || "").replace(/"/g, "&quot;");
+  const safeTw = String(me.twitter || "").replace(/"/g, "&quot;");
+  const safeExtUrl = externalAvatarUrl.replace(/"/g, "&quot;");
 
   container.innerHTML = `
     ${renderUserPublicCardHtml(me, true)}
 
     <div class="profile-card">
-      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <h3 style="font-size:1.05rem;font-weight:600">Editar Mi Perfil y Avatar</h3>
-        <button type="button" class="admin-logout-btn" id="btn-user-logout">Cerrar sesión</button>
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;gap:8px;flex-wrap:wrap">
+        <h3 style="font-size:1.05rem;font-weight:600">Editar Mi Perfil y Avatar (Guardado en LocalStorage)</h3>
+        <button type="button" class="admin-logout-btn" id="btn-user-logout">Cambiar / Cerrar sesión</button>
       </div>
       <form id="profile-edit-form" class="admin-edit-form">
         <div class="form-field">
           <label for="p-apodo">Apodo / Nombre público</label>
-          <input id="p-apodo" type="text" required value="${me.apodo || ""}">
+          <input id="p-apodo" type="text" required value="${safeApodo}">
         </div>
         <div class="form-field">
           <label for="p-bio">Biografía corta</label>
@@ -3385,7 +3740,7 @@ function renderProfileView() {
             </label>
             <input id="p-avatar-file" type="file" accept="image/*" hidden>
             ${hasCustomPhoto ? `<button type="button" class="btn-clear-photo" id="btn-clear-avatar-photo">Quitar foto / Usar ícono</button>` : ""}
-            <small style="color:var(--muted);font-size:.75rem">Se optimiza automáticamente para almacenamiento local.</small>
+            <small style="color:var(--muted);font-size:.75rem">${isDataAvatar ? "✅ Avatar personalizado activo (Mii o Foto en memoria local)." : "Se optimiza automáticamente para almacenamiento local."}</small>
           </div>
         </div>
 
@@ -3460,23 +3815,31 @@ function renderProfileView() {
           </div>
         </div>
         <div class="form-field">
-          <label for="p-avatar-url">URL o Datos de imagen activa (opcional)</label>
-          <input id="p-avatar-url" type="text" value="${me.avatarUrl || ""}" placeholder="https://... o Base64 / Mii generado">
+          <label for="p-avatar-url">URL externa de imagen de perfil (opcional)</label>
+          <input id="p-avatar-url" type="text" value="${safeExtUrl}" placeholder="https://... (dejá vacío para mantener tu Mii o foto subida)">
         </div>
         <div class="form-row-2">
           <div class="form-field">
             <label for="p-ig">Instagram</label>
-            <input id="p-ig" type="text" value="${me.instagram || ""}" placeholder="@tu.usuario">
+            <input id="p-ig" type="text" value="${safeIg}" placeholder="@tu.usuario">
           </div>
           <div class="form-field">
             <label for="p-tw">Twitter / X</label>
-            <input id="p-tw" type="text" value="${me.twitter || ""}" placeholder="@tu_usuario">
+            <input id="p-tw" type="text" value="${safeTw}" placeholder="@tu_usuario">
           </div>
         </div>
         <div class="form-actions">
-          <button type="submit" class="btn-sm submit">Guardar Perfil</button>
+          <button type="submit" class="btn-sm submit">💾 Guardar Cambios en Mi Perfil</button>
         </div>
       </form>
+
+      <div class="profile-section-title" style="margin-top:16px">Cambiar rápido de cuenta comunitaria</div>
+      <div class="demo-accounts">
+        <button type="button" class="demo-pill" data-demo-login="mi.perfil">🙏 Mi Perfil (@mi.perfil)</button>
+        <button type="button" class="demo-pill" data-demo-login="martina.recoleta">🎵 Martina (@martina.recoleta)</button>
+        <button type="button" class="demo-pill" data-demo-login="padre.tomas">✝️ P. Tomás (@padre.tomas)</button>
+        <button type="button" class="demo-pill" data-demo-login="lucas.coro">🕯️ Lucas (@lucas.coro)</button>
+      </div>
     </div>`;
 }
 
@@ -3493,7 +3856,8 @@ const I18N_DICT = {
     nav_temples: "Templos",
     nav_map: "Mapa",
     nav_spiritual: "Racha / Notas",
-    nav_liturgy: "Liturgia y Santos",
+    nav_liturgy: "Liturgia",
+    nav_saints: "Santos del Día",
     nav_community: "Comunidad",
     nav_profile: "Perfil",
     list_heading: "Parroquias de Buenos Aires",
@@ -3502,8 +3866,10 @@ const I18N_DICT = {
     near_me_btn: "Cerca de mí",
     spiritual_heading: "Racha Espiritual y Notas",
     spiritual_subheading: "Registrá tus misas y adoraciones, guardá reflexiones y medí tu tiempo de oración.",
-    liturgy_heading: "Liturgia y Santos del Día",
-    liturgy_subheading: "Lecturas católicas oficiales en español de Argentina, reflexión homilética y santoral diario.",
+    liturgy_heading: "Liturgia de la Palabra",
+    liturgy_subheading: "Primera Lectura, Salmo Responsorial y Evangelio del día con explicación pastoral y teológica.",
+    saints_heading: "Santos del Día",
+    saints_subheading: "Santoral católico diario, biografías inspiradoras, patronazgos y pensamientos espirituales.",
     community_heading: "Comunidad y Ranking",
     community_subheading: "Mensajes comunitarios, buscador de fieles/grupos y parroquias más activas.",
     profile_heading: "Perfil y Cuenta",
@@ -3523,7 +3889,8 @@ const I18N_DICT = {
     nav_temples: "Churches",
     nav_map: "Map",
     nav_spiritual: "Streak & Notes",
-    nav_liturgy: "Liturgy & Saints",
+    nav_liturgy: "Liturgy",
+    nav_saints: "Saints of the Day",
     nav_community: "Community",
     nav_profile: "Profile",
     list_heading: "Parishes of Buenos Aires",
@@ -3532,8 +3899,10 @@ const I18N_DICT = {
     near_me_btn: "Near me",
     spiritual_heading: "Spiritual Streak & Notes",
     spiritual_subheading: "Log your Masses and Adoration, save reflections and track prayer time.",
-    liturgy_heading: "Daily Liturgy & Saints",
-    liturgy_subheading: "Official Catholic Gospel readings, homiletic reflection and Saint of the Day.",
+    liturgy_heading: "Liturgy of the Word",
+    liturgy_subheading: "First Reading, Responsorial Psalm, Gospel of the Day and pastoral explanation.",
+    saints_heading: "Saints of the Day",
+    saints_subheading: "Daily Catholic saints, inspiring biographies and spiritual quotes.",
     community_heading: "Community & Ranking",
     community_subheading: "Parish feed, member & group directory and most active churches.",
     profile_heading: "Profile & Account",
@@ -3553,7 +3922,8 @@ const I18N_DICT = {
     nav_temples: "Igrejas",
     nav_map: "Mapa",
     nav_spiritual: "Ofensiva / Notas",
-    nav_liturgy: "Liturgia e Santos",
+    nav_liturgy: "Liturgia",
+    nav_saints: "Santos do Dia",
     nav_community: "Comunidade",
     nav_profile: "Perfil",
     list_heading: "Paróquias de Buenos Aires",
@@ -3562,8 +3932,10 @@ const I18N_DICT = {
     near_me_btn: "Perto de mim",
     spiritual_heading: "Ofensiva Espiritual e Notas",
     spiritual_subheading: "Registre suas missas e adorações, salve reflexões e veja suas estatísticas.",
-    liturgy_heading: "Liturgia e Santos do Dia",
-    liturgy_subheading: "Evangelho oficial do dia, comentário homilético e santoral católico.",
+    liturgy_heading: "Liturgia da Palavra",
+    liturgy_subheading: "Primeira Leitura, Salmo Responsorial, Evangelho do dia e explicação pastoral.",
+    saints_heading: "Santos do Dia",
+    saints_subheading: "Santoral católico diário, biografias inspiradoras e frases espirituais.",
     community_heading: "Comunidade e Ranking",
     community_subheading: "Mural comunitário, busca de fiéis/grupos e paróquias mais ativas.",
     profile_heading: "Perfil e Conta",
@@ -3583,7 +3955,8 @@ const I18N_DICT = {
     nav_temples: "Chiese",
     nav_map: "Mappa",
     nav_spiritual: "Costanza / Note",
-    nav_liturgy: "Liturgia e Santi",
+    nav_liturgy: "Liturgia",
+    nav_saints: "Santi del Giorno",
     nav_community: "Comunità",
     nav_profile: "Account",
     list_heading: "Parrocchie di Buenos Aires",
@@ -3592,8 +3965,10 @@ const I18N_DICT = {
     near_me_btn: "Vicino a me",
     spiritual_heading: "Vita Spirituale e Note",
     spiritual_subheading: "Registra Sante Messe e Adorazioni, salva riflessioni e statistiche.",
-    liturgy_heading: "Liturgia e Santi del Giorno",
-    liturgy_subheading: "Vangelo del giorno, commento dei Papi/Sacerdoti e Santo del giorno.",
+    liturgy_heading: "Liturgia della Parola",
+    liturgy_subheading: "Prima Lettura, Salmo Responsoriale, Vangelo del giorno e spiegazione pastorale.",
+    saints_heading: "Santi del Giorno",
+    saints_subheading: "Santi del giorno, biografie edificanti e pensieri spirituali.",
     community_heading: "Comunità e Classifica",
     community_subheading: "Bacheca comunitaria, ricerca fedeli/gruppi e parrocchie più attive.",
     profile_heading: "Profilo e Account",
@@ -4102,14 +4477,217 @@ const SVG_ANIMATED_PARISH_SCENE = `
     </svg>
   </div>`;
 
+/* =====================================================================
+   Selector de Fechas Personalizado y Minimalista (Sin Input Nativo)
+   ===================================================================== */
+const CDP_MONTH_NAMES = [
+  "Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio",
+  "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"
+];
+const CDP_WEEKDAYS_SHORT = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
+
+function formatHumanSpanishDate(isoDateStr) {
+  const cleanIso = /^\d{4}-\d{2}-\d{2}$/.test(String(isoDateStr || "")) ? String(isoDateStr) : getTodayIsoDate();
+  const [y, m, d] = cleanIso.split("-").map(Number);
+  const dt = new Date(y || 2026, (m || 11) - 1, d || 5, 12, 0, 0);
+  const label = dt.toLocaleDateString("es-AR", {
+    weekday: "short",
+    day: "2-digit",
+    month: "short",
+    year: "numeric"
+  });
+  return label.charAt(0).toUpperCase() + label.slice(1);
+}
+
+function renderCustomDatePickerHtml(pickerId, selectedIsoDate, opts = {}) {
+  const cleanIso = /^\d{4}-\d{2}-\d{2}$/.test(String(selectedIsoDate || "")) ? String(selectedIsoDate) : getTodayIsoDate();
+  const todayIso = getTodayIsoDate();
+  const [selY, selM, selD] = cleanIso.split("-").map(Number);
+
+  const viewState = state.datePickerViewMonth[pickerId] || { year: selY, month: selM - 1 };
+  const vYear = viewState.year;
+  const vMonth = viewState.month; // 0..11
+
+  const isOpen = state.openDatePickerId === pickerId;
+  const blockClass = opts.blockMode ? "cdp-block" : "";
+
+  const firstDayOfMonth = new Date(vYear, vMonth, 1, 12, 0, 0);
+  // Convertir domingo (0) a índice 6 (lunes = 0 .. domingo = 6)
+  const startOffset = (firstDayOfMonth.getDay() + 6) % 7;
+  const daysInMonth = new Date(vYear, vMonth + 1, 0, 12, 0, 0).getDate();
+
+  const cells = [];
+  for (let i = 0; i < startOffset; i++) {
+    cells.push(`<span class="cdp-day is-outside" aria-hidden="true"></span>`);
+  }
+  for (let dayNum = 1; dayNum <= daysInMonth; dayNum++) {
+    const cellIso = `${vYear}-${String(vMonth + 1).padStart(2, "0")}-${String(dayNum).padStart(2, "0")}`;
+    const isSel = cellIso === cleanIso;
+    const isToday = cellIso === todayIso;
+    cells.push(`
+      <button type="button" class="cdp-day ${isSel ? "is-selected" : ""} ${isToday ? "is-today" : ""}"
+        data-cdp-pick="${pickerId}" data-cdp-date="${cellIso}" aria-label="Elegir ${cellIso}">
+        ${dayNum}
+      </button>`);
+  }
+
+  return `
+    <div class="custom-date-picker ${blockClass}" data-cdp-root="${pickerId}">
+      <input type="hidden" id="${pickerId}-date-input" value="${cleanIso}">
+      <button type="button" class="cdp-step-btn" data-cdp-step="${pickerId}" data-cdp-dir="-1" title="Día anterior" aria-label="Día anterior">◀</button>
+      <button type="button" class="cdp-trigger" data-cdp-toggle="${pickerId}" aria-expanded="${isOpen}" aria-label="Abrir calendario estilizado">
+        <span class="cdp-trigger-left">
+          <svg class="cdp-cal-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="4" width="18" height="18" rx="3" ry="3"/>
+            <line x1="16" y1="2" x2="16" y2="6"/>
+            <line x1="8" y1="2" x2="8" y2="6"/>
+            <line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+          <span>${formatHumanSpanishDate(cleanIso)}</span>
+        </span>
+        <span class="cdp-chevron" aria-hidden="true">▾</span>
+      </button>
+      <button type="button" class="cdp-step-btn" data-cdp-step="${pickerId}" data-cdp-dir="1" title="Día siguiente" aria-label="Día siguiente">▶</button>
+      <button type="button" class="cdp-today-btn" data-cdp-today="${pickerId}">Hoy</button>
+
+      ${isOpen ? `
+        <div class="cdp-popover" role="dialog" aria-label="Selector de fecha">
+          <div class="cdp-head">
+            <span class="cdp-month-label">${CDP_MONTH_NAMES[vMonth]} ${vYear}</span>
+            <div class="cdp-month-nav">
+              <button type="button" class="cdp-nav-btn" data-cdp-month="${pickerId}" data-cdp-mdir="-1" aria-label="Mes anterior">‹</button>
+              <button type="button" class="cdp-nav-btn" data-cdp-month="${pickerId}" data-cdp-mdir="1" aria-label="Mes siguiente">›</button>
+            </div>
+          </div>
+          <div class="cdp-weekdays" aria-hidden="true">
+            ${CDP_WEEKDAYS_SHORT.map(w => `<span>${w}</span>`).join("")}
+          </div>
+          <div class="cdp-grid">
+            ${cells.join("")}
+          </div>
+          <div class="cdp-foot">
+            <button type="button" class="cdp-foot-btn primary" data-cdp-today="${pickerId}">Ir a Hoy (${todayIso})</button>
+            <button type="button" class="cdp-foot-btn" data-cdp-close="${pickerId}">Cerrar</button>
+          </div>
+        </div>
+      ` : ""}
+    </div>`;
+}
+
+function updateDateForPicker(pickerId, newIsoDate, closePopover = true) {
+  const cleanIso = /^\d{4}-\d{2}-\d{2}$/.test(String(newIsoDate || "")) ? String(newIsoDate) : getTodayIsoDate();
+  const [y, m] = cleanIso.split("-").map(Number);
+  state.datePickerViewMonth[pickerId] = { year: y, month: m - 1 };
+  if (closePopover) {
+    state.openDatePickerId = null;
+  }
+
+  if (pickerId === "streak") {
+    state.streakDate = cleanIso;
+    renderSpiritualView();
+  } else if (pickerId === "liturgy") {
+    state.liturgyDate = cleanIso;
+    Store.set("ui_liturgy_date_v1", cleanIso);
+    renderLiturgyView();
+  } else if (pickerId === "saints") {
+    state.saintsDate = cleanIso;
+    Store.set("ui_saints_date_v1", cleanIso);
+    renderSaintsView();
+  }
+}
+
+function handleCustomDatePickerInteraction(e) {
+  const toggleBtn = e.target.closest("[data-cdp-toggle]");
+  if (toggleBtn) {
+    e.preventDefault();
+    e.stopPropagation();
+    const pid = toggleBtn.dataset.cdpToggle;
+    if (state.openDatePickerId === pid) {
+      state.openDatePickerId = null;
+    } else {
+      state.openDatePickerId = pid;
+      const curIso = pid === "streak" ? state.streakDate : pid === "saints" ? state.saintsDate : state.liturgyDate;
+      const [y, m] = String(curIso || getTodayIsoDate()).split("-").map(Number);
+      state.datePickerViewMonth[pid] = { year: y || 2026, month: (m || 11) - 1 };
+    }
+    if (pid === "streak") renderSpiritualView();
+    else if (pid === "liturgy") renderLiturgyView();
+    else if (pid === "saints") renderSaintsView();
+    return true;
+  }
+
+  const monthBtn = e.target.closest("[data-cdp-month]");
+  if (monthBtn) {
+    e.preventDefault();
+    e.stopPropagation();
+    const pid = monthBtn.dataset.cdpMonth;
+    const dir = parseInt(monthBtn.dataset.cdpMdir, 10) || 1;
+    const curIso = pid === "streak" ? state.streakDate : pid === "saints" ? state.saintsDate : state.liturgyDate;
+    const [y, m] = String(curIso || getTodayIsoDate()).split("-").map(Number);
+    const curView = state.datePickerViewMonth[pid] || { year: y, month: m - 1 };
+    const dt = new Date(curView.year, curView.month + dir, 1, 12, 0, 0);
+    state.datePickerViewMonth[pid] = { year: dt.getFullYear(), month: dt.getMonth() };
+    if (pid === "streak") renderSpiritualView();
+    else if (pid === "liturgy") renderLiturgyView();
+    else if (pid === "saints") renderSaintsView();
+    return true;
+  }
+
+  const pickDayBtn = e.target.closest("[data-cdp-pick]");
+  if (pickDayBtn) {
+    e.preventDefault();
+    e.stopPropagation();
+    const pid = pickDayBtn.dataset.cdpPick;
+    const chosenDate = pickDayBtn.dataset.cdpDate;
+    updateDateForPicker(pid, chosenDate, true);
+    return true;
+  }
+
+  const stepBtn = e.target.closest("[data-cdp-step]");
+  if (stepBtn) {
+    e.preventDefault();
+    e.stopPropagation();
+    const pid = stepBtn.dataset.cdpStep;
+    const dir = parseInt(stepBtn.dataset.cdpDir, 10) || 1;
+    const curIso = pid === "streak" ? state.streakDate : pid === "saints" ? state.saintsDate : state.liturgyDate;
+    const nextIso = addDaysIso(curIso || getTodayIsoDate(), dir);
+    updateDateForPicker(pid, nextIso, true);
+    return true;
+  }
+
+  const todayBtn = e.target.closest("[data-cdp-today]");
+  if (todayBtn) {
+    e.preventDefault();
+    e.stopPropagation();
+    const pid = todayBtn.dataset.cdpToday;
+    updateDateForPicker(pid, getTodayIsoDate(), true);
+    toast("Fecha actualizada al día de hoy");
+    return true;
+  }
+
+  const closeBtn = e.target.closest("[data-cdp-close]");
+  if (closeBtn) {
+    e.preventDefault();
+    e.stopPropagation();
+    const pid = closeBtn.dataset.cdpClose;
+    state.openDatePickerId = null;
+    if (pid === "streak") renderSpiritualView();
+    else if (pid === "liturgy") renderLiturgyView();
+    else if (pid === "saints") renderSaintsView();
+    return true;
+  }
+
+  return false;
+}
+
 function renderStreakTabHtml() {
   const streak = evaluateSpiritualStreak(spiritualDB.checkins);
   const metrics = computeSpiritualMetrics(spiritualDB.checkins);
-  const today = getTodayIsoDate();
+  const selectedStreakDate = state.streakDate || getTodayIsoDate();
 
   const recentCheckins = [...spiritualDB.checkins]
     .sort((a, b) => String(b.date).localeCompare(String(a.date)) || (b.createdAt || 0) - (a.createdAt || 0))
-    .slice(0, 8);
+    .slice(0, 10);
 
   return `
     <!-- Tarjeta Hero con Contador Grande de Racha y Fondo Animado de Parroquia -->
@@ -4158,12 +4736,12 @@ function renderStreakTabHtml() {
     <!-- Formulario de Check-in de Racha -->
     <div class="checkin-card">
       <h4>✨ Registrar Check-in de Racha</h4>
-      <p>Sumá puntos y tiempo de oración en tiempo real (Misa = 60 min · Adoración = 90 min). Tus parroquias seguidas aparecen primero.</p>
+      <p>Sumá puntos y tiempo de oración en tiempo real (Misa = 60 min · Adoración = 90 min). Tus parroquias seguidas aparecen primero y todo queda persistido en LocalStorage.</p>
 
       <form id="streak-checkin-form" class="admin-form">
         <div class="form-row-2">
           <div class="form-field">
-            <label for="streak-activity-select">Actividad</label>
+            <label for="streak-activity-select">Actividad celebrada</label>
             <select id="streak-activity-select" required>
               <option value="misa_finde">⛪ Misa de fin de semana (Sáb tarde / Dom) · +5 pts (60 min)</option>
               <option value="adoracion">🙌 Adoración Eucarística · +3 pts (90 min)</option>
@@ -4171,8 +4749,8 @@ function renderStreakTabHtml() {
             </select>
           </div>
           <div class="form-field">
-            <label for="streak-date-input">Fecha</label>
-            <input type="date" id="streak-date-input" value="${today}" required>
+            <label>Fecha del servicio</label>
+            ${renderCustomDatePickerHtml("streak", selectedStreakDate, { blockMode: true })}
           </div>
         </div>
 
@@ -4267,7 +4845,7 @@ function renderNotesTabHtml() {
 
         <div class="form-actions">
           ${editingNote ? `<button type="button" class="btn-sm" id="btn-cancel-note-edit">Cancelar edición</button>` : ""}
-          <button type="submit" class="btn-sm submit">${editingNote ? "Guardar cambios" : "📓 Guardar en mis Notas"}</button>
+          <button type="submit" class="btn-sm submit">${editingNote ? "💾 Guardar cambios" : "📓 Guardar en mis Notas"}</button>
         </div>
       </form>
     </div>
@@ -4416,14 +4994,40 @@ function renderSpiritualView() {
 }
 
 /* =====================================================================
-   Módulo de Liturgia: Lecturas Católicas Oficiales (Leccionario Argentino CEA)
-   + Santos del Día con Biografía Inspiradora y Selector de Fechas
+   Módulo de Liturgia Desglosado (Primera Lectura Interactiva, Salmo Interactivo,
+   Evangelio y Explicación Pastoral) + Vista Independiente de Santos del Día
    ===================================================================== */
 const OFFICIAL_GOSPELS_BY_MMDD = {
   "11-01": {
     citation: "Mateo 5, 1-12a",
-    firstReading: "Primera Lectura: Apocalipsis 7, 2-4. 9-14 («Vi una multitud inmensa de todas las naciones»)",
-    psalm: "Salmo 23 — «Ésta es la generación de los que buscan tu rostro, Señor»",
+    firstReadingRef: "Apocalipsis 7, 2-4. 9-14",
+    firstReadingTitle: "Vi una multitud inmensa, que nadie podía contar, de todas las naciones",
+    firstReadingFullText: `Lectura del libro del Apocalipsis de san Juan apóstol.
+
+Yo, Juan, vi a otro Ángel que subía del Oriente y llevaba el sello del Dios vivo. Y gritó con voz potente a los cuatro Ángeles que habían recibido el poder de dañar a la tierra y al mar: «No dañen a la tierra, ni al mar, ni a los árboles, hasta que marquemos con el sello la frente de los servidores de nuestro Dios». Y oí el número de los que habían sido marcados: eran ciento cuarenta y cuatro mil de todas las tribus de los hijos de Israel.
+
+Después de esto, vi una multitud inmensa, que nadie podía contar, de todas las naciones, razas, pueblos y lenguas, de pie delante del trono y del Cordero, vestidos con túnicas blancas y con palmas en las manos. Y gritaban con voz potente: «¡La salvación viene de nuestro Dios, que está sentado en el trono, y del Cordero!».
+
+Uno de los Ancianos me preguntó: «¿Quiénes son y de dónde vienen los que están revestidos de túnicas blancas?». Yo le respondí: «Tú lo sabes, señor». Y él me dijo: «Éstos son los que vienen de la gran tribulación; ellos han lavado sus túnicas y las han blanqueado en la sangre del Cordero».`,
+    psalmRef: "Salmo 23 (24), 1-2. 3-4ab. 5-6",
+    psalmResponse: "R. Ésta es la generación de los que buscan tu rostro, Señor.",
+    psalmFullText: `Del Señor es la tierra y todo lo que hay en ella,
+el mundo y todos sus habitantes,
+porque él la fundó sobre los mares
+y la afirmó sobre las corrientes del océano.
+R. Ésta es la generación de los que buscan tu rostro, Señor.
+
+¿Quién podrá subir a la Montaña del Señor
+y permanecer en su recinto sagrado?
+El que tiene las manos limpias y puro el corazón,
+el que no rinde culto a los ídolos.
+R. Ésta es la generación de los que buscan tu rostro, Señor.
+
+Él recibirá la bendición del Señor,
+la recompensa de Dios, su salvador.
+Así son los que buscan al Señor,
+los que buscan tu rostro, Dios de Jacob.
+R. Ésta es la generación de los que buscan tu rostro, Señor.`,
     title: "Solemnidad de Todos los Santos: Las Bienaventuranzas",
     liturgicalSeason: "Solemnidad · Blanco Litúrgico · Leccionario Oficial CEA",
     gospelText: `En aquel tiempo, al ver a la multitud, Jesús subió a la montaña, se sentó, y sus discípulos se acercaron a él. Entonces tomó la palabra y comenzó a enseñarles, diciendo:
@@ -4438,6 +5042,7 @@ Felices los que trabajan por la paz, porque serán llamados hijos de Dios.
 Felices los que son perseguidos por practicar la justicia, porque a ellos les pertenece el Reino de los Cielos.
 
 Alégrense y regocíjense, porque ustedes tendrán una gran recompensa en el cielo».`,
+    whyChosenToday: "La Iglesia proclama hoy el pasaje de las Bienaventuranzas (Mateo 5, 1-12a) porque constituye la «carta magna» de la santidad cristiana: muestra el camino concreto que recorrió la multitud inmensa de santos (Primera Lectura del Apocalipsis) para llegar a ver el rostro de Dios (Salmo 23).",
     popeQuote: "«Los santos no son superhéroes inalcanzables, sino amigos de Dios que vivieron las Bienaventuranzas en la vida cotidiana con alegría y humildad» (Papa Francisco, Gaudete et Exsultate).",
     priestCommentary: "La santidad se teje todos los días en la familia, el estudio, el trabajo y la comunidad parroquial. Las Bienaventuranzas son el retrato del corazón mismo de Jesús.",
     prayerPrompts: [
@@ -4447,8 +5052,34 @@ Alégrense y regocíjense, porque ustedes tendrán una gran recompensa en el cie
   },
   "11-02": {
     citation: "Juan 6, 37-40",
-    firstReading: "Primera Lectura: Sabiduría 3, 1-9 («Las almas de los justos están en las manos de Dios»)",
-    psalm: "Salmo 22 — «El Señor es mi pastor, nada me puede faltar»",
+    firstReadingRef: "Sabiduría 3, 1-9",
+    firstReadingTitle: "Las almas de los justos están en las manos de Dios",
+    firstReadingFullText: `Lectura del libro de la Sabiduría.
+
+Las almas de los justos están en las manos de Dios, y no los afectará ningún tormento. A los ojos de los insensatos parecían muertos; su partida de este mundo fue considerada una desgracia y su alejamiento de nosotros, una completa destrucción; pero ellos están en paz.
+
+Aunque a los ojos de los hombres hayan sufrido castigos, su esperanza estaba colmada de inmortalidad. Por una leve corrección recibirán grandes beneficios, porque Dios los puso a prueba y los encontró dignos de él. Los probó como oro en el crisol y los aceptó como un holocausto.
+
+Los que confían en él comprenderán la verdad y los que le son fieles permanecerán junto a él en el amor, porque la gracia y la misericordia son para sus elegidos.`,
+    psalmRef: "Salmo 22 (23), 1-3a. 3b-4. 5. 6",
+    psalmResponse: "R. El Señor es mi pastor, nada me puede faltar.",
+    psalmFullText: `El Señor es mi pastor, nada me puede faltar.
+En praderas de hierba fresca me hace reposar,
+me conduce junto a aguas tranquilas
+y repara mis fuerzas.
+R. El Señor es mi pastor, nada me puede faltar.
+
+Me guía por el recto sendero, por amor de su Nombre.
+Aunque cruce por oscuras quebradas,
+no temeré ningún mal, porque tú estás conmigo:
+tu vara y tu bastón me infunden confianza.
+R. El Señor es mi pastor, nada me puede faltar.
+
+Tu bondad y tu gracia me acompañan
+a lo largo de mi vida;
+y habitaré en la Casa del Señor,
+por muy largo tiempo.
+R. El Señor es mi pastor, nada me puede faltar.`,
     title: "Conmemoración de Todos los Fieles Difuntos: La voluntad del Padre es que nadie se pierda",
     liturgicalSeason: "Conmemoración Fieles Difuntos · Morado Litúrgico · CEA",
     gospelText: `En aquel tiempo, Jesús dijo a la multitud: «Todo lo que me da el Padre viene a mí, y al que viene a mí yo no lo rechazaré, porque bajé del cielo, no para hacer mi voluntad, sino la de aquel que me envió.
@@ -4456,6 +5087,7 @@ Alégrense y regocíjense, porque ustedes tendrán una gran recompensa en el cie
 La voluntad del que me envió es que yo no pierda nada de lo que él me dio, sino que lo resucite en el último día.
 
 Ésta es la voluntad de mi Padre: que todo el que ve al Hijo y cree en él, tenga Vida eterna y que yo lo resucite en el último día».`,
+    whyChosenToday: "En la Conmemoración de Todos los Fieles Difuntos se elige Juan 6, 37-40 porque revela el fundamento teológico de nuestra esperanza ante la muerte: la voluntad amorosa del Padre entregada a Cristo es no perder a ninguno de sus hijos, sino resucitarlos en el último día.",
     popeQuote: "«La memoria de los difuntos es un acto de profunda esperanza cristiana: sabemos que nuestros seres queridos están en las manos fieles del Padre que nos resucitará» (Papa Benedicto XVI, Angelus).",
     priestCommentary: "Hoy rezamos por nuestros familiares y amigos difuntos ofreciendo la Santa Misa, certeza de que el amor en Cristo es más fuerte que la muerte.",
     prayerPrompts: [
@@ -4465,8 +5097,26 @@ La voluntad del que me envió es que yo no pierda nada de lo que él me dio, sin
   },
   "11-03": {
     citation: "Lucas 14, 15-24",
-    firstReading: "Primera Lectura: Filipenses 2, 5-11 («Tengan los mismos sentimientos de Cristo Jesús»)",
-    psalm: "Salmo 21 — «Te alabaré, Señor, en la gran asamblea»",
+    firstReadingRef: "Filipenses 2, 5-11",
+    firstReadingTitle: "Cristo se humilló a sí mismo; por eso Dios lo exaltó",
+    firstReadingFullText: `Lectura de la carta del apóstol san Pablo a los cristianos de Filipos.
+
+Hermanos: Tengan los mismos sentimientos de Cristo Jesús. Él, que era de condición divina, no consideró esta igualdad con Dios como algo que debía guardar celosamente; al contrario, se anonadó a sí mismo, tomando la condición de servidor y haciéndose semejante a los hombres.
+
+Y presentándose con aspecto humano, se humilló hasta aceptar por obediencia la muerte y muerte de cruz. Por eso, Dios lo exaltó y le dio el Nombre que está sobre todo nombre, para que al nombre de Jesús, se doble toda rodilla en el cielo, en la tierra y en los abismos, y toda lengua proclame para gloria de Dios Padre: «Jesucristo es el Señor».`,
+    psalmRef: "Salmo 21 (22), 26b-27. 28 y 30. 31-32",
+    psalmResponse: "R. Te alabaré, Señor, en la gran asamblea.",
+    psalmFullText: `Cumpliré mis votos delante de sus fieles:
+los pobres comerán hasta saciarse
+y los que buscan al Señor lo alabarán.
+¡Que sus corazones vivan para siempre!
+R. Te alabaré, Señor, en la gran asamblea.
+
+Todas las naciones de la tierra
+se acordarán del Señor y volverán a él;
+ante él se postrarán todas las familias de los pueblos,
+porque sólo el Señor es Rey.
+R. Te alabaré, Señor, en la gran asamblea.`,
     title: "Los invitados al gran banquete del Reino: «Vengan, porque ya todo está preparado»",
     liturgicalSeason: "Martes de la XXXI Semana durante el Año · Verde Litúrgico · CEA",
     gospelText: `En aquel tiempo, uno de los que estaban sentados a la mesa con Jesús le dijo: «¡Feliz el que se siente a comer en el Reino de Dios!».
@@ -4474,6 +5124,7 @@ La voluntad del que me envió es que yo no pierda nada de lo que él me dio, sin
 Jesús le respondió: «Un hombre preparó un gran banquete y convidó a mucha gente. A la hora de comer, mandó a su servidor que dijera a los invitados: "Vengan, todo está preparado". Pero todos, sin excepción, empezaron a excusarse.
 
 Entonces el dueño de casa, indignado, dijo a su servidor: "Sal enseguida a las plazas y a las calles de la ciudad, y trae aquí a los pobres, a los lisiados, a los ciegos y a los paralíticos". Y el señor dijo al servidor: "Sal a los caminos y a los campos, e insiste a la gente para que entre, de manera que se llene mi casa"».`,
+    whyChosenToday: "La liturgia del Tiempo Durante el Año propone hoy Lucas 14, 15-24 en diálogo directo con el himno de Filipenses (Primera Lectura) y el Salmo 21 («los pobres comerán hasta saciarse»): frente a la autosuficiencia de quienes se excusan, el banquete mesiánico de Jesús abre sus puertas a los humildes y necesitados.",
     popeQuote: "«Dios prepara cada día el banquete de su Palabra y de la Eucaristía para todos, sin excluir a nadie. Cuidémonos de las excusas que nos cierran el corazón a Su invitación» (Papa Francisco).",
     priestCommentary: "A veces ponemos mil excusas para postergar a Dios: la falta de tiempo, el cansancio o la rutina. El Señor nos espera hoy en el altar con la mesa servida.",
     prayerPrompts: [
@@ -4483,13 +5134,38 @@ Entonces el dueño de casa, indignado, dijo a su servidor: "Sal enseguida a las 
   },
   "11-04": {
     citation: "Lucas 14, 25-33",
-    firstReading: "Primera Lectura: Filipenses 2, 12-18 («Brillen como antorchas en el mundo, llevando la Palabra de Vida»)",
-    psalm: "Salmo 26 — «El Señor es mi luz y mi salvación»",
+    firstReadingRef: "Filipenses 2, 12-18",
+    firstReadingTitle: "Brillen como antorchas en el mundo, llevando la Palabra de Vida",
+    firstReadingFullText: `Lectura de la carta del apóstol san Pablo a los cristianos de Filipos.
+
+Queridos hermanos: Así como obedecieron siempre —no sólo cuando yo estaba presente, sino mucho más ahora que estoy lejos— trabajen con temor y temblor por alcanzar su salvación. Porque es Dios mismo quien hace nacer en ustedes el querer y el obrar, conforme a su benevolencia.
+
+Háganlo todo sin murmuraciones ni discusiones, para ser irreprochables y puros, hijos de Dios sin mancha, en medio de una generación extraviada y perversa, dentro de la cual ustedes brillan como antorchas en el mundo, llevando en alto la Palabra de Vida.`,
+    psalmRef: "Salmo 26 (27), 1. 4. 13-14",
+    psalmResponse: "R. El Señor es mi luz y mi salvación.",
+    psalmFullText: `El Señor es mi luz y mi salvación,
+¿a quién temeré?
+El Señor es el baluarte de mi vida,
+¿ante quién temblaré?
+R. El Señor es mi luz y mi salvación.
+
+Una sola cosa he pedido al Señor, y esto es lo que busco:
+habitar en la Casa del Señor todos los días de mi vida,
+para contemplar la hermosura del Señor
+y visitar su Templo.
+R. El Señor es mi luz y mi salvación.
+
+Yo creo que contemplaré la bondad del Señor
+en la tierra de los vivientes.
+Espera en el Señor y sé fuerte;
+ten valor y espera en el Señor.
+R. El Señor es mi luz y mi salvación.`,
     title: "Las condiciones para seguir a Jesús: Cargar con la cruz y calcular los gastos",
     liturgicalSeason: "Memoria de San Carlos Borromeo · Miércoles XXXI durante el Año · CEA",
-    gospelText: `En aquel tiempo, junto con Jesús iba un gran gentío, y él, dándose vuelta, les dijo: «Cualquiera que venga a mí y no me ame más que a su padre y a su madre, a su mujer y a sus hijos, a sus hermanos y hermanas, y hasta a su propia vida, no puede ser mi discípulo. El que no carga con su cruz y me sigue, no puede ser mi discípulo.
+    gospelText: `En aquel tiempo, junto con Jesús iba un gran gentío, y él, dándose vuelta, les dijo: «Cualquiera que venga a mí y no me ame más que a su padre y a su madre, a su mujer y a su hijos, a sus hermanos y hermanas, y hasta a su propia vida, no puede ser mi discípulo. El que no carga con su cruz y me sigue, no puede ser mi discípulo.
 
 ¿Quién de ustedes, si quiere edificar una torre, no se sienta primero a calcular los gastos, para ver si tiene con qué terminarla? De la misma manera, cualquiera de ustedes que no renuncie a todo lo que posee, no puede ser mi discípulo».`,
+    whyChosenToday: "Este pasaje (Lucas 14, 25-33) es elegido en la lectura continua de la semana XXXI y coincide providencialmente con la Memoria de San Carlos Borromeo: muestra que el discipulado cristiano no es un entusiasmo superficial, sino una decisión madura de poner a Cristo en el centro y edificar la vida con perseverancia.",
     popeQuote: "«Seguir a Cristo exige valentía y libertad interior para poner su Amor en el primer lugar, sabiendo que quien entrega su vida por Él la gana en plenitud» (Papa Francisco).",
     priestCommentary: "En la memoria de San Carlos Borromeo, este Evangelio oficial nos invita a edificar nuestra vida espiritual sobre roca firme, sin quedarnos a mitad de camino.",
     prayerPrompts: [
@@ -4499,8 +5175,34 @@ Entonces el dueño de casa, indignado, dijo a su servidor: "Sal enseguida a las 
   },
   "11-05": {
     citation: "Lucas 15, 1-10",
-    firstReading: "Primera Lectura: Filipenses 3, 3-8a («Todo lo considero pérdida comparado con el conocimiento de Cristo Jesús»)",
-    psalm: "Salmo 104 — «Que se alegren los que buscan al Señor»",
+    firstReadingRef: "Filipenses 3, 3-8a",
+    firstReadingTitle: "Todo lo considero pérdida comparado con el conocimiento de Cristo Jesús",
+    firstReadingFullText: `Lectura de la carta del apóstol san Pablo a los cristianos de Filipos.
+
+Hermanos: Los verdaderos circuncisos somos nosotros, los que ofrecemos un culto inspirado por el Espíritu de Dios y ponemos nuestra gloria en Cristo Jesús, sin confiar en la carne.
+
+Aunque yo también tendría motivos para poner mi confianza en la carne. Si alguien cree que puede confiar en ella, yo puedo hacerlo con mayor razón: circuncidado al octavo día; del linaje de Israel, de la tribu de Benjamín; hebreo, hijo de hebreos; en cuanto a la Ley, fariseo; en cuanto al celo, perseguidor de la Iglesia; en cuanto a la justicia que proviene de la Ley, irreprochable.
+
+Pero todo lo que era para mí una ganancia, lo consideré una pérdida a causa de Cristo. Más aún: todo lo considero pérdida, comparado con el don supremo del conocimiento de Cristo Jesús, mi Señor.`,
+    psalmRef: "Salmo 104 (105), 2-3. 4-5. 6-7",
+    psalmResponse: "R. Que se alegren los que buscan al Señor.",
+    psalmFullText: `Canten al Señor con instrumentos musicales,
+proclamen todas sus maravillas;
+gloríense en su santo Nombre,
+alégrese el corazón de los que buscan al Señor.
+R. Que se alegren los que buscan al Señor.
+
+Recurran al Señor y a su poder,
+busquen constantemente su rostro;
+recuerden las maravillas que él obró,
+sus portentos y los juicios de su boca.
+R. Que se alegren los que buscan al Señor.
+
+Descendientes de Abraham, su servidor,
+hijos de Jacob, su elegido:
+el Señor es nuestro Dios,
+en toda la tierra rigen sus decretos.
+R. Que se alegren los que buscan al Señor.`,
     title: "La oveja perdida y la moneda encontrada: La alegría del Cielo por un pecador que vuelve",
     liturgicalSeason: "Jueves de la XXXI Semana durante el Año · Verde Litúrgico · CEA",
     gospelText: `En aquel tiempo, todos los publicanos y los pecadores se acercaban a Jesús para escucharlo. Los fariseos y los escribas murmuraban, diciendo: «Este hombre recibe a los pecadores y come con ellos».
@@ -4508,8 +5210,9 @@ Entonces el dueño de casa, indignado, dijo a su servidor: "Sal enseguida a las 
 Entonces Jesús les propuso esta parábola: «¿Quién de ustedes, si tiene cien ovejas y pierde una de ellas, no deja las noventa y nueve en el campo y va en busca de la que se había perdido, hasta encontrarla? Y cuando la encuentra, la carga sobre sus hombros, lleno de alegría, y al llegar a su casa llama a sus amigos y vecinos, y les dice: "Alégrense conmigo, porque encontré la oveja que se me había perdido". Les aseguro que, de la misma manera, habrá más alegría en el cielo por un solo pecador que se convierta, que por noventa y nueve justos que no necesitan convertirse.
 
 ¿Y qué mujer que tiene diez dracmas, si pierde una, no enciende una lámpara, barre la casa y busca cuidadosamente hasta encontrarla? Y cuando la encuentra, llama a sus amigas y vecinas, y les dice: "Alégrense conmigo, porque encontré la dracma que se me había perdido". Les aseguro que, de la misma manera, se alegran los ángeles de Dios por un solo pecador que se convierte».`,
+    whyChosenToday: "La Liturgia elige hoy Lucas 15, 1-10 para iluminar la Primera Lectura de San Pablo a los Filipenses: así como Pablo abandona el orgullo farisaico de creerse «irreprochable» por mérito propio para dejarse alcanzar por la gracia de Cristo, Jesús responde a la murmuración de los escribas con las parábolas de la misericordia, mostrando que la verdadera alegría de Dios está en buscar y abrazar a quien se había perdido.",
     popeQuote: "«El corazón de Dios se conmueve por cada hijo: Él enciende la lámpara, sale a buscarnos y hace fiesta cuando nos dejamos encontrar por Su misericordia» (Papa Francisco, Homilía sobre Lucas 15).",
-    priestCommentary: "Éste es el Evangelio oficial de hoy (Lucas 15, 1-10): frente a la murmuración de los que se creen perfectos, Jesús revela el rostro de un Dios que busca incansablemente a cada persona y celebra su regreso con alegría.",
+    priestCommentary: "Frente a la murmuración de los que se creen perfectos, Jesús revela el rostro de un Dios Pastor que busca incansablemente a cada persona y celebra su regreso en comunidad.",
     prayerPrompts: [
       "Dejarme encontrar hoy por la mirada misericordiosa de Jesús en la oración.",
       "Ser puente de bienvenida y ternura para quienes desean volver a acercarse a la fe.",
@@ -4518,13 +5221,31 @@ Entonces Jesús les propuso esta parábola: «¿Quién de ustedes, si tiene cien
   },
   "11-06": {
     citation: "Lucas 16, 1-8",
-    firstReading: "Primera Lectura: Filipenses 3, 17 — 4, 1 («Nuestra patria está en el cielo»)",
-    psalm: "Salmo 121 — «¡Qué alegría cuando me dijeron: Vamos a la Casa del Señor!»",
+    firstReadingRef: "Filipenses 3, 17 — 4, 1",
+    firstReadingTitle: "Nosotros somos ciudadanos del cielo, y esperamos al Salvador",
+    firstReadingFullText: `Lectura de la carta del apóstol san Pablo a los cristianos de Filipos.
+
+Hermanos: Sigan mi ejemplo y observen atentamente a los que viven según el modelo que encuentran en nosotros. Porque, como ya les dije muchas veces y ahora lo repito con lágrimas en los ojos, hay muchos que se portan como enemigos de la cruz de Cristo. Su fin es la perdición, su dios es el vientre, su gloria está en aquello que los cubre de vergüenza, y no aprecian sino las cosas de la tierra.
+
+Nosotros, en cambio, somos ciudadanos del cielo, y esperamos ardientemente que venga de allí como Salvador el Señor Jesucristo. Él transformará nuestro pobre cuerpo mortal, haciéndolo semejante a su cuerpo glorioso, con el poder que tiene para poner todas las cosas bajo su dominio. Por eso, hermanos míos muy queridos, a quienes tanto deseo ver, ustedes que son mi alegría y mi corona, permanezcan firmes en el Señor.`,
+    psalmRef: "Salmo 121 (122), 1-2. 3-4ab. 4cd-5",
+    psalmResponse: "R. ¡Qué alegría cuando me dijeron: «Vamos a la Casa del Señor»!",
+    psalmFullText: `¡Qué alegría cuando me dijeron:
+«Vamos a la Casa del Señor»!
+Nuestros pies ya están pisando
+tus umbrales, Jerusalén.
+R. ¡Qué alegría cuando me dijeron: «Vamos a la Casa del Señor»!
+
+Jerusalén, que fuiste construida
+como ciudad bien compacta y armoniosa.
+Allí suben las tribus, las tribus del Señor.
+R. ¡Qué alegría cuando me dijeron: «Vamos a la Casa del Señor»!`,
     title: "Creatividad y fidelidad de los hijos de la luz en los bienes de este mundo",
     liturgicalSeason: "Viernes de la XXXI Semana durante el Año · Verde Litúrgico · CEA",
     gospelText: `En aquel tiempo, Jesús decía a sus discípulos: «Había un hombre rico que tenía un administrador, al cual acusaron de malgastar sus bienes. Lo llamó y le dijo: "¿Qué es lo que oigo decir de ti? Rinde cuenta de tu administración, porque ya no podrás seguir administrando".
 
 El administrador llamó uno por uno a los deudores de su señor y redujo sus deudas con astucia. El señor alabó a este administrador deshonesto, por haber obrado tan hábilmente. Porque los hijos de este mundo son más astutos en su trato con los demás que los hijos de la luz».`,
+    whyChosenToday: "Se proclama hoy Lucas 16, 1-8 porque enseña cómo han de vivir en la tierra quienes saben que «su ciudadanía está en el cielo» (Primera Lectura): no con pasividad ni apego egoísta, sino administrando los bienes temporales con prontitud, solidaridad y creatividad evangélica.",
     popeQuote: "«Jesús nos invita a tener la misma prontitud, creatividad y empeño para construir el Reino de Dios y ayudar a los hermanos que el mundo pone para sus negocios» (Papa Francisco).",
     priestCommentary: "La creatividad pastoral y la caridad concreta son la verdadera astucia evangélica que transforma nuestros barrios.",
     prayerPrompts: [
@@ -4534,13 +5255,40 @@ El administrador llamó uno por uno a los deudores de su señor y redujo sus deu
   },
   "11-07": {
     citation: "Lucas 16, 9-15",
-    firstReading: "Primera Lectura: Filipenses 4, 10-19 («Todo lo puedo en aquel que me conforta»)",
-    psalm: "Salmo 111 — «Feliz el hombre que teme al Señor»",
+    firstReadingRef: "Filipenses 4, 10-19",
+    firstReadingTitle: "Todo lo puedo en aquel que me conforta",
+    firstReadingFullText: `Lectura de la carta del apóstol san Pablo a los cristianos de Filipos.
+
+Hermanos: Me alegré muchísimo en el Señor al ver que florecía nuevamente el interés de ustedes por mí; ciertamente lo tenían, pero les faltaba la ocasión de demostrarlo. No digo esto porque esté necesitado, pues he aprendido a bastarme con lo que tengo.
+
+Sé vivir en la pobreza y en la abundancia; estoy entrenado para todo y en todo momento: a estar satisfecho y a pasar hambre, a nadar en la abundancia y a sufrir privaciones. Todo lo puedo en aquel que me conforta.
+
+Sin embargo, ustedes hicieron bien en interesarse por mis necesidades. Mi Dios colmará todas las necesidades de ustedes con magnificencia, conforme a su riqueza, en Cristo Jesús.`,
+    psalmRef: "Salmo 111 (112), 1-2. 5-6. 8a y 9",
+    psalmResponse: "R. Feliz el hombre que teme al Señor.",
+    psalmFullText: `Feliz el hombre que teme al Señor
+y se complace en sus mandamientos.
+Su descendencia será fuerte en la tierra:
+la posteridad de los justos es bendecida.
+R. Feliz el hombre que teme al Señor.
+
+Es bueno el hombre que se apiada y da prestado,
+y administra sus asuntos con rectitud.
+El justo no vacilará jamás,
+su recuerdo permanecerá para siempre.
+R. Feliz el hombre que teme al Señor.
+
+Su corazón está firme y nada teme;
+él da abundantemente a los pobres:
+su generosidad permanece para siempre,
+y alzará su frente con dignidad.
+R. Feliz el hombre que teme al Señor.`,
     title: "Fidelidad en lo poco: «El que es fiel en lo mínimo, también es fiel en lo mucho»",
     liturgicalSeason: "Sábado de la XXXI Semana durante el Año · Verde Litúrgico · CEA",
     gospelText: `En aquel tiempo, Jesús decía a sus discípulos: «El que es fiel en lo poco, también es fiel en lo mucho, y el que es deshonesto en lo poco, también es deshonesto en lo mucho. Si ustedes no son fieles en el uso del dinero injusto, ¿quién les confiará el verdadero bien?
 
 Ningún servidor puede servir a dos señores, porque aborrecerá a uno y amará al otro, o bien se interesará por el primero y menospreciará al segundo. No pueden servir a Dios y al Dinero».`,
+    whyChosenToday: "Al concluir la lectura de la Carta a los Filipenses (Filipenses 4, 10-19), la Iglesia elige Lucas 16, 9-15 para subrayar que la libertad interior ante el dinero y la fidelidad en las cosas pequeñas de cada día son el camino que abre el corazón a las verdaderas riquezas del Reino.",
     popeQuote: "«La santidad crece en los pequeños gestos diarios de fidelidad que sólo Dios ve» (Papa Francisco).",
     priestCommentary: "En vísperas del domingo, la Palabra nos recuerda que la fidelidad en las cosas pequeñas prepara nuestro corazón para recibir los grandes dones de Dios.",
     prayerPrompts: [
@@ -4550,15 +5298,43 @@ Ningún servidor puede servir a dos señores, porque aborrecerá a uno y amará 
   },
   "11-08": {
     citation: "Marcos 12, 38-44",
-    firstReading: "Primera Lectura: 1 Reyes 17, 10-16 (La viuda de Sarepta comparte su pan con el profeta Elías)",
-    psalm: "Salmo 145 — «Alaba, alma mía, al Señor»",
+    firstReadingRef: "1 Reyes 17, 10-16",
+    firstReadingTitle: "La viuda de Sarepta hizo un panecillo de lo poco que tenía y se lo llevó a Elías",
+    firstReadingFullText: `Lectura del primer libro de los Reyes.
+
+En aquellos días, el profeta Elías se puso en camino y fue a Sarepta. Al llegar a la puerta de la ciudad, vio a una viuda que estaba juntando leña. La llamó y le dijo: «Por favor, tráeme en un jarro un poco de agua para beber». Mientras ella iba a buscarla, la llamó y le dijo: «Tráeme también en la mano un trozo de pan».
+
+Pero ella respondió: «¡Por la vida del Señor, tu Dios! No tengo pan cocido; sólo me queda un puñado de harina en el tarro y un poco de aceite en el frasco. Apenas recoja un par de leños, entraré a preparar eso para mí y para mi hijo; lo comeremos, y luego moriremos».
+
+Elías le dijo: «No temas. Ve a hacer como has dicho, pero antes prepárame con eso un panecillo y tráemelo; para ti y para tu hijo lo harás después. Porque así habla el Señor, Dios de Israel: El tarro de harina no se agotará ni el frasco de aceite se vaciará, hasta el día en que el Señor envíe la lluvia sobre la faz de la tierra».
+
+Ella se fue e hizo como le había dicho Elías, y comieron ella, él y su casa durante un tiempo. El tarro de harina no se agotó ni se vació el frasco de aceite, conforme a la palabra que había pronunciado el Señor por medio de Elías.`,
+    psalmRef: "Salmo 145 (146), 7. 8-9a. 9bc-10",
+    psalmResponse: "R. Alaba, alma mía, al Señor.",
+    psalmFullText: `El Señor hace justicia a los oprimidos
+y da pan a los hambrientos.
+El Señor libera a los cautivos.
+R. Alaba, alma mía, al Señor.
+
+El Señor abre los ojos de los ciegos,
+el Señor endereza a los que están encorvados,
+el Señor ama a los justos.
+El Señor protege a los extranjeros.
+R. Alaba, alma mía, al Señor.
+
+Él sostiene al huérfano y a la viuda
+y entorpece el camino de los malvados.
+El Señor reina eternamente,
+reina tu Dios, Sión, a lo largo de las generaciones.
+R. Alaba, alma mía, al Señor.`,
     title: "La ofrenda de la viuda pobre: «Dio todo lo que tenía para vivir»",
     liturgicalSeason: "XXXII Domingo Durante el Año · Verde Litúrgico · CEA",
     gospelText: `En aquel tiempo, Jesús, sentado frente a la sala del tesoro del Templo, miraba cómo la gente depositaba su limosna. Muchos ricos daban en abundancia. Llegó una viuda pobre y puso dos pequeñas monedas de cobre.
 
 Entonces Jesús, llamando a sus discípulos, les dijo: «Les aseguro que esta viuda pobre ha dado más que todos los que pusieron dinero en el tesoro. Porque todos daban de lo que les sobraba, pero ella, de su indigencia, dio todo lo que poseía, todo lo que tenía para vivir».`,
+    whyChosenToday: "En este Domingo XXXII Durante el Año, la liturgia une la figura de la viuda de Sarepta (1 Reyes 17) con la viuda del Templo de Jerusalén (Marcos 12, 38-44): ambas mujeres, en medio de su extrema fragilidad, entregan todo lo que tienen para vivir, convirtiéndose en ícono de Cristo mismo que se entrega por entero en la Cruz y en la Eucaristía.",
     popeQuote: "«La medida de Dios no es la cantidad ni la apariencia, sino la entrega total del corazón humilde que confía en la Providencia» (Papa Francisco, Angelus).",
-    priestCommentary: "En este Domingo XXXII durante el Año, Jesús fija su mirada en el gesto silencioso de la viuda: ella no entrega lo que le sobra, sino su propia vida confiada en las manos de Dios.",
+    priestCommentary: "Jesús fija su mirada en el gesto silencioso de la viuda: ella no entrega lo que le sobra, sino su propia vida confiada en las manos de Dios.",
     prayerPrompts: [
       "¿Le doy a Dios y a mis hermanos sólo lo que me sobra de tiempo, o le entrego lo mejor de mi corazón?",
       "Participar hoy en la Misa dominical ofreciendo toda nuestra semana en el altar."
@@ -4740,99 +5516,618 @@ function renderLiturgyView() {
   if (!container) return;
 
   const g = getGospelForDate(state.liturgyDate);
-  const saints = getSaintsForDate(state.liturgyDate);
-  const showGospel = state.litTab === "all" || state.litTab === "gospel";
-  const showSaints = state.litTab === "all" || state.litTab === "saints";
 
   container.innerHTML = `
-    <!-- Sub-pestañas de Liturgia: Vista Completa, Evangelio del Día, Santos del Día -->
-    <div class="community-subnav" id="liturgy-subtabs" role="tablist" aria-label="Secciones de liturgia">
-      <button type="button" class="comm-tab ${state.litTab === "all" ? "is-active" : ""}" data-lit-tab="all" role="tab" aria-selected="${state.litTab === "all"}">📚 Evangelio y Santos</button>
-      <button type="button" class="comm-tab ${state.litTab === "gospel" ? "is-active" : ""}" data-lit-tab="gospel" role="tab" aria-selected="${state.litTab === "gospel"}">📖 Evangelio del Día</button>
-      <button type="button" class="comm-tab ${state.litTab === "saints" ? "is-active" : ""}" data-lit-tab="saints" role="tab" aria-selected="${state.litTab === "saints"}">👼 Santos del Día (${saints.length})</button>
-    </div>
-
-    <!-- Barra de Selección de Fecha Litúrgica (Permite fechas pasadas, actual y futuras) -->
+    <!-- Barra de Selección de Fecha Litúrgica con Selector Estilizado Personalizado -->
     <div class="liturgy-toolbar">
       <div class="liturgy-toolbar-info">
         <strong>📅 ${g.formattedLongDate}</strong>
-        <span>Leccionario Oficial Argentino (Libro del Pueblo de Dios) · Podés elegir fechas anteriores o futuras</span>
+        <span>Leccionario Oficial Argentino (Libro del Pueblo de Dios) · Tocá cada lectura para desplegar su texto completo</span>
       </div>
       <div class="liturgy-date-controls">
-        <button type="button" class="btn-sm" id="btn-liturgy-prev" title="Día anterior">◀ Ant.</button>
-        <input type="date" id="liturgy-date-input" value="${g.isoDate}" aria-label="Seleccionar fecha litúrgica">
-        <button type="button" class="btn-sm" id="btn-liturgy-today">Hoy</button>
-        <button type="button" class="btn-sm" id="btn-liturgy-next" title="Día siguiente">Sig. ▶</button>
+        ${renderCustomDatePickerHtml("liturgy", g.isoDate)}
       </div>
     </div>
 
-    ${showGospel ? `
-      <!-- Ficha Principal del Evangelio Oficial del Día -->
-      <article class="gospel-card">
-        <div class="gospel-head">
-          <span class="gospel-tag">🇦🇷 ${g.liturgicalSeason}</span>
-          <h3>Evangelio según San ${g.citation}: «${g.title}»</h3>
-          ${g.firstReading ? `<p class="gospel-ref" style="margin-bottom:4px">📜 ${g.firstReading}</p>` : ""}
-          <p class="gospel-ref">🎵 ${g.psalm}</p>
-        </div>
-
-        <div class="gospel-body-text">${g.gospelText.split("\n\n").map(p => `<p style="margin:0 0 12px">${p}</p>`).join("")}</div>
-        <p style="margin:10px 0 0;font-size:0.82rem;font-weight:700;color:var(--brand)">— Palabra del Señor. / Gloria a Ti, Señor Jesús.</p>
-
-        <!-- Botón de Explicación del Evangelio (Papas / Sacerdotes) -->
-        <button type="button" class="btn-explain-gospel" id="btn-toggle-gospel-explain" aria-expanded="${state.liturgyExplainOpen}">
-          <span>📖 Explicación del Evangelio (Papas / Sacerdotes)</span>
-          <span>${state.liturgyExplainOpen ? "▲ Ocultar reflexión" : "▼ Ver comentario homilético"}</span>
+    <!-- Tarjetas Interactivas Desplegables: Primera Lectura y Salmo Responsorial -->
+    <div class="liturgy-interactive-grid">
+      <!-- 1. Primera Lectura Interactiva -->
+      <article class="reading-interactive-card ${state.openFirstReading ? "is-expanded" : ""}">
+        <button type="button" class="reading-toggle-btn" data-toggle-lit-reading="first" aria-expanded="${state.openFirstReading}">
+          <div class="reading-toggle-info">
+            <span class="reading-kicker">📜 Primera Lectura · ${g.firstReadingRef}</span>
+            <span class="reading-title">«${g.firstReadingTitle}»</span>
+            <span class="reading-preview">${state.openFirstReading ? "Texto bíblico completo desplegado abajo" : "Tocá para desplegar el texto completo de la Primera Lectura"}</span>
+          </div>
+          <span class="reading-expand-pill">${state.openFirstReading ? "▲ Ocultar texto" : "▼ Leer completa"}</span>
         </button>
-
-        ${state.liturgyExplainOpen ? `
-          <div class="gospel-explanation-panel" id="gospel-explanation-panel">
-            <h4>🏛️ 1. Magisterio de los Papas</h4>
-            <p>${g.popeQuote}</p>
-
-            <h4>⛪ 2. Reflexión Homilética Sacerdotal</h4>
-            <p>${g.priestCommentary}</p>
-
-            <h4>🕯️ 3. Puntos para tu Oración Personal Hoy</h4>
-            <ul>
-              ${g.prayerPrompts.map(pr => `<li>${pr}</li>`).join("")}
-            </ul>
-
-            <div style="margin-top:14px;display:flex;justify-content:flex-end">
-              <button type="button" class="btn-sm submit" id="btn-save-gospel-to-notes">📓 Anotar reflexión sobre este Evangelio</button>
+        ${state.openFirstReading ? `
+          <div class="reading-full-body">
+            <div class="reading-scripture-text">${g.firstReadingFullText}</div>
+            <p class="reading-liturgical-footer">— Palabra de Dios. / Te alabamos, Señor.</p>
+            <div style="margin-top:12px;display:flex;justify-content:flex-end">
+              <button type="button" class="btn-sm" id="btn-save-first-to-notes">📓 Guardar Primera Lectura en Notas</button>
             </div>
           </div>
         ` : ""}
       </article>
-    ` : ""}
 
-    ${showSaints ? `
-      <!-- Sección Dedicada: Santos del Día con Biografía Breve e Inspiradora -->
-      <section class="saints-section-card" aria-label="Santos del Día">
-        <div class="gospel-head" style="margin-bottom:8px">
-          <span class="gospel-tag">👼 Santoral Católico del Día</span>
-          <h3>Santos del Día · ${g.formattedLongDate}</h3>
-          <p class="gospel-ref">Vidas breves e inspiradoras de los testigos de la fe que la Iglesia celebra en esta fecha.</p>
-        </div>
-
-        ${saints.map((st, idx) => `
-          <article class="saint-card">
-            <div class="saint-card-head">
-              <div class="saint-title-wrap">
-                <span class="saint-halo-icon" aria-hidden="true">${st.icon || "👼"}</span>
-                <div>
-                  <h4>${st.name}</h4>
-                  <span class="saint-feast-badge">${st.feast}</span>
-                </div>
-              </div>
-              <button type="button" class="btn-sm" style="flex:none" data-save-saint-idx="${idx}">📓 Guardar en Notas</button>
+      <!-- 2. Salmo Responsorial Interactivo -->
+      <article class="reading-interactive-card ${state.openPsalm ? "is-expanded" : ""}">
+        <button type="button" class="reading-toggle-btn" data-toggle-lit-reading="psalm" aria-expanded="${state.openPsalm}">
+          <div class="reading-toggle-info">
+            <span class="reading-kicker">🎵 Salmo Responsorial · ${g.psalmRef}</span>
+            <span class="reading-title">${g.psalmResponse}</span>
+            <span class="reading-preview">${state.openPsalm ? "Estrofas y antífona del Salmo desplegadas abajo" : "Tocá para desplegar todas las estrofas y respuesta del Salmo"}</span>
+          </div>
+          <span class="reading-expand-pill">${state.openPsalm ? "▲ Ocultar salmo" : "▼ Leer salmo"}</span>
+        </button>
+        ${state.openPsalm ? `
+          <div class="reading-full-body">
+            <div class="reading-response-banner">🎵 Antífona: ${g.psalmResponse}</div>
+            <div class="reading-scripture-text">${g.psalmFullText}</div>
+            <div style="margin-top:12px;display:flex;justify-content:flex-end">
+              <button type="button" class="btn-sm" id="btn-save-psalm-to-notes">📓 Guardar Salmo en Notas</button>
             </div>
-            <p class="saint-bio">${st.bio}</p>
-            <div class="saint-quote">${st.quote}</div>
-          </article>
+          </div>
+        ` : ""}
+      </article>
+    </div>
+
+    <!-- 3. Ficha Principal del Evangelio Oficial del Día + Explicación Pastoral Interactiva -->
+    <article class="gospel-card">
+      <div class="gospel-head">
+        <span class="gospel-tag">🇦🇷 ${g.liturgicalSeason}</span>
+        <h3>Evangelio según San ${g.citation}: «${g.title}»</h3>
+        <p class="gospel-ref">Lectura proclamada en todas las parroquias de Argentina</p>
+      </div>
+
+      <div class="gospel-body-text">${g.gospelText.split("\n\n").map(p => `<p style="margin:0 0 12px">${p}</p>`).join("")}</div>
+      <p style="margin:10px 0 0;font-size:0.82rem;font-weight:700;color:var(--brand)">— Palabra del Señor. / Gloria a Ti, Señor Jesús.</p>
+
+      <!-- Opción Interactiva: Explicación Pastoral debajo del Evangelio -->
+      <button type="button" class="btn-explain-gospel" id="btn-toggle-gospel-explain" aria-expanded="${state.liturgyExplainOpen}">
+        <span>📖 Explicación pastoral (${g.citation})</span>
+        <span>${state.liturgyExplainOpen ? "▲ Ocultar explicación pastoral" : "▼ Ver por qué se elige hoy y reflexión"}</span>
+      </button>
+
+      ${state.liturgyExplainOpen ? `
+        <div class="gospel-explanation-panel" id="gospel-explanation-panel">
+          <div class="pastoral-why-box">
+            <span class="pastoral-cita-badge">📌 Cita seleccionada: ${g.citation}</span>
+            <h4>¿Por qué la Iglesia elige este pasaje para el día de hoy?</h4>
+            <p>${g.whyChosenToday}</p>
+          </div>
+
+          <h4>⛪ Explicación Teológica y Pastoral Sacerdotal</h4>
+          <p>${g.priestCommentary}</p>
+
+          <h4>🏛️ Iluminación del Magisterio Pontificio</h4>
+          <p>${g.popeQuote}</p>
+
+          <h4>🕯️ Claves Pastorales para tu Oración Hoy</h4>
+          <ul>
+            ${g.prayerPrompts.map(pr => `<li>${pr}</li>`).join("")}
+          </ul>
+
+          <div style="margin-top:14px;display:flex;justify-content:flex-end">
+            <button type="button" class="btn-sm submit" id="btn-save-gospel-to-notes">📓 Anotar reflexión sobre este Evangelio</button>
+          </div>
+        </div>
+      ` : ""}
+    </article>`;
+}
+
+function renderSaintsView() {
+  const container = $("#saints-content");
+  if (!container) return;
+
+  const g = getGospelForDate(state.saintsDate);
+  const saints = getSaintsForDate(state.saintsDate);
+
+  container.innerHTML = `
+    <!-- Barra de Selección de Fecha del Santoral con Selector Estilizado Personalizado -->
+    <div class="liturgy-toolbar">
+      <div class="liturgy-toolbar-info">
+        <strong>👼 Santoral del ${g.formattedLongDate}</strong>
+        <span>Testigos de la fe celebrados por la Iglesia Católica en esta fecha</span>
+      </div>
+      <div class="liturgy-date-controls">
+        ${renderCustomDatePickerHtml("saints", g.isoDate)}
+      </div>
+    </div>
+
+    <section class="saints-section-card" aria-label="Santos del Día">
+      <div class="gospel-head" style="margin-bottom:8px">
+        <span class="gospel-tag">✨ Biografías Espirituales (${saints.length})</span>
+        <h3>Santos del Día · ${g.formattedLongDate}</h3>
+        <p class="gospel-ref">Conocé la vida, misión y espiritualidad de los santos que nos acompañan hoy.</p>
+      </div>
+
+      ${saints.map((st, idx) => `
+        <article class="saint-card">
+          <div class="saint-card-head">
+            <div class="saint-title-wrap">
+              <span class="saint-halo-icon" aria-hidden="true">${st.icon || "👼"}</span>
+              <div>
+                <h4>${st.name}</h4>
+                <span class="saint-feast-badge">${st.feast}</span>
+              </div>
+            </div>
+            <button type="button" class="btn-sm" style="flex:none" data-save-saint-idx="${idx}">📓 Guardar en Notas</button>
+          </div>
+          <p class="saint-bio">${st.bio}</p>
+          <div class="saint-quote">${st.quote}</div>
+        </article>
+      `).join("")}
+    </section>`;
+}
+
+/* =====================================================================
+   Mi Parro: Simulador de Parroquia Virtual (Tycoon minimalista)
+   - Monedas de Gracia = puntos históricos de la Racha Espiritual − monedas gastadas
+   - Estado completo persistido en localStorage (mi_parro_v1)
+   ===================================================================== */
+const MI_PARRO_STORAGE_KEY = "mi_parro_v1";
+
+const MI_PARRO_TABS = [
+  { id: "structure", label: "🏗️ Estructura" },
+  { id: "advocation", label: "🕊️ Advocación" },
+  { id: "exterior", label: "🌳 Exterior" },
+  { id: "details", label: "🎨 Detalles" }
+];
+
+const MI_PARRO_CATALOG = [
+  // --- Estructura ---
+  { id: "nave_amplia", tab: "structure", kind: "toggle", name: "Ampliación de nave", icon: "🏛️", cost: 12, desc: "Dos alas laterales para recibir a más fieles." },
+  { id: "campanario", tab: "structure", kind: "toggle", name: "Campanario", icon: "🔔", cost: 10, desc: "Una torre con campana que convoca a la comunidad." },
+  { id: "techo_teja", tab: "structure", kind: "single", group: "roof", name: "Techo de teja", swatch: "#C8693E", cost: 0, desc: "Clásico y cálido, de barro cocido." },
+  { id: "techo_pizarra", tab: "structure", kind: "single", group: "roof", name: "Techo de pizarra", swatch: "#5F6B7A", cost: 6, desc: "Sobrio, gris azulado y elegante." },
+  { id: "techo_cobre", tab: "structure", kind: "single", group: "roof", name: "Techo de cobre", swatch: "#3FA796", cost: 9, desc: "Cobre oxidado de tono verdoso." },
+  // --- Advocación (imagen patrona sobre la puerta) ---
+  { id: "adv_ninguna", tab: "advocation", kind: "single", group: "advocation", name: "Sin advocación", icon: "✝️", cost: 0, full: "", desc: "Una cruz sencilla sobre la puerta." },
+  { id: "adv_lujan", tab: "advocation", kind: "single", group: "advocation", name: "Virgen de Luján", icon: "🕊️", cost: 10, full: "Nuestra Señora de Luján", mantle: "#8EC5E8", dress: "#FFFFFF", desc: "Patrona de la Argentina." },
+  { id: "adv_guadalupe", tab: "advocation", kind: "single", group: "advocation", name: "Virgen de Guadalupe", icon: "🌹", cost: 10, full: "Nuestra Señora de Guadalupe", mantle: "#3FA796", dress: "#E8A0B4", desc: "Madre de las Américas." },
+  { id: "adv_carmen", tab: "advocation", kind: "single", group: "advocation", name: "Virgen del Carmen", icon: "📿", cost: 8, full: "Nuestra Señora del Carmen", mantle: "#7B4B2A", dress: "#F2E6D0", desc: "Protectora en el camino." },
+  { id: "adv_lourdes", tab: "advocation", kind: "single", group: "advocation", name: "Virgen de Lourdes", icon: "💧", cost: 8, full: "Nuestra Señora de Lourdes", mantle: "#BFD9F2", dress: "#FFFFFF", desc: "Consuelo de los enfermos." },
+  { id: "adv_sagrado_corazon", tab: "advocation", kind: "single", group: "advocation", name: "Sagrado Corazón", icon: "❤️", cost: 8, full: "Sagrado Corazón de Jesús", mantle: "#C0392B", dress: "#FFFFFF", desc: "Amor misericordioso de Cristo." },
+  { id: "adv_san_jose", tab: "advocation", kind: "single", group: "advocation", name: "San José", icon: "🪚", cost: 8, full: "San José Obrero", mantle: "#8A6A3B", dress: "#6BA368", desc: "Custodio de la Sagrada Familia." },
+  // --- Exterior ---
+  { id: "jardin", tab: "exterior", kind: "toggle", name: "Jardín florido", icon: "🌷", cost: 4, desc: "Arbustos y flores a los pies del templo." },
+  { id: "arboles", tab: "exterior", kind: "toggle", name: "Árboles", icon: "🌳", cost: 5, desc: "Sombra fresca para después de misa." },
+  { id: "bancos", tab: "exterior", kind: "toggle", name: "Bancos de plaza", icon: "🪑", cost: 4, desc: "Para charlar y descansar." },
+  { id: "gruta", tab: "exterior", kind: "toggle", name: "Gruta mariana", icon: "🪨", cost: 9, desc: "Un rincón de oración al aire libre." },
+  { id: "fuente", tab: "exterior", kind: "toggle", name: "Fuente de agua", icon: "⛲", cost: 7, desc: "Agua cantarina frente a la entrada." },
+  // --- Detalles ---
+  { id: "vitrales", tab: "details", kind: "toggle", name: "Vitrales", icon: "🌈", cost: 6, desc: "Ventanas de colores que llenan de luz la nave." },
+  { id: "fachada_crema", tab: "details", kind: "single", group: "facade", name: "Fachada crema", swatch: "#F6E9D2", cost: 0, desc: "Tono natural, cálido y luminoso." },
+  { id: "fachada_rosa", tab: "details", kind: "single", group: "facade", name: "Fachada rosa", swatch: "#F5D2CC", cost: 3, desc: "Un rosa suave, tierno y alegre." },
+  { id: "fachada_celeste", tab: "details", kind: "single", group: "facade", name: "Fachada celeste", swatch: "#CFE3F1", cost: 3, desc: "Celeste mariano, fresco y sereno." },
+  { id: "fachada_salvia", tab: "details", kind: "single", group: "facade", name: "Fachada salvia", swatch: "#D4E3C8", cost: 3, desc: "Verde salvia, tranquilo y natural." },
+  { id: "fachada_durazno", tab: "details", kind: "single", group: "facade", name: "Fachada durazno", swatch: "#F8D9B5", cost: 3, desc: "Durazno dorado, como un atardecer." }
+];
+
+const MI_PARRO_ITEM_BY_ID = MI_PARRO_CATALOG.reduce((acc, it) => { acc[it.id] = it; return acc; }, {});
+
+const MI_PARRO_DEFAULTS = { roof: "techo_teja", advocation: "adv_ninguna", facade: "fachada_crema" };
+
+const MI_PARRO_LEVELS = [
+  { min: 0, title: "Capilla de Barrio" },
+  { min: 10, title: "Comunidad Naciente" },
+  { min: 25, title: "Parroquia Querida" },
+  { min: 45, title: "Familia Parroquial" },
+  { min: 70, title: "Faro del Barrio" },
+  { min: 100, title: "Santuario Vivo" },
+  { min: 140, title: "Basílica de Corazones" },
+  { min: 190, title: "Catedral de la Fe" }
+];
+
+function parroEsc(str) {
+  return String(str == null ? "" : str).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", "\"": "&quot;", "'": "&#39;" }[ch]));
+}
+
+function buildInitialMiParroDB() {
+  return {
+    name: "Mi Parro",
+    spent: 0,
+    maxEarned: 0,
+    owned: { techo_teja: true, adv_ninguna: true, fachada_crema: true },
+    equipped: { roof: MI_PARRO_DEFAULTS.roof, advocation: MI_PARRO_DEFAULTS.advocation, facade: MI_PARRO_DEFAULTS.facade, toggles: {} },
+    updatedAt: Date.now()
+  };
+}
+
+function sanitizeMiParroDB(raw) {
+  const base = buildInitialMiParroDB();
+  if (!raw || typeof raw !== "object") return base;
+
+  const owned = { ...base.owned };
+  if (raw.owned && typeof raw.owned === "object") {
+    Object.keys(raw.owned).forEach(id => {
+      if (raw.owned[id] === true && MI_PARRO_ITEM_BY_ID[id]) owned[id] = true;
+    });
+  }
+
+  const rawEq = raw.equipped && typeof raw.equipped === "object" ? raw.equipped : {};
+  const pickSingle = group => {
+    const id = rawEq[group];
+    const it = MI_PARRO_ITEM_BY_ID[id];
+    return it && it.kind === "single" && it.group === group && owned[id] ? id : MI_PARRO_DEFAULTS[group];
+  };
+  const toggles = {};
+  if (rawEq.toggles && typeof rawEq.toggles === "object") {
+    Object.keys(rawEq.toggles).forEach(id => {
+      const it = MI_PARRO_ITEM_BY_ID[id];
+      if (rawEq.toggles[id] === true && it && it.kind === "toggle" && owned[id]) toggles[id] = true;
+    });
+  }
+
+  return {
+    name: String(raw.name || base.name).trim().slice(0, 36) || base.name,
+    spent: Number.isFinite(Number(raw.spent)) ? Math.max(0, Math.floor(Number(raw.spent))) : 0,
+    maxEarned: Number.isFinite(Number(raw.maxEarned)) ? Math.max(0, Math.floor(Number(raw.maxEarned))) : 0,
+    owned,
+    equipped: { roof: pickSingle("roof"), advocation: pickSingle("advocation"), facade: pickSingle("facade"), toggles },
+    updatedAt: Number(raw.updatedAt) || Date.now()
+  };
+}
+
+let miParroDB = (function loadMiParroDB() {
+  const sanitized = sanitizeMiParroDB(Store.get(MI_PARRO_STORAGE_KEY, null));
+  Store.set(MI_PARRO_STORAGE_KEY, sanitized);
+  return sanitized;
+})();
+
+function saveMiParroDB() {
+  miParroDB = sanitizeMiParroDB(miParroDB);
+  miParroDB.updatedAt = Date.now();
+  Store.set(MI_PARRO_STORAGE_KEY, miParroDB);
+}
+
+/** Lee el balance de puntos de la Racha Espiritual y calcula economía y nivel comunitario. */
+function getParroEconomy() {
+  const streak = evaluateSpiritualStreak(spiritualDB.checkins);
+  const earned = Math.max(miParroDB.maxEarned || 0, streak.totalHistoricalPoints || 0);
+  if (earned !== miParroDB.maxEarned) {
+    miParroDB.maxEarned = earned;
+    saveMiParroDB();
+  }
+  const spent = miParroDB.spent || 0;
+  const balance = Math.max(0, earned - spent);
+
+  const paidOwned = Object.keys(miParroDB.owned).filter(id => MI_PARRO_ITEM_BY_ID[id] && MI_PARRO_ITEM_BY_ID[id].cost > 0).length;
+  const xp = earned + paidOwned * 2;
+  let levelIdx = 0;
+  MI_PARRO_LEVELS.forEach((lv, i) => { if (xp >= lv.min) levelIdx = i; });
+  const cur = MI_PARRO_LEVELS[levelIdx];
+  const next = MI_PARRO_LEVELS[levelIdx + 1] || null;
+  const pct = next ? Math.round(((xp - cur.min) / (next.min - cur.min)) * 100) : 100;
+
+  return { earned, spent, balance, xp, level: levelIdx + 1, title: cur.title, nextAt: next ? next.min : null, pct: Math.min(100, Math.max(0, pct)) };
+}
+
+function renderParroFigureSvg(adv) {
+  if (!adv || adv.id === "adv_ninguna" || !adv.mantle) {
+    return `<path d="M180,122 V146 M171,129 H189" stroke="#B8A58A" stroke-width="3" stroke-linecap="round"/>`;
+  }
+  return `
+    <circle cx="180" cy="128" r="6.5" fill="none" stroke="#E3B341" stroke-width="1.6"/>
+    <circle cx="180" cy="128" r="3.6" fill="#F6D7B8"/>
+    <path d="M180,131.5 q-9,2 -10.5,17 h21 q-1.5,-15 -10.5,-17z" fill="${adv.mantle}"/>
+    <path d="M180,133.5 q-4.5,2 -5.5,15 h11 q-1,-13 -5.5,-15z" fill="${adv.dress}"/>`;
+}
+
+/** Escena SVG interactiva y limpia de la parroquia virtual del usuario. */
+function renderParroSceneSvg(db) {
+  const eq = db.equipped;
+  const tg = eq.toggles || {};
+  const roofItem = MI_PARRO_ITEM_BY_ID[eq.roof] || MI_PARRO_ITEM_BY_ID.techo_teja;
+  const facadeItem = MI_PARRO_ITEM_BY_ID[eq.facade] || MI_PARRO_ITEM_BY_ID.fachada_crema;
+  const advItem = MI_PARRO_ITEM_BY_ID[eq.advocation] || MI_PARRO_ITEM_BY_ID.adv_ninguna;
+  const roof = roofItem.swatch;
+  const wall = facadeItem.swatch;
+  const wallStroke = "rgba(120,86,50,.35)";
+  const glass = Boolean(tg.vitrales);
+  const winFill = glass ? "url(#pVitral)" : "#DCE8F2";
+
+  const arch = (x, y, w, h) => `
+    <path d="M${x},${y + h} V${y + w / 2} a${w / 2},${w / 2} 0 0 1 ${w},0 V${y + h} Z" fill="${winFill}" stroke="#8B7355" stroke-width="1.6"/>
+    <path d="M${x + w / 2},${y + 2} V${y + h}${glass ? ` M${x},${y + h * 0.55} H${x + w}` : ""}" stroke="${glass ? "#6B4F2A" : "#8B7355"}" stroke-width="1" opacity=".65" fill="none"/>`;
+
+  const bench = (x, y) => `
+    <g>
+      <rect x="${x}" y="${y - 9}" width="38" height="4" rx="2" fill="#A06E47"/>
+      <rect x="${x}" y="${y}" width="38" height="5" rx="2" fill="#8B5E3C"/>
+      <rect x="${x + 4}" y="${y + 5}" width="3" height="8" fill="#6B4A2E"/>
+      <rect x="${x + 31}" y="${y + 5}" width="3" height="8" fill="#6B4A2E"/>
+    </g>`;
+
+  const flowerColors = ["#F2A0B5", "#F7D26B", "#FFFFFF", "#C79AE0"];
+  const flowers = [44, 66, 92, 126, 138, 222, 234, 262, 288, 306]
+    .map((x, i) => `<circle cx="${x}" cy="${210 + (i % 3) * 3}" r="2.6" fill="${flowerColors[i % flowerColors.length]}"/>`)
+    .join("");
+
+  const wide = Boolean(tg.nave_amplia);
+  const tower = Boolean(tg.campanario);
+
+  return `
+  <svg class="parro-scene-svg" viewBox="0 0 360 270" role="img" aria-label="Vista de tu parroquia virtual ${parroEsc(db.name)}" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+      <linearGradient id="pSky" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFE3C2"/><stop offset="1" stop-color="#FFF8EC"/></linearGradient>
+      <linearGradient id="pGround" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#C3DFA3"/><stop offset="1" stop-color="#A9CF8A"/></linearGradient>
+      <linearGradient id="pVitral" x1="0" y1="0" x2="1" y2="1">
+        <stop offset="0" stop-color="#E0524D"/><stop offset=".35" stop-color="#F2B84B"/><stop offset=".7" stop-color="#4A90D9"/><stop offset="1" stop-color="#5DB36B"/>
+      </linearGradient>
+    </defs>
+
+    <rect width="360" height="270" fill="url(#pSky)"/>
+    <circle cx="310" cy="44" r="20" fill="#FFD9A0" opacity=".85"/>
+    <g class="parro-cloud" fill="#FFFFFF" opacity=".9">
+      <ellipse cx="62" cy="42" rx="26" ry="9"/><ellipse cx="80" cy="36" rx="16" ry="9"/>
+    </g>
+    <g class="parro-cloud parro-cloud-b" fill="#FFFFFF" opacity=".75">
+      <ellipse cx="250" cy="76" rx="20" ry="7"/><ellipse cx="262" cy="71" rx="12" ry="7"/>
+    </g>
+    <path d="M0,205 Q60,168 130,196 T260,190 T360,200 V215 H0Z" fill="#D5E8BC"/>
+    <rect x="0" y="205" width="360" height="65" fill="url(#pGround)"/>
+    <polygon points="166,205 194,205 216,270 144,270" fill="#EAD9BC"/>
+
+    ${tg.arboles ? `
+    <g class="parro-trees">
+      <rect x="31" y="168" width="7" height="38" rx="2" fill="#8B5E3C"/>
+      <circle cx="34" cy="160" r="20" fill="#6FAF6B"/><circle cx="22" cy="171" r="14" fill="#5E9E5C"/><circle cx="47" cy="171" r="14" fill="#5E9E5C"/>
+      <rect x="52" y="190" width="5" height="16" rx="2" fill="#8B5E3C"/>
+      <circle cx="54" cy="184" r="12" fill="#7CBB77"/><circle cx="47" cy="191" r="9" fill="#6FAF6B"/><circle cx="61" cy="191" r="9" fill="#6FAF6B"/>
+    </g>` : ""}
+
+    ${tg.gruta ? `
+    <g class="parro-gruta">
+      <path d="M298,206 q0,-42 25,-42 q25,0 25,42 z" fill="#B3B2A8" stroke="#8B8B82" stroke-width="1.6"/>
+      <path d="M309,206 q0,-29 14,-29 q14,0 14,29 z" fill="#DCE9F4"/>
+      <circle cx="323" cy="187" r="3" fill="#F6D7B8"/>
+      <path d="M323,190 q-6,2 -7,16 h14 q-1,-14 -7,-16z" fill="#9CC9EA"/>
+      <circle cx="323" cy="187" r="5.5" fill="none" stroke="#E3B341" stroke-width="1.2"/>
+      <circle cx="304" cy="203" r="2.4" fill="#F2A0B5"/><circle cx="342" cy="203" r="2.4" fill="#F7D26B"/>
+    </g>` : ""}
+
+    ${wide ? `
+    <g class="parro-wings">
+      <rect x="76" y="152" width="54" height="53" fill="${wall}" stroke="${wallStroke}" stroke-width="1.4"/>
+      <rect x="230" y="152" width="54" height="53" fill="${wall}" stroke="${wallStroke}" stroke-width="1.4"/>
+      <polygon points="68,152 84,134 132,134 132,152" fill="${roof}"/>
+      <polygon points="292,152 276,134 228,134 228,152" fill="${roof}"/>
+      ${arch(94, 164, 14, 28)}
+      ${tower ? "" : arch(252, 164, 14, 28)}
+    </g>` : ""}
+
+    <g class="parro-nave">
+      <rect x="130" y="108" width="100" height="97" fill="${wall}" stroke="${wallStroke}" stroke-width="1.4"/>
+      <polygon points="130,108 230,108 180,66" fill="${wall}" stroke="${wallStroke}" stroke-width="1.4"/>
+      <polyline points="120,111 180,58 240,111" fill="none" stroke="${roof}" stroke-width="9" stroke-linejoin="round" stroke-linecap="round"/>
+      <rect x="122" y="106" width="116" height="7" rx="3" fill="${roof}"/>
+      <path d="M180,58 V43 M174.5,50 H185.5" stroke="#D4A937" stroke-width="2.6" stroke-linecap="round"/>
+      <circle cx="180" cy="92" r="9" fill="${winFill}" stroke="#8B7355" stroke-width="1.6"/>
+      <path d="M171,92 H189 M180,83 V101" stroke="#8B7355" stroke-width="1" opacity=".6"/>
+      ${arch(140, 146, 14, 30)}
+      ${arch(206, 146, 14, 30)}
+    </g>
+
+    ${tower ? `
+    <g class="parro-tower">
+      <rect x="232" y="72" width="40" height="133" fill="${wall}" stroke="${wallStroke}" stroke-width="1.4"/>
+      <polygon points="226,77 278,77 252,32" fill="${roof}"/>
+      <path d="M252,32 V17 M246.5,24 H257.5" stroke="#D4A937" stroke-width="2.6" stroke-linecap="round"/>
+      <path d="M243,112 V94 a9,9 0 0 1 18,0 V112 Z" fill="#4A3B2E"/>
+      <g class="parro-bell"><path d="M247,109 q0,-11 5,-11 q5,0 5,11 z" fill="#E3B341"/><circle cx="252" cy="110" r="1.8" fill="#B8861F"/></g>
+      ${arch(246, 132, 12, 24)}
+    </g>` : ""}
+
+    <rect x="158" y="205" width="44" height="5" rx="2" fill="#D8CBB4"/>
+    <path d="M166,205 V174 a14,14 0 0 1 28,0 V205 Z" fill="#7A4A2B" stroke="#5B3519" stroke-width="1.4"/>
+    <path d="M180,160 V205" stroke="#5B3519" stroke-width="1" opacity=".6"/>
+    <circle cx="176" cy="192" r="1.4" fill="#E3B341"/><circle cx="184" cy="192" r="1.4" fill="#E3B341"/>
+
+    <circle cx="180" cy="133" r="17" fill="#FFFBF2" stroke="#D4A937" stroke-width="2"/>
+    ${renderParroFigureSvg(advItem)}
+
+    ${tg.jardin ? `
+    <g class="parro-garden">
+      <ellipse cx="118" cy="204" rx="13" ry="8" fill="#6FAF6B"/><ellipse cx="242" cy="204" rx="13" ry="8" fill="#6FAF6B"/>
+      <ellipse cx="102" cy="206" rx="9" ry="6" fill="#7CBB77"/><ellipse cx="258" cy="206" rx="9" ry="6" fill="#7CBB77"/>
+      ${flowers}
+    </g>` : ""}
+
+    ${tg.bancos ? `<g class="parro-benches">${bench(100, 236)}${bench(222, 236)}</g>` : ""}
+
+    ${tg.fuente ? `
+    <g class="parro-fountain">
+      <ellipse cx="180" cy="251" rx="24" ry="7" fill="#CFC8BB"/>
+      <ellipse cx="180" cy="249" rx="21" ry="5" fill="#BFE3F2"/>
+      <rect x="177" y="231" width="6" height="18" fill="#CFC8BB"/>
+      <ellipse cx="180" cy="231" rx="11" ry="3.5" fill="#D9D3C7"/>
+      <ellipse cx="180" cy="230" rx="8" ry="2.2" fill="#BFE3F2"/>
+      <path d="M180,230 q-8,-13 -14,3 M180,230 q8,-13 14,3" fill="none" stroke="#9ED3EA" stroke-width="1.6" stroke-linecap="round"/>
+      <circle class="parro-drop" cx="180" cy="224" r="1.8" fill="#9ED3EA"/>
+    </g>` : ""}
+  </svg>`;
+}
+
+function renderParroItemCardHtml(item, economy) {
+  const owned = Boolean(miParroDB.owned[item.id]);
+  const eq = miParroDB.equipped;
+  const active = item.kind === "toggle" ? Boolean(eq.toggles[item.id]) : eq[item.group] === item.id;
+  const missing = Math.max(0, item.cost - economy.balance);
+
+  let stateClass = "is-locked";
+  let tag = `🪙 ${item.cost} · faltan ${missing}`;
+  if (active) {
+    stateClass = "is-active";
+    tag = item.kind === "toggle" ? "✓ Instalado · Ocultar" : "✓ En uso";
+  } else if (owned) {
+    stateClass = "is-owned";
+    tag = item.kind === "toggle" ? "Mostrar" : "Usar";
+  } else if (missing === 0) {
+    stateClass = "is-buyable";
+    tag = `🪙 ${item.cost} · Comprar`;
+  }
+
+  const ico = item.swatch
+    ? `<span class="parro-swatch" style="background:${item.swatch}"></span>`
+    : `<span class="parro-item-emoji" aria-hidden="true">${item.icon}</span>`;
+
+  return `
+    <button type="button" class="parro-item ${stateClass}" data-parro-item="${item.id}" aria-pressed="${active}" aria-label="${parroEsc(item.name)}: ${parroEsc(tag)}">
+      <span class="parro-item-ico">${ico}</span>
+      <span class="parro-item-name">${parroEsc(item.name)}</span>
+      <span class="parro-item-desc">${parroEsc(item.desc)}</span>
+      <span class="parro-item-tag">${tag}</span>
+    </button>`;
+}
+
+function renderMiParroView(opts = {}) {
+  const container = $("#miparro-content");
+  if (!container) return;
+
+  const economy = getParroEconomy();
+  const tabId = MI_PARRO_TABS.some(t => t.id === state.parroTab) ? state.parroTab : "structure";
+  const advItem = MI_PARRO_ITEM_BY_ID[miParroDB.equipped.advocation];
+  const items = MI_PARRO_CATALOG.filter(it => it.tab === tabId);
+  const nextInfo = economy.nextAt != null
+    ? `Próximo nivel a los ${economy.nextAt} de experiencia (${economy.xp} actuales)`
+    : "¡Nivel máximo alcanzado!";
+
+  container.innerHTML = `
+    <section class="parro-hud" aria-label="Recursos del jugador">
+      <div class="parro-stat parro-coins">
+        <span class="parro-stat-ico" aria-hidden="true">🪙</span>
+        <div class="parro-stat-body">
+          <strong>${economy.balance}</strong>
+          <span>Monedas de Gracia</span>
+        </div>
+      </div>
+      <div class="parro-stat parro-level">
+        <span class="parro-stat-ico" aria-hidden="true">⛪</span>
+        <div class="parro-stat-body">
+          <strong>Nivel ${economy.level}</strong>
+          <span>${parroEsc(economy.title)}</span>
+          <div class="parro-progress" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${economy.pct}" title="${parroEsc(nextInfo)}"><i style="width:${economy.pct}%"></i></div>
+        </div>
+      </div>
+    </section>
+
+    <p class="parro-hint">
+      Cada punto de tu Racha Espiritual = 1 Moneda de Gracia · Ganadas: <b>${economy.earned}</b> · Gastadas: <b>${economy.spent}</b>
+      <button type="button" class="parro-link-btn" data-parro-go-streak>Registrar misa →</button>
+    </p>
+
+    <section class="parro-stage ${opts.pulse ? "is-built" : ""}" id="parro-stage" aria-label="Tu parroquia">
+      <input type="text" class="parro-name-input" id="parro-name-input" maxlength="36" value="${parroEsc(miParroDB.name)}" aria-label="Nombre de tu parroquia" placeholder="Nombre de tu parroquia">
+      <div class="parro-scene-wrap">${renderParroSceneSvg(miParroDB)}</div>
+      <p class="parro-caption">${advItem && advItem.full ? `Bajo la advocación de <b>${parroEsc(advItem.full)}</b>` : "Aún sin advocación · elegí una patrona o un patrono en la pestaña 🕊️"}</p>
+    </section>
+
+    <section class="parro-shop" aria-label="Construcción y decoración">
+      <div class="parro-shop-head">
+        <h2>🛠️ Construcción y Decoración</h2>
+        <span>Tocá un elemento para comprarlo y estrenarlo</span>
+      </div>
+      <div class="community-subnav parro-tabs" role="tablist" aria-label="Categorías de construcción">
+        ${MI_PARRO_TABS.map(t => `
+          <button type="button" class="comm-tab ${t.id === tabId ? "is-active" : ""}" role="tab" aria-selected="${t.id === tabId}" data-parro-tab="${t.id}">${t.label}</button>
         `).join("")}
-      </section>
-    ` : ""}`;
+      </div>
+      <div class="parro-grid">
+        ${items.map(it => renderParroItemCardHtml(it, economy)).join("")}
+      </div>
+      <div class="parro-footer-actions">
+        <button type="button" class="btn-sm cancel" data-parro-reset>↺ Reiniciar parroquia y recuperar monedas</button>
+      </div>
+    </section>
+  `;
+
+  if (opts.pulse) {
+    setTimeout(() => $("#parro-stage")?.classList.remove("is-built"), 900);
+  }
+}
+
+function handleParroItemTap(itemId) {
+  const item = MI_PARRO_ITEM_BY_ID[itemId];
+  if (!item) return;
+
+  const owned = Boolean(miParroDB.owned[itemId]);
+  const eq = miParroDB.equipped;
+
+  if (!owned) {
+    const economy = getParroEconomy();
+    if (economy.balance < item.cost) {
+      const btn = document.querySelector(`[data-parro-item="${itemId}"]`);
+      if (btn) {
+        btn.classList.add("is-denied");
+        setTimeout(() => btn.classList.remove("is-denied"), 500);
+      }
+      toast(`Te faltan ${item.cost - economy.balance} Monedas de Gracia · Sumalas registrando misas`);
+      return;
+    }
+    miParroDB.spent += item.cost;
+    miParroDB.owned[itemId] = true;
+    if (item.kind === "toggle") eq.toggles[itemId] = true;
+    else eq[item.group] = itemId;
+    saveMiParroDB();
+    renderMiParroView({ pulse: true });
+    toast(`✨ ¡${item.name} construido! −${item.cost} 🪙`);
+    return;
+  }
+
+  if (item.kind === "toggle") {
+    if (eq.toggles[itemId]) delete eq.toggles[itemId];
+    else eq.toggles[itemId] = true;
+  } else {
+    eq[item.group] = itemId;
+  }
+  saveMiParroDB();
+  renderMiParroView({ pulse: true });
+}
+
+function bindMiParroEvents() {
+  const root = $("#miparro-content");
+  if (!root) return;
+
+  root.addEventListener("click", e => {
+    const tabBtn = e.target.closest("[data-parro-tab]");
+    if (tabBtn) {
+      state.parroTab = tabBtn.dataset.parroTab;
+      Store.set("ui_parro_tab_v1", state.parroTab);
+      renderMiParroView();
+      return;
+    }
+    const itemBtn = e.target.closest("[data-parro-item]");
+    if (itemBtn) {
+      handleParroItemTap(itemBtn.dataset.parroItem);
+      return;
+    }
+    if (e.target.closest("[data-parro-go-streak]")) {
+      state.spirTab = "streak";
+      switchView("spiritual");
+      return;
+    }
+    if (e.target.closest("[data-parro-reset]")) {
+      if (!window.confirm("¿Reiniciar tu parroquia? Se quitarán todas las mejoras y recuperarás tus Monedas de Gracia.")) return;
+      const keepName = miParroDB.name;
+      const fresh = buildInitialMiParroDB();
+      fresh.name = keepName;
+      fresh.maxEarned = miParroDB.maxEarned;
+      miParroDB = fresh;
+      saveMiParroDB();
+      renderMiParroView({ pulse: true });
+      toast("Parroquia reiniciada · Monedas recuperadas");
+    }
+  });
+
+  root.addEventListener("input", e => {
+    if (!e.target || e.target.id !== "parro-name-input") return;
+    miParroDB.name = String(e.target.value || "").trim().slice(0, 36) || "Mi Parro";
+    saveMiParroDB();
+  });
 }
 
 let toastTimer;
@@ -5060,7 +6355,7 @@ function bindAppEvents() {
           toast("Contraseña incorrecta para @" + rawUser);
           return;
         }
-        socialDB.currentUser = rawUser;
+        socialDB.currentUser = rawUser; socialDB.explicitGuest = false;
         saveSocialDB();
         syncHeaderUserPill();
         renderProfileView();
@@ -5087,7 +6382,7 @@ function bindAppEvents() {
             seedU.followingUsers.push(rawUser);
           }
         });
-        socialDB.currentUser = rawUser;
+        socialDB.currentUser = rawUser; socialDB.explicitGuest = false;
         saveSocialDB();
         syncHeaderUserPill();
         renderProfileView();
@@ -5103,7 +6398,10 @@ function bindAppEvents() {
       me.apodo = ($("#p-apodo")?.value || "").trim() || me.username;
       me.bio = ($("#p-bio")?.value || "").trim();
       me.avatarIcon = ($("#p-avatar-icon")?.value || "✝️").trim();
-      me.avatarUrl = ($("#p-avatar-url")?.value || "").trim();
+      const typedAvatarUrl = ($("#p-avatar-url")?.value || "").trim();
+      // Preservar foto Base64 o avatar Mii ya guardado si el campo URL está vacío
+      if (typedAvatarUrl) me.avatarUrl = typedAvatarUrl;
+      else if (!/^data:image\//.test(String(me.avatarUrl || ""))) me.avatarUrl = "";
       me.miiConfig = { ...draftMiiConfig };
       me.instagram = ($("#p-ig")?.value || "").trim();
       me.twitter = ($("#p-tw")?.value || "").trim();
@@ -5119,7 +6417,7 @@ function bindAppEvents() {
     if (demoBtn) {
       const handle = demoBtn.dataset.demoLogin;
       if (socialDB.users[handle]) {
-        socialDB.currentUser = handle;
+        socialDB.currentUser = handle; socialDB.explicitGuest = false;
         saveSocialDB();
         syncHeaderUserPill();
         renderProfileView();
@@ -5130,6 +6428,7 @@ function bindAppEvents() {
     const logoutBtn = e.target.closest("#btn-user-logout");
     if (logoutBtn) {
       socialDB.currentUser = null;
+      socialDB.explicitGuest = true;
       saveSocialDB();
       syncHeaderUserPill();
       renderProfileView();
@@ -5294,7 +6593,7 @@ function bindAppEvents() {
 
       const pts = ACTIVITY_POINTS[type] || 1;
       const pObj = getParishById(parishId);
-      toast(`🔥 ¡+${pts} ${pts === 1 ? "punto sumado" : "puntos sumados"} en ${pObj ? pObj.nombre : "tu parroquia"}!`);
+      toast(`🔥 ¡+${pts} ${pts === 1 ? "punto" : "puntos"} y +${pts} Monedas de Gracia en ${pObj ? pObj.nombre : "tu parroquia"}!`);
       return;
     }
 
@@ -5336,14 +6635,57 @@ function bindAppEvents() {
   });
 
   // Delegación de eventos en el Módulo de Liturgia (Sub-pestañas, Selector de fecha, Explicación y Santos del Día)
-  $("#liturgy-content")?.addEventListener("change", e => {
-    if (e.target && e.target.id === "liturgy-date-input" && e.target.value) {
-      state.liturgyDate = e.target.value;
-      renderLiturgyView();
-    }
+  // Selector de fechas estilizado (Racha, Liturgia, Santos del Día) y cierre al tocar fuera
+  ["#spiritual-content", "#saints-content"].forEach(sel => {
+    $(sel)?.addEventListener("click", e => {
+      handleCustomDatePickerInteraction(e);
+    });
+  });
+  document.addEventListener("click", e => {
+    if (!state.openDatePickerId) return;
+    if (e.target.closest("[data-cdp-root]")) return;
+    const openId = state.openDatePickerId;
+    state.openDatePickerId = null;
+    if (openId === "streak") renderSpiritualView();
+    else if (openId === "liturgy") renderLiturgyView();
+    else if (openId === "saints") renderSaintsView();
   });
 
   $("#liturgy-content")?.addEventListener("click", e => {
+    if (handleCustomDatePickerInteraction(e)) return;
+
+    // Primera Lectura y Salmo Responsorial desplegables con su texto bíblico completo
+    const readingToggle = e.target.closest("[data-toggle-lit-reading]");
+    if (readingToggle) {
+      if (readingToggle.dataset.toggleLitReading === "first") state.openFirstReading = !state.openFirstReading;
+      else state.openPsalm = !state.openPsalm;
+      renderLiturgyView();
+      return;
+    }
+    const saveReadingBtn = e.target.closest("#btn-save-first-to-notes, #btn-save-psalm-to-notes");
+    if (saveReadingBtn) {
+      const gr = getGospelForDate(state.liturgyDate);
+      const isFirst = saveReadingBtn.id === "btn-save-first-to-notes";
+      state.spirTab = "notes";
+      state.editingNoteId = null;
+      switchView("spiritual");
+      requestAnimationFrame(() => {
+        const titleEl = $("#note-title-input");
+        const catEl = $("#note-category-select");
+        const contentEl = $("#note-content-input");
+        if (titleEl) titleEl.value = isFirst ? `Primera Lectura (${gr.firstReadingRef})` : `Salmo (${gr.psalmRef})`;
+        if (catEl) catEl.value = "Lectio Divina";
+        if (contentEl) {
+          contentEl.value = isFirst
+            ? `Meditación sobre la Primera Lectura, ${gr.firstReadingRef} (${gr.isoDate}):\n`
+            : `Salmo ${gr.psalmRef} · ${gr.psalmResponse}\n\nMi oración:\n`;
+          contentEl.focus();
+        }
+      });
+      toast(isFirst ? "Primera Lectura cargada en tu Bloc de Notas" : "Salmo cargado en tu Bloc de Notas");
+      return;
+    }
+
     const litTabBtn = e.target.closest("[data-lit-tab]");
     if (litTabBtn) {
       state.litTab = litTabBtn.dataset.litTab;
@@ -5414,6 +6756,44 @@ function bindAppEvents() {
     }
   });
 
+  // Vista independiente "Santos del Día": guardar inspiración en Notas
+  $("#saints-content")?.addEventListener("click", e => {
+    if (e.defaultPrevented) return;
+    const saveSaintBtn = e.target.closest("[data-save-saint-idx]");
+    if (!saveSaintBtn) return;
+    const idx = Number(saveSaintBtn.dataset.saveSaintIdx) || 0;
+    const saints = getSaintsForDate(state.saintsDate);
+    const st = saints[idx] || saints[0];
+    if (!st) return;
+    state.spirTab = "notes";
+    state.editingNoteId = null;
+    switchView("spiritual");
+    requestAnimationFrame(() => {
+      const titleEl = $("#note-title-input");
+      const catEl = $("#note-category-select");
+      const contentEl = $("#note-content-input");
+      if (titleEl) titleEl.value = `Santo del Día: ${st.name}`;
+      if (catEl) catEl.value = "Oración";
+      if (contentEl) {
+        contentEl.value = `${st.quote}\n\nPropósito inspirado en ${st.name}:\n`;
+        contentEl.focus();
+      }
+    });
+    toast(`Inspiración de ${st.name} cargada en tus Notas`);
+  });
+
+  // Rol Colaborador: gestión de actividades y grupos parroquiales
+  $("#btn-collab-new-activity")?.addEventListener("click", () => openActivityEditor(null, -1));
+  $("#btn-close-act-edit")?.addEventListener("click", closeActivityEditor);
+  $("#btn-cancel-act-edit")?.addEventListener("click", closeActivityEditor);
+  $("#activity-edit-form")?.addEventListener("submit", saveActivityEditor);
+  $("#activity-edit-modal")?.addEventListener("click", e => {
+    if (e.target && e.target.id === "activity-edit-modal") closeActivityEditor();
+  });
+
+  // Eventos "Mi Parro" (simulador de parroquia virtual)
+  bindMiParroEvents();
+
   // Eventos del Panel de Configuración (⚙️ Modo Noche e Idioma)
   $("#btn-open-settings")?.addEventListener("click", openSettingsModal);
   $("#btn-close-settings")?.addEventListener("click", closeSettingsModal);
@@ -5452,6 +6832,8 @@ function bindAppEvents() {
   }
 
   $("#list")?.addEventListener("click", e => {
+    const manageActsBtn = e.target.closest("[data-manage-acts]");
+    if (manageActsBtn) return openActivityEditor(manageActsBtn.dataset.manageActs, -1);
     const editBtn = e.target.closest("[data-edit]");
     if (editBtn) return openParishEditor(editBtn.dataset.edit);
     const h = e.target.closest("[data-heart]");
@@ -5501,8 +6883,11 @@ function bootstrapApp() {
   renderList();
   renderSpiritualView();
   renderLiturgyView();
+  renderSaintsView();
+  renderMiParroView();
   renderCommunityView();
   renderProfileView();
+  if (state.view !== "list") switchView(state.view, true);
   loadParishes();
 }
 

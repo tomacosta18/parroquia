@@ -1,5 +1,5 @@
-const APP_CACHE = "parroquias-app-v19";
-const DATA_CACHE = "parroquias-data-v19";
+const APP_CACHE = "parroquias-app-v20";
+const DATA_CACHE = "parroquias-data-v20";
 
 const APP_SHELL = [
   "./",
@@ -76,7 +76,34 @@ self.addEventListener("fetch", (event) => {
     return;
   }
 
-  // Estrategia Cache-first para App Shell, Leaflet CDN y tipografías
+  // Estrategia Network-first (con respaldo offline) para index.html, style.css y app.js:
+  // las recargas nunca ejecutan scripts viejos desde la caché.
+  const isCoreAsset =
+    url.origin === self.location.origin &&
+    (request.mode === "navigate" ||
+      url.pathname.endsWith("/") ||
+      url.pathname.endsWith("/index.html") ||
+      url.pathname.endsWith("/style.css") ||
+      url.pathname.endsWith("/app.js"));
+
+  if (isCoreAsset) {
+    event.respondWith(
+      fetch(request, { cache: "no-cache" })
+        .then((response) => {
+          if (response && response.status === 200) {
+            const copy = response.clone();
+            caches.open(APP_CACHE).then((cache) => cache.put(request, copy));
+          }
+          return response;
+        })
+        .catch(() =>
+          caches.match(request).then((cached) => cached || caches.match("./index.html"))
+        )
+    );
+    return;
+  }
+
+  // Estrategia Cache-first para Leaflet CDN, tipografías, íconos y demás recursos estáticos
   event.respondWith(
     caches.match(request).then((cached) => {
       if (cached) return cached;
