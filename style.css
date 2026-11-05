@@ -157,8 +157,8 @@ h1{font-family:var(--serif);font-weight:600;font-size:1.95rem;letter-spacing:-.0
 .legend-item{display:inline-flex;align-items:center;gap:5px;font-weight:600;white-space:nowrap}
 .legend-dot{display:inline-block;border-radius:50%}
 .legend-dot.catedral{width:12px;height:12px;
-  background:linear-gradient(135deg,#FDE047 0%,#E879F9 48%,#38BDF8 100%);
-  box-shadow:0 0 0 2px #FFF,0 0 0 3px rgba(168,85,247,.35)}
+  background:linear-gradient(135deg,#8B1E2B 0%,#5E1019 100%);
+  box-shadow:0 0 0 2px #FAF3E0,0 0 0 3.5px rgba(110,20,32,.4)}
 .legend-dot.basilica{width:11px;height:11px;background:#F1C40F;
   box-shadow:0 0 0 2px #FFF,0 0 0 3px rgba(241,196,15,.4)}
 .legend-dot.parroquia{width:10px;height:10px;background:#8E44AD;
@@ -210,31 +210,19 @@ h1{font-family:var(--serif);font-weight:600;font-size:1.95rem;letter-spacing:-.0
 }
 .pin-wrap.basilica svg{width:34px;height:34px;filter:drop-shadow(0 1px 1px rgba(255,255,255,.45))}
 
-/* 4. Catedral: Pin con efecto tornasolado/iridiscente y silueta superior del solideo / gorrita episcopal */
-@keyframes catedralIridescent {
-  0%{background-position:0% 50%}
-  50%{background-position:100% 50%}
-  100%{background-position:0% 50%}
-}
+/* 4. Catedral: Paleta elegante de color bordo (#6E1420) y crema (#FAF3E0) con silueta minimalista de mitra/solideo episcopal */
 .pin-wrap.catedral{
-  width:48px;height:48px;
-  background:linear-gradient(135deg,#FDE68A 0%,#F5D0FE 25%,#A5F3FC 50%,#DDD6FE 75%,#FDE047 100%);
-  background-size:240% 240%;
-  animation:catedralIridescent 6s ease infinite;
-  color:#311042;
-  border:2.5px solid #FFFFFF;
-  box-shadow:0 0 0 3px rgba(217,70,239,.28),0 10px 24px rgba(88,28,135,.28),0 2px 8px rgba(20,24,31,.18);
+  width:46px;height:46px;
+  background:linear-gradient(145deg,#8B1E2B 0%,#6E1420 55%,#4A0C14 100%);
+  color:#FAF3E0;
+  border:2.5px solid #FAF3E0;
+  box-shadow:0 0 0 3px rgba(110,20,32,.26),0 8px 20px rgba(74,12,20,.32),0 2px 6px rgba(20,24,31,.2);
 }
 .pin-wrap.catedral::before{
   content:"";position:absolute;inset:3px;border-radius:50%;
-  border:1px solid rgba(255,255,255,.75);pointer-events:none;
+  border:1px solid rgba(250,243,224,.42);pointer-events:none;
 }
-.pin-wrap.catedral svg{width:38px;height:38px;filter:drop-shadow(0 1px 2px rgba(255,255,255,.65))}
-.pin-solideo-crown{
-  position:absolute;top:-9px;left:50%;transform:translateX(-50%);
-  width:26px;height:14px;pointer-events:none;
-  filter:drop-shadow(0 2px 3px rgba(20,24,31,.25));
-}
+.pin-wrap.catedral svg{width:28px;height:28px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.28))}
 
 /* Marcador de referencia del usuario */
 .pin-user{width:16px;height:16px;border-radius:50%;background:#2563EB;border:3px solid #FFF;
@@ -276,8 +264,7 @@ h1{font-family:var(--serif);font-weight:600;font-size:1.95rem;letter-spacing:-.0
 .card-head{display:flex;align-items:center;gap:6px;margin-bottom:6px;padding-right:44px}
 .type-badge{display:inline-flex;align-items:center;gap:4px;font-size:.72rem;font-weight:600;
   padding:2px 9px;border-radius:var(--r-pill);letter-spacing:.01em}
-.type-badge.catedral{background:linear-gradient(135deg,#FEF3C7 0%,#FAE8FF 50%,#E0F2FE 100%);
-  color:#581C87;border:1px solid rgba(168,85,247,.32)}
+.type-badge.catedral{background:#FAF3E0;color:#6E1420;border:1px solid rgba(110,20,32,.32)}
 .type-badge.basilica,.type-badge.major{background:#FEF9C3;color:#854D0E;border:1px solid rgba(241,196,15,.45)}
 .type-badge.parroquia,.type-badge.minor{background:#F3E8FF;color:#6B21A8;border:1px solid rgba(142,68,173,.25)}
 .type-badge.capilla{background:#F1F5F9;color:#475569;border:1px solid rgba(127,140,141,.28)}
@@ -353,13 +340,13 @@ body.open .fab-near,body.open .fab-admin-add{opacity:0;pointer-events:none}
 /* ============ Barra de Navegación Inferior (Bottom Nav) ============ */
 .bottom-nav{position:fixed;left:0;right:0;bottom:0;
   height:calc(var(--nav-h) + env(safe-area-inset-bottom,0px));
-  padding:6px 16px calc(6px + env(safe-area-inset-bottom,0px));
+  padding:5px 8px calc(5px + env(safe-area-inset-bottom,0px));
   background:rgba(255,255,255,.96);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
-  border-top:1px solid var(--line);z-index:550;display:flex;justify-content:center;gap:12px}
-.nav-tab{flex:1;max-width:280px;border-radius:14px;display:flex;flex-direction:column;
-  align-items:center;justify-content:center;gap:3px;color:var(--muted);font-size:.76rem;
-  font-weight:600;transition:color .18s,background .18s}
-.nav-tab svg{width:22px;height:22px;transition:transform .18s var(--ease)}
+  border-top:1px solid var(--line);z-index:550;display:flex;justify-content:center;gap:4px}
+.nav-tab{flex:1;max-width:120px;border-radius:12px;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:2px;color:var(--muted);font-size:.69rem;
+  font-weight:600;white-space:nowrap;transition:color .18s,background .18s}
+.nav-tab svg{width:20px;height:20px;transition:transform .18s var(--ease)}
 .nav-tab.is-active{color:var(--brand);background:var(--brand-soft)}
 .nav-tab.is-active svg{transform:translateY(-1px)}
 
@@ -682,6 +669,173 @@ body.open .sheet{transform:none;visibility:visible}
 .demo-accounts{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
 .demo-pill{font-size:.78rem;font-weight:600;padding:5px 11px;border-radius:var(--r-pill);
   background:var(--brand-soft);color:var(--brand);border:1px solid rgba(36,59,143,.2)}
+
+/* ============ Módulo de Racha Espiritual (Fondo Animado de Parroquia + Check-in) ============ */
+@keyframes parishAurora {
+  0%{background-position:0% 50%}
+  50%{background-position:100% 50%}
+  100%{background-position:0% 50%}
+}
+@keyframes vitralGlow {
+  0%,100%{opacity:.78;transform:scale(1)}
+  50%{opacity:1;transform:scale(1.06)}
+}
+@keyframes floatSpark {
+  0%,100%{transform:translateY(0) scale(1);opacity:.65}
+  50%{transform:translateY(-7px) scale(1.18);opacity:1}
+}
+.streak-hero-card{
+  position:relative;overflow:hidden;border-radius:22px;
+  background:linear-gradient(135deg,#182238 0%,#2E1A47 48%,#5E1019 100%);
+  background-size:220% 220%;animation:parishAurora 10s ease infinite;
+  color:#FAF5E8;padding:22px 20px 20px;margin-bottom:14px;
+  box-shadow:0 14px 32px rgba(24,34,56,.22);border:1px solid rgba(250,243,224,.18)
+}
+.streak-parish-scene{
+  position:absolute;inset:0;pointer-events:none;overflow:hidden;z-index:0
+}
+.streak-parish-scene svg{
+  position:absolute;bottom:-4px;right:-10px;width:230px;height:185px;opacity:.22
+}
+.streak-parish-scene .vitral-halo{
+  position:absolute;top:18px;right:42px;width:96px;height:96px;border-radius:50%;
+  background:radial-gradient(circle,rgba(247,220,111,.42) 0%,rgba(241,196,15,.12) 55%,transparent 75%);
+  animation:vitralGlow 4s ease-in-out infinite
+}
+.streak-spark{
+  position:absolute;width:6px;height:6px;border-radius:50%;background:#FDE047;
+  box-shadow:0 0 10px #FDE047;animation:floatSpark 3.4s ease-in-out infinite
+}
+.streak-spark.s1{top:24%;left:14%;animation-delay:0s}
+.streak-spark.s2{top:18%;right:28%;animation-delay:1.1s}
+.streak-spark.s3{bottom:32%;left:48%;animation-delay:2.1s}
+
+.streak-hero-content{position:relative;z-index:1}
+.streak-top-badges{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.streak-rank-pill{display:inline-flex;align-items:center;gap:6px;font-size:.76rem;font-weight:600;
+  padding:4px 11px;border-radius:var(--r-pill);background:rgba(250,243,224,.15);
+  border:1px solid rgba(250,243,224,.28);backdrop-filter:blur(6px)}
+.streak-weekend-pill{display:inline-flex;align-items:center;gap:5px;font-size:.74rem;font-weight:600;
+  padding:4px 10px;border-radius:var(--r-pill)}
+.streak-weekend-pill.ok{background:rgba(22,163,74,.28);color:#BBF7D0;border:1px solid rgba(134,239,172,.35)}
+.streak-weekend-pill.warn{background:rgba(245,158,11,.28);color:#FDE68A;border:1px solid rgba(253,230,138,.4)}
+
+.streak-counter-row{display:flex;align-items:baseline;gap:12px;margin:4px 0 6px}
+.streak-big-num{font-family:var(--serif);font-size:3.5rem;font-weight:600;line-height:1;
+  color:#FFF;text-shadow:0 4px 16px rgba(0,0,0,.28);font-variant-numeric:tabular-nums}
+.streak-big-unit{font-size:1rem;font-weight:600;color:#FDE68A}
+.streak-subtext{font-size:.83rem;color:rgba(250,245,232,.86);line-height:1.38;margin-bottom:14px}
+
+.streak-rules-bar{display:grid;grid-template-columns:repeat(3,1fr);gap:7px;
+  background:rgba(15,23,42,.38);border:1px solid rgba(250,243,224,.16);
+  border-radius:14px;padding:10px}
+.streak-rule-item{text-align:center;padding:4px}
+.streak-rule-item strong{display:block;font-size:.92rem;color:#FDE047;font-weight:700}
+.streak-rule-item span{font-size:.71rem;color:rgba(250,245,232,.85);line-height:1.2;display:block;margin-top:2px}
+.streak-reset-note{font-size:.74rem;color:rgba(250,245,232,.78);margin-top:10px;display:flex;align-items:center;gap:6px}
+
+.checkin-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);
+  padding:18px;margin-bottom:14px;box-shadow:0 6px 20px rgba(20,24,31,.04)}
+.checkin-card h3{font-family:var(--serif);font-size:1.22rem;font-weight:600;margin-bottom:4px}
+.slot-pills{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+.slot-pill{height:38px;border-radius:10px;border:1px solid var(--line);background:var(--bg);
+  color:var(--ink);font-size:.82rem;font-weight:600;display:inline-flex;align-items:center;
+  justify-content:center;gap:5px;transition:all .15s}
+.slot-pill.is-selected{background:var(--brand-soft);color:var(--brand);border-color:var(--brand);
+  box-shadow:0 0 0 2px rgba(36,59,143,.15)}
+
+.checkin-history-item{display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:11px 13px;border-radius:12px;background:var(--bg);border:1px solid var(--line)}
+.checkin-pts-badge{font-size:.78rem;font-weight:700;padding:4px 10px;border-radius:var(--r-pill);
+  background:var(--gold-soft);color:var(--gold);border:1px solid rgba(143,100,23,.25);white-space:nowrap}
+
+/* ============ Pantalla de Notas Espirituales ============ */
+.notes-grid{display:grid;gap:12px}
+.note-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);
+  padding:16px;box-shadow:0 4px 14px rgba(20,24,31,.04);transition:border-color .15s}
+.note-card.is-pinned{border-color:rgba(212,175,55,.55);background:linear-gradient(to bottom,#FFFFFF,#FCF9F2)}
+.note-head{display:flex;align-items:flex-start;justify-content:space-between;gap:10px;margin-bottom:6px}
+.note-title{font-family:var(--serif);font-size:1.15rem;font-weight:600;color:var(--ink);line-height:1.25}
+.note-cat-pill{font-size:.7rem;font-weight:600;padding:2px 9px;border-radius:var(--r-pill);
+  background:var(--brand-soft);color:var(--brand);white-space:nowrap}
+.note-body{font-size:.91rem;color:var(--ink);line-height:1.48;white-space:pre-wrap;margin:8px 0 10px}
+.note-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;
+  padding-top:8px;border-top:1px solid var(--line);font-size:.76rem;color:var(--muted)}
+.note-actions{display:inline-flex;align-items:center;gap:8px}
+.note-action-btn{font-size:.76rem;font-weight:600;color:var(--muted);padding:3px 8px;border-radius:7px;
+  background:var(--bg);border:1px solid var(--line)}
+.note-action-btn:hover{color:var(--brand);border-color:var(--brand)}
+.note-action-btn.danger:hover{color:var(--danger);border-color:var(--danger)}
+
+/* ============ Panel de Estadísticas (Personales y Comunitarias) ============ */
+.stats-kpi-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:10px;margin-bottom:14px}
+@media (max-width:380px){.stats-kpi-grid{grid-template-columns:1fr}}
+.stat-kpi-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);
+  padding:15px;box-shadow:0 4px 14px rgba(20,24,31,.04)}
+.stat-kpi-label{font-size:.76rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:.02em}
+.stat-kpi-val{font-family:var(--serif);font-size:1.65rem;font-weight:600;color:var(--ink);margin:4px 0 2px;
+  font-variant-numeric:tabular-nums}
+.stat-kpi-sub{font-size:.76rem;color:var(--muted)}
+
+.stats-block-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);
+  padding:16px;margin-bottom:14px;box-shadow:0 4px 14px rgba(20,24,31,.04)}
+.stats-block-card h3{font-size:.96rem;font-weight:600;color:var(--ink);margin-bottom:10px}
+.freq-row{display:grid;grid-template-columns:92px 1fr 68px;align-items:center;gap:8px;font-size:.8rem;padding:4px 0}
+.freq-bar-bg{height:8px;border-radius:999px;background:var(--bg);border:1px solid var(--line);overflow:hidden}
+.freq-bar-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--brand),#6E1420)}
+.month-pill-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(145px,1fr));gap:8px}
+.month-stat-item{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:10px 12px}
+.month-stat-item strong{display:block;font-size:.86rem;color:var(--ink)}
+.month-stat-item span{font-size:.76rem;color:var(--muted);display:block;margin-top:2px}
+
+/* ============ Módulo de Liturgia (Evangelio del Día + Explicación Papas / Sacerdotes) ============ */
+.liturgy-toolbar{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);
+  padding:13px 14px;margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;
+  gap:8px;flex-wrap:wrap;box-shadow:0 4px 14px rgba(20,24,31,.04)}
+.liturgy-date-controls{display:flex;align-items:center;gap:6px;flex:1;min-width:220px}
+.liturgy-nav-btn{width:36px;height:36px;border-radius:10px;border:1px solid var(--line);
+  background:var(--bg);color:var(--ink);font-weight:600;display:grid;place-items:center;flex:none}
+.liturgy-nav-btn:hover{border-color:var(--brand);color:var(--brand)}
+.liturgy-date-input{flex:1;height:36px;border:1px solid var(--line);border-radius:10px;
+  background:var(--bg);padding:0 10px;font:inherit;font-size:.86rem;font-weight:600;color:var(--ink)}
+.liturgy-today-btn{height:36px;padding:0 12px;border-radius:10px;background:var(--brand-soft);
+  color:var(--brand);border:1px solid rgba(36,59,143,.22);font-size:.8rem;font-weight:600}
+
+.gospel-card{background:var(--surface);border:1px solid var(--line);border-radius:20px;
+  padding:20px;margin-bottom:14px;box-shadow:0 8px 24px rgba(20,24,31,.05)}
+.gospel-header-meta{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.liturgy-season-badge{display:inline-flex;align-items:center;gap:6px;font-size:.75rem;font-weight:600;
+  padding:3px 10px;border-radius:var(--r-pill)}
+.liturgy-season-badge.verde{background:#ECFDF5;color:#065F46;border:1px solid rgba(6,95,70,.24)}
+.liturgy-season-badge.blanco{background:#FEF9C3;color:#854D0E;border:1px solid rgba(212,175,55,.4)}
+.liturgy-season-badge.morado{background:#F3E8FF;color:#6B21A8;border:1px solid rgba(142,68,173,.28)}
+.liturgy-season-badge.rojo{background:#FEE2E2;color:#991B1B;border:1px solid rgba(153,27,27,.28)}
+.gospel-citation-pill{font-size:.78rem;font-weight:700;color:#6E1420;background:#FAF3E0;
+  border:1px solid rgba(110,20,32,.25);padding:3px 10px;border-radius:var(--r-pill)}
+
+.gospel-title{font-family:var(--serif);font-size:1.5rem;font-weight:600;line-height:1.2;color:var(--ink);margin-bottom:6px}
+.gospel-readings-summary{font-size:.8rem;color:var(--muted);background:var(--bg);border:1px solid var(--line);
+  border-radius:10px;padding:8px 11px;margin-bottom:14px;line-height:1.4}
+.gospel-text-body{font-family:var(--serif);font-size:1.08rem;line-height:1.62;color:var(--ink);
+  white-space:pre-line;padding:4px 0 12px}
+.gospel-acclamation{font-size:.86rem;font-weight:600;color:#6E1420;padding-top:10px;
+  border-top:1px dashed var(--line);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px}
+
+.btn-explain-gospel{width:100%;min-height:46px;padding:10px 16px;border-radius:14px;
+  background:linear-gradient(135deg,#6E1420 0%,#243B8F 100%);color:#FAF3E0;
+  font-size:.88rem;font-weight:600;display:flex;align-items:center;justify-content:center;gap:8px;
+  margin-top:14px;box-shadow:0 6px 18px rgba(110,20,32,.2);transition:transform .15s}
+.btn-explain-gospel:active{transform:scale(.98)}
+
+.gospel-explanation-panel{margin-top:14px;background:#FAF6EE;border:1px solid rgba(143,100,23,.28);
+  border-radius:16px;padding:16px;display:grid;gap:12px}
+.pope-box{background:var(--surface);border-left:4px solid #6E1420;border-radius:10px;padding:12px 14px;
+  box-shadow:0 2px 8px rgba(20,24,31,.04)}
+.pope-box-head{font-size:.78rem;font-weight:700;color:#6E1420;text-transform:uppercase;letter-spacing:.02em;margin-bottom:4px}
+.pope-box p{font-family:var(--serif);font-size:.98rem;color:var(--ink);line-height:1.48;font-style:italic}
+.homily-step{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:11px 13px}
+.homily-step strong{display:block;font-size:.83rem;color:var(--brand);margin-bottom:3px}
+.homily-step p{font-size:.87rem;color:var(--ink);line-height:1.42}
 
 .actions{position:absolute;left:0;right:0;bottom:0;display:flex;gap:10px;padding:14px 20px calc(14px + env(safe-area-inset-bottom,0px));
   background:linear-gradient(transparent,var(--bg) 35%)}

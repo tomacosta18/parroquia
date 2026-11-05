@@ -141,7 +141,37 @@
   <div id="map" class="map-canvas-full" role="region" aria-label="Mapa interactivo a pantalla completa de parroquias en CABA"></div>
 </section>
 
-<!-- ==================== VISTA 3: COMUNIDAD (FEED SOCIAL + RANKING + BUSCADOR DE USUARIOS Y GRUPOS) ==================== -->
+<!-- ==================== VISTA 3: RACHA ESPIRITUAL, NOTAS Y ESTADÍSTICAS ==================== -->
+<section class="app view-panel" id="view-spiritual" role="tabpanel" aria-labelledby="tab-spiritual" aria-hidden="true">
+  <header class="app-header">
+    <div>
+      <h1>Vida Espiritual</h1>
+      <p class="sub">Tu racha de misa y adoración, bloc de notas y estadísticas.</p>
+    </div>
+  </header>
+
+  <div class="community-subnav" id="spiritual-subtabs" role="tablist" aria-label="Secciones de vida espiritual">
+    <button type="button" class="comm-tab is-active" data-spir-tab="streak" role="tab" aria-selected="true">🔥 Racha</button>
+    <button type="button" class="comm-tab" data-spir-tab="notes" role="tab" aria-selected="false">📓 Notas</button>
+    <button type="button" class="comm-tab" data-spir-tab="stats" role="tab" aria-selected="false">📊 Estadísticas</button>
+  </div>
+
+  <div id="spiritual-content" class="spiritual-body"></div>
+</section>
+
+<!-- ==================== VISTA 4: LITURGIA Y EVANGELIO DEL DÍA ==================== -->
+<section class="app view-panel" id="view-liturgy" role="tabpanel" aria-labelledby="tab-liturgy" aria-hidden="true">
+  <header class="app-header">
+    <div>
+      <h1>Liturgia Diaria</h1>
+      <p class="sub">Evangelio del día (español de Argentina) y reflexión pastoral.</p>
+    </div>
+  </header>
+
+  <div id="liturgy-content" class="liturgy-body"></div>
+</section>
+
+<!-- ==================== VISTA 5: COMUNIDAD (FEED SOCIAL + RANKING + BUSCADOR DE USUARIOS Y GRUPOS) ==================== -->
 <section class="app view-panel" id="view-community" role="tabpanel" aria-labelledby="tab-community" aria-hidden="true">
   <header class="app-header">
     <div>
@@ -160,7 +190,7 @@
   <div id="community-content" class="community-body"></div>
 </section>
 
-<!-- ==================== VISTA 4: PERFIL / CUENTA DE USUARIO ==================== -->
+<!-- ==================== VISTA 6: PERFIL / CUENTA DE USUARIO ==================== -->
 <section class="app view-panel" id="view-profile" role="tabpanel" aria-labelledby="tab-profile" aria-hidden="true">
   <header class="app-header">
     <div>
@@ -194,7 +224,7 @@
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true">
       <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>
     </svg>
-    <span>Listado</span>
+    <span>Templos</span>
   </button>
   <button type="button" class="nav-tab" id="tab-map" role="tab" aria-selected="false" aria-controls="view-map" data-target-view="map">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -203,6 +233,20 @@
       <line x1="15" y1="6" x2="15" y2="21"/>
     </svg>
     <span>Mapa</span>
+  </button>
+  <button type="button" class="nav-tab" id="tab-spiritual" role="tab" aria-selected="false" aria-controls="view-spiritual" data-target-view="spiritual">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M12 2c.5 3.5 3.5 5.5 3.5 9a5.5 5.5 0 1 1-11 0c0-2.5 1.5-4.5 3-6 .5 2 2 3 2 3s1-2.5 2.5-6z"/>
+    </svg>
+    <span>Racha / Notas</span>
+  </button>
+  <button type="button" class="nav-tab" id="tab-liturgy" role="tab" aria-selected="false" aria-controls="view-liturgy" data-target-view="liturgy">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+      <path d="M12 6v7M9.5 8.5h5"/>
+    </svg>
+    <span>Liturgia</span>
   </button>
   <button type="button" class="nav-tab" id="tab-community" role="tab" aria-selected="false" aria-controls="view-community" data-target-view="community">
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -215,7 +259,7 @@
       <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
       <circle cx="12" cy="7" r="4"/>
     </svg>
-    <span id="nav-profile-label">Perfil / Cuenta</span>
+    <span id="nav-profile-label">Perfil</span>
   </button>
 </nav>
 
