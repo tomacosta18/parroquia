@@ -11,25 +11,32 @@ const PAGE_SIZE = 24; // Lote de renderizado incremental para soportar +100 regi
 const CROWD_STORAGE_KEY = "crowd_status_v1";
 const CROWD_TTL_MS = 3 * 60 * 60 * 1000; // Vigencia temporal de 3 horas para reportes de concurrencia por servicio
 
-// Niveles del Indicador de Concurrencia Comunitario ("Lleno / Vacío")
+// Íconos SVG de personas para el Indicador de Concurrencia (1 verde = vacío, 2 amarillas = medio, 3 rojas = lleno)
+const SVG_PEOPLE_1 = `<svg viewBox="0 0 18 18" fill="currentColor" aria-hidden="true"><circle cx="9" cy="5.2" r="3"/><path d="M3.8 15.5c0-2.9 2.3-4.8 5.2-4.8s5.2 1.9 5.2 4.8v.7H3.8v-.7z"/></svg>`;
+const SVG_PEOPLE_2 = `<svg viewBox="0 0 28 18" fill="currentColor" aria-hidden="true"><circle cx="9.2" cy="5.2" r="2.9"/><path d="M4.2 15.5c0-2.7 2.2-4.6 5-4.6s5 1.9 5 4.6v.7H4.2v-.7z"/><circle cx="19" cy="5.2" r="2.9"/><path d="M14 15.5c0-2.7 2.2-4.6 5-4.6s5 1.9 5 4.6v.7H14v-.7z"/></svg>`;
+const SVG_PEOPLE_3 = `<svg viewBox="0 0 36 18" fill="currentColor" aria-hidden="true"><circle cx="7.5" cy="5.5" r="2.6"/><path d="M3 15.6c0-2.4 2-4.2 4.5-4.2s4.5 1.8 4.5 4.2v.6H3v-.6z"/><circle cx="18" cy="4.8" r="2.9"/><path d="M13 15.6c0-2.8 2.2-4.7 5-4.7s5 1.9 5 4.7v.6H13v-.6z"/><circle cx="28.5" cy="5.5" r="2.6"/><path d="M24 15.6c0-2.4 2-4.2 4.5-4.2s4.5 1.8 4.5 4.2v.6h-9v-.6z"/></svg>`;
+
 const CROWD_LEVELS = {
   tranquilo: {
     id: "tranquilo",
-    label: "Tranquilo (🟢)",
-    short: "🟢 Tranquilo",
-    dot: "🟢"
+    label: "Vacío / Tranquilo",
+    short: "Vacío",
+    svg: SVG_PEOPLE_1,
+    color: "#10B981"
   },
   moderado: {
     id: "moderado",
-    label: "Moderado (🟡)",
-    short: "🟡 Moderado",
-    dot: "🟡"
+    label: "Medio / Moderado",
+    short: "Medio",
+    svg: SVG_PEOPLE_2,
+    color: "#D97706"
   },
   lleno: {
     id: "lleno",
-    label: "Lleno (🔴)",
-    short: "🔴 Lleno",
-    dot: "🔴"
+    label: "Lleno",
+    short: "Lleno",
+    svg: SVG_PEOPLE_3,
+    color: "#EF4444"
   }
 };
 
@@ -621,9 +628,11 @@ function isMajorTemple(tipo) {
 }
 
 function getTypeBadgeClass(tipo) {
-  if (isMajorTemple(tipo)) return "major";
-  if (norm(tipo) === "capilla") return "capilla";
-  return "minor";
+  const t = norm(tipo);
+  if (t === "catedral") return "catedral";
+  if (t === "basilica") return "basilica";
+  if (t === "capilla") return "capilla";
+  return "parroquia";
 }
 
 function haversineKm(lat1, lng1, lat2, lng2) {
@@ -947,6 +956,19 @@ function loadCrowdMap() {
   return mapObj;
 }
 
+function getDefaultBaseVotes(parishId, serviceHour) {
+  const seed = (Number(parishId) || 1) * 7 + (toMinutes(serviceHour) || 540);
+  const mins = toMinutes(serviceHour) || 600;
+  // Misas centrales de la mañana/tarde suelen tener más concurrencia inicial simulada
+  if (mins >= 630 && mins <= 760) {
+    return { tranquilo: 2 + (seed % 3), moderado: 5 + (seed % 4), lleno: 3 + (seed % 3) };
+  }
+  if (mins >= 1110 && mins <= 1200) {
+    return { tranquilo: 3 + (seed % 2), moderado: 6 + (seed % 4), lleno: 2 + (seed % 3) };
+  }
+  return { tranquilo: 5 + (seed % 4), moderado: 3 + (seed % 3), lleno: 1 + (seed % 2) };
+}
+
 function getCrowdStatus(parishId, serviceHour) {
   const crowdMap = loadCrowdMap();
   const key = buildCrowdKey(parishId, serviceHour);
@@ -954,6 +976,27 @@ function getCrowdStatus(parishId, serviceHour) {
     return crowdMap[key];
   }
   return null;
+}
+
+function getCrowdVotesBreakdown(parishId, serviceHour) {
+  const slot = String(serviceHour || "general").trim();
+  const base = getDefaultBaseVotes(parishId, slot);
+  const record = getCrowdStatus(parishId, slot);
+  const votes = record && record.votes
+    ? {
+        tranquilo: Number(record.votes.tranquilo) || 0,
+        moderado: Number(record.votes.moderado) || 0,
+        lleno: Number(record.votes.lleno) || 0
+      }
+    : { ...base };
+
+  const total = Math.max(1, votes.tranquilo + votes.moderado + votes.lleno);
+  const pct = {
+    tranquilo: Math.round((votes.tranquilo / total) * 100),
+    moderado: Math.round((votes.moderado / total) * 100),
+    lleno: Math.round((votes.lleno / total) * 100)
+  };
+  return { votes, total, pct, hasUserReport: Boolean(record) };
 }
 
 function getActiveParishCrowd(p) {
@@ -981,12 +1024,26 @@ function setCrowdStatus(parishId, serviceHour, level) {
   const crowdMap = loadCrowdMap();
   const slot = String(serviceHour || "general").trim();
   const key = buildCrowdKey(parishId, slot);
+  const existing = crowdMap[key];
+  const base = getDefaultBaseVotes(parishId, slot);
+
+  const votes = existing && existing.votes
+    ? { ...existing.votes }
+    : { ...base };
+
+  // Si el usuario ya había votado en esta sesión, ajusta el voto anterior antes de sumar el nuevo
+  if (existing && existing.lastUserVote && votes[existing.lastUserVote] > 0) {
+    votes[existing.lastUserVote] = Math.max(0, votes[existing.lastUserVote] - 1);
+  }
+  votes[level] = (votes[level] || 0) + 1;
 
   const record = {
     parishId: String(parishId),
     serviceHour: slot,
     dateKey: getTodayDateKey(),
     level,
+    lastUserVote: level,
+    votes,
     updatedAt: Date.now(),
     byAdmin: Boolean(state.isAdmin)
   };
@@ -1017,7 +1074,7 @@ function renderCrowdBadgeHtml(p) {
   if (!report || !CROWD_LEVELS[report.level]) return "";
   const cfg = CROWD_LEVELS[report.level];
   const slotNote = report.serviceHour && report.serviceHour !== "general" ? ` · ${report.serviceHour} h` : "";
-  return `<span class="crowd-badge ${cfg.id}" title="Concurrencia comunitaria reportada">${cfg.short}${slotNote}</span>`;
+  return `<span class="crowd-badge ${cfg.id}" title="Concurrencia comunitaria reportada">${cfg.svg}<span>${cfg.short}${slotNote}</span></span>`;
 }
 
 /* =====================================================================
@@ -1028,14 +1085,40 @@ let markersLayer = null;
 let userMarker = null;
 const markerById = new Map();
 
-const SVG_PIN_MAJOR = `
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-    <path d="M12 4.5v15M7.5 9.5h9"/>
+// 1. Capilla: Cruz minimalista fina
+const SVG_PIN_CAPILLA = `
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+    <path d="M12 6v12M8.5 10.2h7"/>
   </svg>`;
 
-const SVG_PIN_MINOR = `
-  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" aria-hidden="true">
-    <path d="M12 5.5v13M8 10h8"/>
+// 2. Parroquia: Cruz parroquial clásica con base
+const SVG_PIN_PARROQUIA = `
+  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M12 4.5v14M7.8 9.2h8.4M9.5 18.5h5"/>
+  </svg>`;
+
+// 3. Basílica: Cruz central ornamentada con corona de laureles a izquierda y derecha
+const SVG_PIN_BASILICA = `
+  <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M18 8.5v16M13.5 13.5h9" stroke-width="2.3"/>
+    <path d="M14.5 27.5c-4.8-1.8-7.5-6.2-7.5-11.2 0-3.8 1.8-7.2 4.6-9.2" stroke-width="1.6"/>
+    <path d="M21.5 27.5c4.8-1.8 7.5-6.2 7.5-11.2 0-3.8-1.8-7.2-4.6-9.2" stroke-width="1.6"/>
+    <path d="M7.2 17.5l2.3-1.2M7.8 13.5l2.4-.7M9.6 10l2.2-.2M8.8 21.5l2.4-1.5" stroke-width="1.5"/>
+    <path d="M28.8 17.5l-2.3-1.2M28.2 13.5l-2.4-.7M26.4 10l-2.2-.2M27.2 21.5l-2.4-1.5" stroke-width="1.5"/>
+    <path d="M15.5 27.8h5" stroke-width="1.8"/>
+  </svg>`;
+
+// 4. Catedral: Silueta superior del solideo / gorrita episcopal + cruz arzobispal de doble travesaño
+const SVG_SOLIDEO_CROWN = `
+  <svg class="pin-solideo-crown" viewBox="0 0 36 20" fill="none" aria-hidden="true">
+    <path d="M18 1.5v3" stroke="#7E22CE" stroke-width="2" stroke-linecap="round"/>
+    <path d="M4 16.5C4 9.2 10.2 4.5 18 4.5s14 4.7 14 12H4z" fill="#9333EA" stroke="#FFFFFF" stroke-width="1.8"/>
+    <path d="M6.5 16.5c2.2-3.5 6.3-5.5 11.5-5.5s9.3 2 11.5 5.5" stroke="#FDE047" stroke-width="1.3" stroke-linecap="round"/>
+  </svg>`;
+
+const SVG_PIN_CATEDRAL = `
+  <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+    <path d="M18 7v21M14 12h8M12 17.2h12M14.5 28h7" stroke-width="2.3"/>
   </svg>`;
 
 function initMap() {
@@ -1087,18 +1170,31 @@ function initMap() {
 }
 
 function createHierarchyIcon(p) {
-  const major = p._isMajor ?? isMajorTemple(p.tipo);
-  const isCapilla = norm(p.tipo) === "capilla";
-  const size = major ? 42 : 32;
-  const cls = major ? "pin-wrap major" : `pin-wrap minor${isCapilla ? " capilla" : ""}`;
-  const svg = major ? SVG_PIN_MAJOR : SVG_PIN_MINOR;
+  const t = norm(p.tipo);
+  let size = 36;
+  let cls = "pin-wrap parroquia";
+  let innerHtml = SVG_PIN_PARROQUIA;
+
+  if (t === "catedral") {
+    size = 48;
+    cls = "pin-wrap catedral";
+    innerHtml = `${SVG_SOLIDEO_CROWN}${SVG_PIN_CATEDRAL}`;
+  } else if (t === "basilica") {
+    size = 44;
+    cls = "pin-wrap basilica";
+    innerHtml = SVG_PIN_BASILICA;
+  } else if (t === "capilla") {
+    size = 30;
+    cls = "pin-wrap capilla";
+    innerHtml = SVG_PIN_CAPILLA;
+  }
 
   return L.divIcon({
     className: "custom-pin-icon",
-    html: `<div class="${cls}" title="${p.tipo}: ${p.nombre}">${svg}</div>`,
+    html: `<div class="${cls}" title="${p.tipo}: ${p.nombre}">${innerHtml}</div>`,
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
-    popupAnchor: [0, -(size / 2 + 2)]
+    popupAnchor: [0, -(size / 2 + 4)]
   });
 }
 
@@ -1556,7 +1652,7 @@ function renderMisasBlock(p, activeSlot) {
           const cleanH = String(h).trim();
           const crowd = getCrowdStatus(p.id, cleanH);
           const dotHtml = crowd && CROWD_LEVELS[crowd.level]
-            ? `<span class="h-dot" aria-hidden="true">${CROWD_LEVELS[crowd.level].dot}</span>`
+            ? `<span class="h-dot" style="color:${CROWD_LEVELS[crowd.level].color}" aria-hidden="true">${CROWD_LEVELS[crowd.level].svg}</span>`
             : "";
           const isSel = cleanH === activeSlot;
           return `<button type="button" class="hour-pill ${isSel ? "is-selected" : ""}" data-select-slot="${cleanH}" title="Seleccionar misa de las ${cleanH} h para ver o reportar concurrencia">${dotHtml}<span>${cleanH}</span></button>`;
@@ -1568,11 +1664,12 @@ function renderMisasBlock(p, activeSlot) {
   const currentCrowd = getCrowdStatus(p.id, activeSlot);
   const currentLevel = currentCrowd ? currentCrowd.level : null;
   const slotLabel = activeSlot && activeSlot !== "general" ? `Misa ${activeSlot} h` : "Servicio actual";
+  const breakdown = getCrowdVotesBreakdown(p.id, activeSlot);
 
-  let metaText = "Tocá una opción para informar cómo está el templo en este horario.";
+  let metaText = "Tocá una opción para votar cómo está el templo en este horario.";
   if (currentCrowd && CROWD_LEVELS[currentLevel]) {
-    const authorNote = currentCrowd.byAdmin ? " · Verificado por Admin" : " · Reporte comunitario";
-    metaText = `Estado: ${CROWD_LEVELS[currentLevel].label} (${formatRelativeMinutes(currentCrowd.updatedAt)}${authorNote})`;
+    const authorNote = currentCrowd.byAdmin ? " · Verificado por Admin" : " · Tu voto fue registrado";
+    metaText = `Estado actual: ${CROWD_LEVELS[currentLevel].label} (${formatRelativeMinutes(currentCrowd.updatedAt)}${authorNote})`;
   }
 
   return `
@@ -1581,24 +1678,59 @@ function renderMisasBlock(p, activeSlot) {
       ${rows}
       <div class="crowd-widget" id="crowd-widget" aria-label="Indicador de concurrencia comunitario">
         <div class="crowd-head">
-          <span class="crowd-title">Concurrencia en tiempo real</span>
+          <span class="crowd-title">Concurrencia por horario</span>
           <span class="crowd-slot-badge" id="crowd-slot-badge">${slotLabel}</span>
         </div>
-        <p class="crowd-sub">Elegí un horario arriba o actualizá con un toque la ocupación actual del templo:</p>
-        <div class="crowd-buttons" role="group" aria-label="Niveles de concurrencia">
+        <p class="crowd-sub">Seleccioná un horario arriba y votá con un toque el nivel de ocupación actual:</p>
+        <div class="crowd-buttons" role="group" aria-label="Votar nivel de concurrencia">
           <button type="button" class="crowd-btn tranquilo" data-crowd-level="tranquilo" aria-pressed="${currentLevel === "tranquilo"}">
-            <span>Tranquilo (🟢)</span>
+            <span class="crowd-btn-top">
+              <span class="crowd-people-icon">${SVG_PEOPLE_1}</span>
+              <span>Vacío</span>
+            </span>
+            <small style="font-size:.7rem;opacity:.85">Tranquilo (${breakdown.votes.tranquilo})</small>
           </button>
           <button type="button" class="crowd-btn moderado" data-crowd-level="moderado" aria-pressed="${currentLevel === "moderado"}">
-            <span>Moderado (🟡)</span>
+            <span class="crowd-btn-top">
+              <span class="crowd-people-icon">${SVG_PEOPLE_2}</span>
+              <span>Medio</span>
+            </span>
+            <small style="font-size:.7rem;opacity:.85">Moderado (${breakdown.votes.moderado})</small>
           </button>
           <button type="button" class="crowd-btn lleno" data-crowd-level="lleno" aria-pressed="${currentLevel === "lleno"}">
-            <span>Lleno (🔴)</span>
+            <span class="crowd-btn-top">
+              <span class="crowd-people-icon">${SVG_PEOPLE_3}</span>
+              <span>Lleno</span>
+            </span>
+            <small style="font-size:.7rem;opacity:.85">Colmado (${breakdown.votes.lleno})</small>
           </button>
         </div>
+
+        <div class="crowd-breakdown" aria-label="Desglose de votos de usuarios para ${slotLabel}">
+          <div class="crowd-breakdown-head">
+            <span>Desglose de votos · <strong>${slotLabel}</strong></span>
+            <span>${breakdown.total} ${breakdown.total === 1 ? "voto" : "votos"}</span>
+          </div>
+          <div class="crowd-bar-row">
+            <span class="crowd-bar-label" style="color:#065F46">${SVG_PEOPLE_1}<span>1 pers. (Vacío)</span></span>
+            <div class="crowd-bar-track"><div class="crowd-bar-fill tranquilo" style="width:${breakdown.pct.tranquilo}%"></div></div>
+            <span class="crowd-bar-count">${breakdown.votes.tranquilo} (${breakdown.pct.tranquilo}%)</span>
+          </div>
+          <div class="crowd-bar-row">
+            <span class="crowd-bar-label" style="color:#854D0E">${SVG_PEOPLE_2}<span>2 pers. (Medio)</span></span>
+            <div class="crowd-bar-track"><div class="crowd-bar-fill moderado" style="width:${breakdown.pct.moderado}%"></div></div>
+            <span class="crowd-bar-count">${breakdown.votes.moderado} (${breakdown.pct.moderado}%)</span>
+          </div>
+          <div class="crowd-bar-row">
+            <span class="crowd-bar-label" style="color:#991B1B">${SVG_PEOPLE_3}<span>3 pers. (Lleno)</span></span>
+            <div class="crowd-bar-track"><div class="crowd-bar-fill lleno" style="width:${breakdown.pct.lleno}%"></div></div>
+            <span class="crowd-bar-count">${breakdown.votes.lleno} (${breakdown.pct.lleno}%)</span>
+          </div>
+        </div>
+
         <div class="crowd-meta">
           <span id="crowd-meta-text">${metaText}</span>
-          ${currentCrowd ? `<button type="button" class="crowd-clear-btn" id="btn-clear-crowd">Restablecer</button>` : ""}
+          ${currentCrowd ? `<button type="button" class="crowd-clear-btn" id="btn-clear-crowd">Restablecer mi voto</button>` : ""}
         </div>
       </div>
     </div>`;
@@ -2297,10 +2429,172 @@ function getCurrentUserObj() {
   return socialDB.users[socialDB.currentUser] || null;
 }
 
+/* --- Sistema de Avatares: Subida Base64 desde Dispositivo y Creador Estilo Mii (SVG) --- */
+const MII_SKINS = [
+  { id: "#FDE2C8", label: "Clara" },
+  { id: "#F5CBA7", label: "Trigueña" },
+  { id: "#E0AC69", label: "Bronceada" },
+  { id: "#C68642", label: "Morena" },
+  { id: "#8D5524", label: "Oscura" }
+];
+
+const MII_HAIR_COLORS = [
+  { id: "#2C1B18", label: "Negro" },
+  { id: "#6E473B", label: "Castaño" },
+  { id: "#D4AF37", label: "Rubio" },
+  { id: "#A93226", label: "Cobrizo" },
+  { id: "#7F8C8D", label: "Canoso" }
+];
+
+const MII_BG_COLORS = [
+  { id: "#DBEAFE", shirt: "#2563EB", label: "Azul" },
+  { id: "#F3E8FF", shirt: "#8E44AD", label: "Morado" },
+  { id: "#DCFCE7", shirt: "#16A34A", label: "Verde" },
+  { id: "#FEF3C7", shirt: "#D97706", label: "Dorado" },
+  { id: "#FFE4E6", shirt: "#E11D48", label: "Coral" }
+];
+
+const MII_HAIRS = [
+  { id: "corto", label: "Corto" },
+  { id: "raya", label: "Con raya" },
+  { id: "rulos", label: "Rulos" },
+  { id: "largo", label: "Largo" },
+  { id: "solideo", label: "Solideo" }
+];
+
+const MII_FACES = [
+  { id: "sonrisa", label: "Sonrisa" },
+  { id: "alegre", label: "Alegre" },
+  { id: "sereno", label: "Sereno" },
+  { id: "lentes", label: "Con lentes" },
+  { id: "guino", label: "Guiño" }
+];
+
+const DEFAULT_MII_CONFIG = {
+  skin: "#F5CBA7",
+  hair: "corto",
+  hairColor: "#2C1B18",
+  face: "sonrisa",
+  bg: "#DBEAFE"
+};
+
+function generateMiiSvgDataUrl(rawCfg) {
+  const cfg = { ...DEFAULT_MII_CONFIG, ...(rawCfg || {}) };
+  const bgObj = MII_BG_COLORS.find(b => b.id === cfg.bg) || MII_BG_COLORS[0];
+  const shirtColor = bgObj.shirt;
+
+  let hairBack = "";
+  let hairFront = "";
+  if (cfg.hair === "largo") {
+    hairBack = `<path d="M26 46c-3 12-3 28 2 38h44c5-10 5-26 2-38z" fill="${cfg.hairColor}"/>`;
+    hairFront = `<path d="M27 42c0-15 10-24 23-24s23 9 23 24c-4-6-12-10-23-10s-19 4-23 10z" fill="${cfg.hairColor}"/>`;
+  } else if (cfg.hair === "rulos") {
+    hairFront = `
+      <circle cx="32" cy="30" r="9" fill="${cfg.hairColor}"/>
+      <circle cx="43" cy="24" r="10" fill="${cfg.hairColor}"/>
+      <circle cx="57" cy="24" r="10" fill="${cfg.hairColor}"/>
+      <circle cx="68" cy="30" r="9" fill="${cfg.hairColor}"/>
+      <circle cx="28" cy="40" r="7" fill="${cfg.hairColor}"/>
+      <circle cx="72" cy="40" r="7" fill="${cfg.hairColor}"/>`;
+  } else if (cfg.hair === "raya") {
+    hairFront = `<path d="M27 44c0-16 10-25 23-25s23 9 23 25c-3-8-14-12-28-9-7 1-14 5-18 9z" fill="${cfg.hairColor}"/>`;
+  } else if (cfg.hair === "solideo") {
+    hairFront = `
+      <path d="M28 41c0-13 10-21 22-21s22 8 22 21c-4-5-12-8-22-8s-18 3-22 8z" fill="${cfg.hairColor}"/>
+      <path d="M33 27c3-7 9-10 17-10s14 3 17 10H33z" fill="#8E44AD" stroke="#FFFFFF" stroke-width="1.5"/>`;
+  } else {
+    // corto
+    hairFront = `<path d="M28 42c0-15 10-23 22-23s22 8 22 23c-5-6-13-9-22-9s-17 3-22 9z" fill="${cfg.hairColor}"/>`;
+  }
+
+  let eyesAndMouth = "";
+  if (cfg.face === "alegre") {
+    eyesAndMouth = `
+      <circle cx="41" cy="48" r="2.6" fill="#1F2937"/>
+      <circle cx="59" cy="48" r="2.6" fill="#1F2937"/>
+      <path d="M38 42c2-2 5-2 7 0M55 42c2-2 5-2 7 0" stroke="#1F2937" stroke-width="1.8" stroke-linecap="round" fill="none"/>
+      <path d="M41 57c3 5 15 5 18 0z" fill="#E11D48"/>`;
+  } else if (cfg.face === "sereno") {
+    eyesAndMouth = `
+      <path d="M38 48c2 2 5 2 7 0M55 48c2 2 5 2 7 0" stroke="#1F2937" stroke-width="2.2" stroke-linecap="round" fill="none"/>
+      <path d="M44 58c4 2 8 2 12 0" stroke="#1F2937" stroke-width="2" stroke-linecap="round" fill="none"/>`;
+  } else if (cfg.face === "lentes") {
+    eyesAndMouth = `
+      <rect x="34" y="44" width="12" height="9" rx="3" fill="none" stroke="#1F2937" stroke-width="2"/>
+      <rect x="54" y="44" width="12" height="9" rx="3" fill="none" stroke="#1F2937" stroke-width="2"/>
+      <path d="M46 48h8" stroke="#1F2937" stroke-width="2"/>
+      <circle cx="40" cy="48.5" r="2" fill="#1F2937"/>
+      <circle cx="60" cy="48.5" r="2" fill="#1F2937"/>
+      <path d="M43 58c4 3 10 3 14 0" stroke="#1F2937" stroke-width="2" stroke-linecap="round" fill="none"/>`;
+  } else if (cfg.face === "guino") {
+    eyesAndMouth = `
+      <path d="M38 48c2-2 5-2 7 0" stroke="#1F2937" stroke-width="2.3" stroke-linecap="round" fill="none"/>
+      <circle cx="59" cy="48" r="2.6" fill="#1F2937"/>
+      <path d="M42 57c4 4 12 4 16 0" stroke="#1F2937" stroke-width="2.2" stroke-linecap="round" fill="none"/>`;
+  } else {
+    // sonrisa
+    eyesAndMouth = `
+      <circle cx="41" cy="48" r="2.5" fill="#1F2937"/>
+      <circle cx="59" cy="48" r="2.5" fill="#1F2937"/>
+      <path d="M42 57c4 4 12 4 16 0" stroke="#1F2937" stroke-width="2.2" stroke-linecap="round" fill="none"/>`;
+  }
+
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100">
+    <rect width="100" height="100" rx="50" fill="${cfg.bg}"/>
+    ${hairBack}
+    <path d="M22 96c3-16 14-24 28-24s25 8 28 24H22z" fill="${shirtColor}"/>
+    <path d="M43 66h14v10H43z" fill="${cfg.skin}"/>
+    <circle cx="28" cy="50" r="4.5" fill="${cfg.skin}"/>
+    <circle cx="72" cy="50" r="4.5" fill="${cfg.skin}"/>
+    <ellipse cx="50" cy="48" rx="21" ry="22" fill="${cfg.skin}"/>
+    ${hairFront}
+    ${eyesAndMouth}
+  </svg>`;
+
+  return "data:image/svg+xml;utf8," + encodeURIComponent(svg);
+}
+
+function resizeImageFileToBase64(file, maxSize = 160) {
+  return new Promise((resolve, reject) => {
+    if (!file || !file.type.startsWith("image/")) {
+      reject(new Error("Archivo de imagen inválido"));
+      return;
+    }
+    const reader = new FileReader();
+    reader.onerror = () => reject(new Error("No se pudo leer el archivo"));
+    reader.onload = () => {
+      const img = new Image();
+      img.onerror = () => reject(new Error("No se pudo procesar la imagen"));
+      img.onload = () => {
+        const canvas = document.createElement("canvas");
+        let w = img.width;
+        let h = img.height;
+        if (w > h) {
+          if (w > maxSize) {
+            h = Math.round((h * maxSize) / w);
+            w = maxSize;
+          }
+        } else if (h > maxSize) {
+          w = Math.round((w * maxSize) / h);
+          h = maxSize;
+        }
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext("2d");
+        ctx.drawImage(img, 0, 0, w, h);
+        resolve(canvas.toDataURL("image/jpeg", 0.84));
+      };
+      img.src = reader.result;
+    };
+    reader.readAsDataURL(file);
+  });
+}
+
 function renderAvatarContent(user) {
   if (!user) return "👤";
-  if (user.avatarUrl && /^https?:\/\//i.test(user.avatarUrl.trim())) {
-    return `<img src="${user.avatarUrl.trim()}" alt="${user.apodo}" loading="lazy">`;
+  const url = (user.avatarUrl || "").trim();
+  if (url && (/^https?:\/\//i.test(url) || url.startsWith("data:image/"))) {
+    return `<img src="${url}" alt="${user.apodo || user.username}" loading="lazy">`;
   }
   return user.avatarIcon || "✝️";
 }
@@ -2440,11 +2734,27 @@ function toggleFollowParish(parishId) {
   if (state.view === "profile") renderProfileView();
 }
 
-/* --- Seguimiento de Actividades y Grupos Parroquiales --- */
+/* --- Seguimiento de Actividades y Grupos Parroquiales con Contador de Seguidores --- */
 function isCurrentUserInActivity(activityId) {
   const me = getCurrentUserObj();
   if (!me || !Array.isArray(me.joinedActivities)) return false;
   return me.joinedActivities.includes(String(activityId));
+}
+
+function getActivityFollowersCount(activityId) {
+  const aid = String(activityId || "");
+  let hash = 0;
+  for (let i = 0; i < aid.length; i++) {
+    hash = (hash * 31 + aid.charCodeAt(i)) % 97;
+  }
+  const baseCount = 18 + (hash % 42);
+  let membersCount = 0;
+  Object.values(socialDB.users).forEach(u => {
+    if (Array.isArray(u.joinedActivities) && u.joinedActivities.includes(aid)) {
+      membersCount++;
+    }
+  });
+  return baseCount + membersCount;
 }
 
 function findActivityById(activityId) {
@@ -2454,6 +2764,23 @@ function findActivityById(activityId) {
     if (match) return match;
   }
   return null;
+}
+
+function getAllParishActivitiesFlat() {
+  const list = [];
+  PARISHES.forEach(p => {
+    const acts = getParishActivities(p);
+    acts.forEach(a => {
+      list.push({
+        ...a,
+        parishId: String(p.id),
+        parishName: p.nombre,
+        barrio: p.barrio,
+        region: p._region || inferRegion(p)
+      });
+    });
+  });
+  return list;
 }
 
 function toggleFollowActivity(activityId) {
@@ -2475,6 +2802,10 @@ function toggleFollowActivity(activityId) {
   if (state.current && $("#d-activities-grid")) {
     $("#d-activities-grid").innerHTML = renderActivitiesCardsHtml(state.current);
   }
+  if (state.view === "community" && state.commTab === "people") {
+    const dirResults = $("#comm-dir-results");
+    if (dirResults) dirResults.innerHTML = renderPeopleDirectoryResultsHtml();
+  }
   if (state.view === "profile") renderProfileView();
 }
 
@@ -2493,11 +2824,15 @@ function renderActivitiesCardsHtml(p) {
   const activities = getParishActivities(p);
   return activities.map(act => {
     const joined = isCurrentUserInActivity(act.id);
+    const followersCount = getActivityFollowersCount(act.id);
     const igUrl = normalizeSocialHandleUrl(act.instagram, "instagram");
     return `
       <div class="activity-card">
         <div class="activity-top">
-          <span class="activity-cat">${act.categoria}</span>
+          <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+            <span class="activity-cat">${act.categoria}</span>
+            <span class="activity-followers-pill" title="Seguidores de este grupo parroquial">👥 ${followersCount} seguidores</span>
+          </div>
           <small style="color:var(--muted);font-weight:600">${act.horario || ""}</small>
         </div>
         <h4>${act.nombre}</h4>
@@ -2549,7 +2884,10 @@ function bindDetailSocialEvents(p) {
   }
 }
 
-/* --- Renderizado de la Vista Comunidad (Feed Twitter + Ranking + Personas) --- */
+/* --- Renderizado de la Vista Comunidad (Feed Twitter + Ranking + Buscador de Usuarios y Grupos) --- */
+let commSearchQuery = "";
+let commSearchScope = "all"; // 'all' | 'users' | 'groups' | 'friends'
+
 function renderCommunityView() {
   const container = $("#community-content");
   if (!container) return;
@@ -2666,7 +3004,7 @@ function renderCommunityView() {
   }).join("") : `
     <div class="empty">
       <strong>Todavía no hay mensajes en esta vista</strong>
-      Seguí a más miembros en la pestaña "Personas y Amigos" o publicá el primer mensaje.
+      Seguí a más miembros en la pestaña "Buscar Usuarios y Grupos" o publicá el primer mensaje.
     </div>`;
 
   container.innerHTML = `${statsBarHtml}${composerHtml}<div class="feed-list">${postsHtml}</div>`;
@@ -2709,12 +3047,39 @@ function renderRankingSectionHtml() {
     </div>`;
 }
 
-function renderPeopleDirectoryHtml() {
+function renderPeopleDirectoryResultsHtml() {
   const me = getCurrentUserObj();
-  const usersList = Object.values(socialDB.users);
+  const q = norm(commSearchQuery);
+  const tokens = q ? q.split(/\s+/).filter(Boolean) : [];
 
-  return `
-    <div class="feed-list">
+  const showUsers = commSearchScope === "all" || commSearchScope === "users" || commSearchScope === "friends";
+  const showGroups = commSearchScope === "all" || commSearchScope === "groups";
+
+  let usersList = Object.values(socialDB.users);
+  if (commSearchScope === "friends") {
+    usersList = me ? usersList.filter(u => areFriends(me.username, u.username)) : [];
+  }
+  if (tokens.length) {
+    usersList = usersList.filter(u => {
+      const hay = norm(`${u.apodo} ${u.username} ${u.bio || ""} ${u.instagram || ""}`);
+      return tokens.every(t => hay.includes(t));
+    });
+  }
+
+  let groupsList = [];
+  if (showGroups) {
+    const allGroups = getAllParishActivitiesFlat();
+    groupsList = tokens.length
+      ? allGroups.filter(g => {
+          const hay = norm(`${g.nombre} ${g.categoria} ${g.parishName} ${g.barrio} ${g.region} ${g.instagram || ""}`);
+          return tokens.every(t => hay.includes(t));
+        })
+      : allGroups.slice(0, 12); // Muestra los 12 grupos destacados por defecto o todos al buscar
+  }
+
+  const usersHtml = showUsers && usersList.length
+    ? `
+      <div class="comm-dir-heading">👤 Usuarios de la Comunidad (${usersList.length})</div>
       ${usersList.map(u => {
         const isMe = me && me.username === u.username;
         const isMutual = me && areFriends(me.username, u.username);
@@ -2751,7 +3116,72 @@ function renderPeopleDirectoryHtml() {
               </button>
             </div>
           </div>`;
-      }).join("")}
+      }).join("")}`
+    : "";
+
+  const groupsHtml = showGroups && groupsList.length
+    ? `
+      <div class="comm-dir-heading">🙌 Grupos y Actividades Parroquiales (${groupsList.length})</div>
+      ${groupsList.map(act => {
+        const joined = isCurrentUserInActivity(act.id);
+        const followersCount = getActivityFollowersCount(act.id);
+        const igUrl = normalizeSocialHandleUrl(act.instagram, "instagram");
+        return `
+          <div class="activity-card" style="background:var(--surface)">
+            <div class="activity-top">
+              <div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap">
+                <span class="activity-cat">${act.categoria}</span>
+                <span class="activity-followers-pill">👥 ${followersCount} seguidores</span>
+              </div>
+              <small style="color:var(--muted);font-weight:600">${act.horario || ""}</small>
+            </div>
+            <h4>${act.nombre}</h4>
+            <p class="activity-desc" style="margin-bottom:6px">${act.descripcion}</p>
+            <button type="button" class="post-parish-tag" data-open-parish="${act.parishId}" style="margin-bottom:8px">
+              ⛪ ${act.parishName} (${act.barrio})
+            </button>
+            <div class="activity-foot">
+              ${igUrl ? `<a class="activity-ig" href="${igUrl}" target="_blank" rel="noopener noreferrer">📸 ${act.instagram}</a>` : `<span></span>`}
+              <button type="button" class="btn-follow-activity ${joined ? "is-joined" : ""}" data-follow-activity="${act.id}">
+                ${joined ? "Participando ✓" : "+ Seguir Actividad"}
+              </button>
+            </div>
+          </div>`;
+      }).join("")}`
+    : "";
+
+  if (!usersHtml && !groupsHtml) {
+    return `
+      <div class="empty">
+        <strong>Sin resultados para tu búsqueda</strong>
+        Probá buscando por apodo, @usuario, coro, oración, catequesis, misiones o nombre de parroquia.
+      </div>`;
+  }
+
+  return `<div class="feed-list">${usersHtml}${groupsHtml}</div>`;
+}
+
+function renderPeopleDirectoryHtml() {
+  return `
+    <div class="comm-search-wrap">
+      <div class="comm-search-input-box">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true">
+          <circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/>
+        </svg>
+        <input type="search" id="comm-search-input" class="comm-search-input"
+          value="${commSearchQuery.replace(/"/g, "&quot;")}"
+          placeholder="Buscar usuarios (@apodo) o grupos (coro, oración, misiones…)"
+          autocomplete="off">
+      </div>
+      <div class="comm-filter-pills" role="group" aria-label="Filtrar directorio comunitario">
+        <button type="button" class="comm-filter-pill ${commSearchScope === "all" ? "is-active" : ""}" data-comm-scope="all">Todos</button>
+        <button type="button" class="comm-filter-pill ${commSearchScope === "users" ? "is-active" : ""}" data-comm-scope="users">👤 Usuarios</button>
+        <button type="button" class="comm-filter-pill ${commSearchScope === "groups" ? "is-active" : ""}" data-comm-scope="groups">🙌 Grupos Parroquiales</button>
+        <button type="button" class="comm-filter-pill ${commSearchScope === "friends" ? "is-active" : ""}" data-comm-scope="friends">🤝 Mis Amigos</button>
+      </div>
+    </div>
+    <div id="comm-dir-results">
+      ${renderPeopleDirectoryResultsHtml()}
     </div>`;
 }
 
@@ -2848,6 +3278,8 @@ function closePublicProfileModal() {
   if (modal) modal.hidden = true;
 }
 
+let draftMiiConfig = { ...DEFAULT_MII_CONFIG };
+
 function renderProfileView() {
   const container = $("#profile-content");
   if (!container) return;
@@ -2889,13 +3321,17 @@ function renderProfileView() {
     return;
   }
 
+  draftMiiConfig = { ...DEFAULT_MII_CONFIG, ...(me.miiConfig || {}) };
+  const miiPreviewUrl = generateMiiSvgDataUrl(draftMiiConfig);
   const currentIcon = me.avatarIcon || "✝️";
+  const hasCustomPhoto = Boolean(me.avatarUrl && me.avatarUrl.trim());
+
   container.innerHTML = `
     ${renderUserPublicCardHtml(me, true)}
 
     <div class="profile-card">
       <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px">
-        <h3 style="font-size:1.05rem;font-weight:600">Editar Mi Perfil</h3>
+        <h3 style="font-size:1.05rem;font-weight:600">Editar Mi Perfil y Avatar</h3>
         <button type="button" class="admin-logout-btn" id="btn-user-logout">Cerrar sesión</button>
       </div>
       <form id="profile-edit-form" class="admin-edit-form">
@@ -2907,8 +3343,83 @@ function renderProfileView() {
           <label for="p-bio">Biografía corta</label>
           <textarea id="p-bio" rows="2" maxlength="180" placeholder="Contá a qué parroquia asistís o en qué grupo participás">${me.bio || ""}</textarea>
         </div>
+
+        <!-- 1. Subida de Foto desde el Dispositivo (Base64) -->
         <div class="form-field">
-          <label>Ícono de perfil</label>
+          <label>Subir foto desde tu dispositivo (guardada en Base64 local)</label>
+          <div class="avatar-upload-box">
+            <label for="p-avatar-file" class="btn-upload-file">
+              📷 Elegir foto del dispositivo
+            </label>
+            <input id="p-avatar-file" type="file" accept="image/*" hidden>
+            ${hasCustomPhoto ? `<button type="button" class="btn-clear-photo" id="btn-clear-avatar-photo">Quitar foto / Usar ícono</button>` : ""}
+            <small style="color:var(--muted);font-size:.75rem">Se optimiza automáticamente para almacenamiento local.</small>
+          </div>
+        </div>
+
+        <!-- 2. Creador de Avatares Estilo Mii Interactivo -->
+        <div class="form-field">
+          <label>Creador de Avatar Estilo Mii</label>
+          <div class="mii-creator-box" id="mii-creator-box">
+            <div class="mii-creator-top">
+              <div class="mii-stage" id="mii-stage">
+                <img id="mii-stage-img" src="${miiPreviewUrl}" alt="Vista previa de tu Avatar Mii">
+              </div>
+              <div class="mii-creator-info">
+                <h4>Diseñá tu personaje Mii</h4>
+                <p>Combiná peinados, expresiones, tono de piel y colores. Al terminar, aplicalo a tu perfil con un toque.</p>
+                <button type="button" class="btn-apply-mii" id="btn-apply-mii">✨ Usar este Mii como foto de perfil</button>
+              </div>
+            </div>
+
+            <div class="mii-controls">
+              <div class="mii-row">
+                <span class="mii-row-label">Peinado</span>
+                <div class="mii-options">
+                  ${MII_HAIRS.map(h => `
+                    <button type="button" class="mii-chip ${draftMiiConfig.hair === h.id ? "is-selected" : ""}" data-mii-prop="hair" data-mii-val="${h.id}">${h.label}</button>
+                  `).join("")}
+                </div>
+              </div>
+              <div class="mii-row">
+                <span class="mii-row-label">Rostro</span>
+                <div class="mii-options">
+                  ${MII_FACES.map(f => `
+                    <button type="button" class="mii-chip ${draftMiiConfig.face === f.id ? "is-selected" : ""}" data-mii-prop="face" data-mii-val="${f.id}">${f.label}</button>
+                  `).join("")}
+                </div>
+              </div>
+              <div class="mii-row">
+                <span class="mii-row-label">Tono de piel</span>
+                <div class="mii-options">
+                  ${MII_SKINS.map(s => `
+                    <button type="button" class="mii-swatch ${draftMiiConfig.skin === s.id ? "is-selected" : ""}" style="background:${s.id}" data-mii-prop="skin" data-mii-val="${s.id}" title="Piel: ${s.label}" aria-label="Piel ${s.label}"></button>
+                  `).join("")}
+                </div>
+              </div>
+              <div class="mii-row">
+                <span class="mii-row-label">Color pelo</span>
+                <div class="mii-options">
+                  ${MII_HAIR_COLORS.map(c => `
+                    <button type="button" class="mii-swatch ${draftMiiConfig.hairColor === c.id ? "is-selected" : ""}" style="background:${c.id}" data-mii-prop="hairColor" data-mii-val="${c.id}" title="Pelo: ${c.label}" aria-label="Pelo ${c.label}"></button>
+                  `).join("")}
+                </div>
+              </div>
+              <div class="mii-row">
+                <span class="mii-row-label">Fondo y ropa</span>
+                <div class="mii-options">
+                  ${MII_BG_COLORS.map(b => `
+                    <button type="button" class="mii-swatch ${draftMiiConfig.bg === b.id ? "is-selected" : ""}" style="background:${b.shirt}" data-mii-prop="bg" data-mii-val="${b.id}" title="Color: ${b.label}" aria-label="Color ${b.label}"></button>
+                  `).join("")}
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- 3. Selector de Ícono o URL externa -->
+        <div class="form-field">
+          <label>O elegí un ícono rápido</label>
           <input type="hidden" id="p-avatar-icon" value="${currentIcon}">
           <div class="avatar-picker" id="p-avatar-picker">
             ${AVATAR_PRESETS.map(ic => `
@@ -2917,8 +3428,8 @@ function renderProfileView() {
           </div>
         </div>
         <div class="form-field">
-          <label for="p-avatar-url">O URL de foto de perfil (opcional)</label>
-          <input id="p-avatar-url" type="url" value="${me.avatarUrl || ""}" placeholder="https://...">
+          <label for="p-avatar-url">URL o Datos de imagen activa (opcional)</label>
+          <input id="p-avatar-url" type="text" value="${me.avatarUrl || ""}" placeholder="https://... o Base64 / Mii generado">
         </div>
         <div class="form-row-2">
           <div class="form-field">
@@ -3060,7 +3571,34 @@ function bindAppEvents() {
     }
   });
 
+  $("#community-content")?.addEventListener("input", e => {
+    if (e.target && e.target.id === "comm-search-input") {
+      commSearchQuery = e.target.value;
+      const resultsBox = $("#comm-dir-results");
+      if (resultsBox) {
+        resultsBox.innerHTML = renderPeopleDirectoryResultsHtml();
+      }
+    }
+  });
+
   $("#community-content")?.addEventListener("click", e => {
+    const scopeBtn = e.target.closest("[data-comm-scope]");
+    if (scopeBtn) {
+      commSearchScope = scopeBtn.dataset.commScope;
+      $$("#community-content [data-comm-scope]").forEach(b => {
+        b.classList.toggle("is-active", b.dataset.commScope === commSearchScope);
+      });
+      const resultsBox = $("#comm-dir-results");
+      if (resultsBox) {
+        resultsBox.innerHTML = renderPeopleDirectoryResultsHtml();
+      }
+      return;
+    }
+    const followActBtn = e.target.closest("[data-follow-activity]");
+    if (followActBtn) {
+      toggleFollowActivity(followActBtn.dataset.followActivity);
+      return;
+    }
     const goLogin = e.target.closest("[data-go-login]");
     if (goLogin) {
       switchView("profile");
@@ -3101,7 +3639,26 @@ function bindAppEvents() {
     }
   });
 
-  // Delegación de eventos en la vista Perfil / Cuenta (Login, Registro, Demo, Editar Perfil)
+  // Delegación de eventos en la vista Perfil / Cuenta (Login, Registro, Demo, Subida Base64, Creador Mii y Editar Perfil)
+  $("#profile-content")?.addEventListener("change", async e => {
+    if (e.target && e.target.id === "p-avatar-file") {
+      const file = e.target.files && e.target.files[0];
+      const me = getCurrentUserObj();
+      if (!file || !me) return;
+      try {
+        const base64DataUrl = await resizeImageFileToBase64(file, 160);
+        me.avatarUrl = base64DataUrl;
+        saveSocialDB();
+        syncHeaderUserPill();
+        renderProfileView();
+        toast("Foto de perfil cargada y guardada en Base64");
+      } catch (err) {
+        console.warn("Error al procesar foto de perfil:", err);
+        toast("No se pudo cargar la imagen seleccionada");
+      }
+    }
+  });
+
   $("#profile-content")?.addEventListener("submit", e => {
     if (e.target && e.target.id === "user-auth-form") {
       e.preventDefault();
@@ -3129,6 +3686,7 @@ function bindAppEvents() {
           bio: "Miembro de la comunidad parroquial en Buenos Aires.",
           avatarIcon: "✝️",
           avatarUrl: "",
+          miiConfig: { ...DEFAULT_MII_CONFIG },
           instagram: "",
           twitter: "",
           followingUsers: ["padre.tomas"],
@@ -3159,6 +3717,7 @@ function bindAppEvents() {
       me.bio = ($("#p-bio")?.value || "").trim();
       me.avatarIcon = ($("#p-avatar-icon")?.value || "✝️").trim();
       me.avatarUrl = ($("#p-avatar-url")?.value || "").trim();
+      me.miiConfig = { ...draftMiiConfig };
       me.instagram = ($("#p-ig")?.value || "").trim();
       me.twitter = ($("#p-tw")?.value || "").trim();
       saveSocialDB();
@@ -3188,6 +3747,44 @@ function bindAppEvents() {
       syncHeaderUserPill();
       renderProfileView();
       toast("Sesión comunitaria cerrada");
+      return;
+    }
+    const clearPhotoBtn = e.target.closest("#btn-clear-avatar-photo");
+    if (clearPhotoBtn) {
+      const me = getCurrentUserObj();
+      if (me) {
+        me.avatarUrl = "";
+        saveSocialDB();
+        syncHeaderUserPill();
+        renderProfileView();
+        toast("Foto quitada · Usando ícono de perfil");
+      }
+      return;
+    }
+    const miiOptBtn = e.target.closest("[data-mii-prop]");
+    if (miiOptBtn) {
+      const prop = miiOptBtn.dataset.miiProp;
+      const val = miiOptBtn.dataset.miiVal;
+      draftMiiConfig[prop] = val;
+      $$(`#mii-creator-box [data-mii-prop="${prop}"]`).forEach(b => {
+        b.classList.toggle("is-selected", b.dataset.miiVal === val);
+      });
+      const previewImg = $("#mii-stage-img");
+      if (previewImg) {
+        previewImg.src = generateMiiSvgDataUrl(draftMiiConfig);
+      }
+      return;
+    }
+    const applyMiiBtn = e.target.closest("#btn-apply-mii");
+    if (applyMiiBtn) {
+      const me = getCurrentUserObj();
+      if (!me) return;
+      me.miiConfig = { ...draftMiiConfig };
+      me.avatarUrl = generateMiiSvgDataUrl(draftMiiConfig);
+      saveSocialDB();
+      syncHeaderUserPill();
+      renderProfileView();
+      toast("¡Avatar Mii aplicado a tu perfil!");
       return;
     }
     const pickIcon = e.target.closest("[data-pick-icon]");

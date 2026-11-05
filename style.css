@@ -152,13 +152,19 @@ h1{font-family:var(--serif);font-weight:600;font-size:1.95rem;letter-spacing:-.0
   gap:8px;pointer-events:none}
 .map-legend-pill{pointer-events:auto;background:rgba(255,255,255,.94);backdrop-filter:blur(12px);
   -webkit-backdrop-filter:blur(12px);border:1px solid rgba(20,24,31,.08);border-radius:var(--r-pill);
-  padding:7px 14px;display:inline-flex;align-items:center;gap:14px;font-size:.75rem;color:var(--ink);
+  padding:7px 12px;display:inline-flex;align-items:center;flex-wrap:wrap;gap:10px;font-size:.73rem;color:var(--ink);
   box-shadow:0 6px 20px rgba(20,24,31,.08)}
-.legend-item{display:inline-flex;align-items:center;gap:6px;font-weight:500;white-space:nowrap}
+.legend-item{display:inline-flex;align-items:center;gap:5px;font-weight:600;white-space:nowrap}
 .legend-dot{display:inline-block;border-radius:50%}
-.legend-dot.major{width:11px;height:11px;background:#D4AF37;
-  box-shadow:0 0 0 2px #FAF3E0,0 0 0 3px rgba(212,175,55,.35)}
-.legend-dot.minor{width:9px;height:9px;background:var(--night);box-shadow:0 0 0 2px #E2E8F0}
+.legend-dot.catedral{width:12px;height:12px;
+  background:linear-gradient(135deg,#FDE047 0%,#E879F9 48%,#38BDF8 100%);
+  box-shadow:0 0 0 2px #FFF,0 0 0 3px rgba(168,85,247,.35)}
+.legend-dot.basilica{width:11px;height:11px;background:#F1C40F;
+  box-shadow:0 0 0 2px #FFF,0 0 0 3px rgba(241,196,15,.4)}
+.legend-dot.parroquia{width:10px;height:10px;background:#8E44AD;
+  box-shadow:0 0 0 2px #F3E8FF}
+.legend-dot.capilla{width:8px;height:8px;background:#7F8C8D;
+  box-shadow:0 0 0 2px #E2E8F0}
 
 .map-recenter-btn{pointer-events:auto;height:34px;padding:0 13px;border-radius:var(--r-pill);
   background:rgba(255,255,255,.94);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);
@@ -166,36 +172,69 @@ h1{font-family:var(--serif);font-weight:600;font-size:1.95rem;letter-spacing:-.0
   display:inline-flex;align-items:center;gap:5px;box-shadow:0 6px 20px rgba(20,24,31,.08)}
 .map-recenter-btn svg{width:14px;height:14px;color:var(--muted)}
 
-/* ============ Marcadores Personalizados Flotantes (Custom Leaflet DivIcon) ============ */
+/* ============ Marcadores Personalizados por Jerarquía (Leaflet DivIcon + CSS/SVG) ============ */
 .custom-pin-icon{background:transparent;border:0}
 .pin-wrap{position:relative;display:grid;place-items:center;border-radius:50%;color:#fff;
   transition:transform .22s var(--ease),box-shadow .22s var(--ease)}
-.pin-wrap:hover{transform:translateY(-2px) scale(1.08)}
+.pin-wrap:hover{transform:translateY(-3px) scale(1.09)}
 
-/* Catedral y Basílica: Contenedor dorado/champagne elegante (#D4AF37) con cruz minimalista y sombra suave */
-.pin-wrap.major{
-  width:42px;height:42px;
-  background:linear-gradient(145deg,#DFC15D 0%,#D4AF37 55%,#B38B22 100%);
-  border:2.5px solid #FFFFFF;
-  box-shadow:0 0 0 3px rgba(212,175,55,.28),0 8px 20px rgba(20,24,31,.22),0 2px 6px rgba(20,24,31,.14);
-}
-.pin-wrap.major::after{
-  content:"";position:absolute;inset:3px;border-radius:50%;
-  border:1px solid rgba(255,255,255,.4);pointer-events:none;
-}
-.pin-wrap.major svg{width:20px;height:20px;filter:drop-shadow(0 1px 2px rgba(0,0,0,.16))}
-
-/* Parroquia y Capilla: Contenedor azul noche / gris oscuro sofisticado con cruz blanca fina */
-.pin-wrap.minor{
-  width:32px;height:32px;
-  background:linear-gradient(145deg,#24344D 0%,#182238 100%);
+/* 1. Capilla: Pin minimalista color gris (#7F8C8D) */
+.pin-wrap.capilla{
+  width:30px;height:30px;
+  background:#7F8C8D;
   border:2px solid #FFFFFF;
-  box-shadow:0 6px 14px rgba(24,34,56,.24),0 2px 5px rgba(20,24,31,.14);
+  box-shadow:0 4px 12px rgba(127,140,141,.38),0 2px 4px rgba(20,24,31,.16);
 }
-.pin-wrap.minor.capilla{
-  background:linear-gradient(145deg,#475569 0%,#334155 100%);
+.pin-wrap.capilla svg{width:14px;height:14px}
+
+/* 2. Parroquia: Pin color morado (#8E44AD), ligeramente más grande que la capilla */
+.pin-wrap.parroquia{
+  width:36px;height:36px;
+  background:linear-gradient(145deg,#9B59B6 0%,#8E44AD 65%,#6C3483 100%);
+  border:2.2px solid #FFFFFF;
+  box-shadow:0 0 0 2px rgba(142,68,173,.22),0 6px 16px rgba(108,52,131,.34),0 2px 5px rgba(20,24,31,.16);
 }
-.pin-wrap.minor svg{width:15px;height:15px}
+.pin-wrap.parroquia svg{width:17px;height:17px}
+
+/* 3. Basílica: Pin color dorado (#F1C40F) ornamentado con detalles de laureles */
+.pin-wrap.basilica{
+  width:44px;height:44px;
+  background:linear-gradient(145deg,#F7DC6F 0%,#F1C40F 55%,#D4AC0D 100%);
+  color:#4A3500;
+  border:2.5px solid #FFFFFF;
+  box-shadow:0 0 0 3px rgba(241,196,15,.34),0 8px 22px rgba(183,149,11,.32),0 2px 6px rgba(20,24,31,.18);
+}
+.pin-wrap.basilica::after{
+  content:"";position:absolute;inset:2px;border-radius:50%;
+  border:1px dashed rgba(120,82,0,.35);pointer-events:none;
+}
+.pin-wrap.basilica svg{width:34px;height:34px;filter:drop-shadow(0 1px 1px rgba(255,255,255,.45))}
+
+/* 4. Catedral: Pin con efecto tornasolado/iridiscente y silueta superior del solideo / gorrita episcopal */
+@keyframes catedralIridescent {
+  0%{background-position:0% 50%}
+  50%{background-position:100% 50%}
+  100%{background-position:0% 50%}
+}
+.pin-wrap.catedral{
+  width:48px;height:48px;
+  background:linear-gradient(135deg,#FDE68A 0%,#F5D0FE 25%,#A5F3FC 50%,#DDD6FE 75%,#FDE047 100%);
+  background-size:240% 240%;
+  animation:catedralIridescent 6s ease infinite;
+  color:#311042;
+  border:2.5px solid #FFFFFF;
+  box-shadow:0 0 0 3px rgba(217,70,239,.28),0 10px 24px rgba(88,28,135,.28),0 2px 8px rgba(20,24,31,.18);
+}
+.pin-wrap.catedral::before{
+  content:"";position:absolute;inset:3px;border-radius:50%;
+  border:1px solid rgba(255,255,255,.75);pointer-events:none;
+}
+.pin-wrap.catedral svg{width:38px;height:38px;filter:drop-shadow(0 1px 2px rgba(255,255,255,.65))}
+.pin-solideo-crown{
+  position:absolute;top:-9px;left:50%;transform:translateX(-50%);
+  width:26px;height:14px;pointer-events:none;
+  filter:drop-shadow(0 2px 3px rgba(20,24,31,.25));
+}
 
 /* Marcador de referencia del usuario */
 .pin-user{width:16px;height:16px;border-radius:50%;background:#2563EB;border:3px solid #FFF;
@@ -237,9 +276,11 @@ h1{font-family:var(--serif);font-weight:600;font-size:1.95rem;letter-spacing:-.0
 .card-head{display:flex;align-items:center;gap:6px;margin-bottom:6px;padding-right:44px}
 .type-badge{display:inline-flex;align-items:center;gap:4px;font-size:.72rem;font-weight:600;
   padding:2px 9px;border-radius:var(--r-pill);letter-spacing:.01em}
-.type-badge.major{background:var(--gold-soft);color:var(--gold);border:1px solid rgba(143,100,23,.22)}
-.type-badge.minor{background:#EEF1F6;color:var(--night)}
-.type-badge.capilla{background:#F1F5F9;color:var(--slate)}
+.type-badge.catedral{background:linear-gradient(135deg,#FEF3C7 0%,#FAE8FF 50%,#E0F2FE 100%);
+  color:#581C87;border:1px solid rgba(168,85,247,.32)}
+.type-badge.basilica,.type-badge.major{background:#FEF9C3;color:#854D0E;border:1px solid rgba(241,196,15,.45)}
+.type-badge.parroquia,.type-badge.minor{background:#F3E8FF;color:#6B21A8;border:1px solid rgba(142,68,173,.25)}
+.type-badge.capilla{background:#F1F5F9;color:#475569;border:1px solid rgba(127,140,141,.28)}
 .card h2{font-family:var(--serif);font-size:1.3rem;font-weight:600;line-height:1.2;padding-right:44px;letter-spacing:-.01em}
 .card-meta{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin-top:4px}
 .card .addr{color:var(--muted);font-size:.9rem}
@@ -249,9 +290,10 @@ h1{font-family:var(--serif);font-weight:600;font-size:1.95rem;letter-spacing:-.0
 .region-tag{font-size:.72rem;font-weight:600;color:var(--muted);background:var(--bg);
   border:1px solid var(--line);padding:2px 8px;border-radius:var(--r-pill)}
 
-/* Badge de Concurrencia en Tarjetas y Mapa */
-.crowd-badge{display:inline-flex;align-items:center;gap:4px;font-size:.73rem;font-weight:600;
+/* Badge de Concurrencia con Personas (SVG) en Tarjetas y Mapa */
+.crowd-badge{display:inline-flex;align-items:center;gap:5px;font-size:.73rem;font-weight:600;
   padding:2px 9px;border-radius:var(--r-pill);border:1px solid transparent}
+.crowd-badge svg{height:13px;width:auto;flex:none}
 .crowd-badge.tranquilo{background:#ECFDF5;color:#065F46;border-color:rgba(6,95,70,.2)}
 .crowd-badge.moderado{background:#FEF9C3;color:#854D0E;border-color:rgba(133,77,14,.22)}
 .crowd-badge.lleno{background:#FEE2E2;color:#991B1B;border-color:rgba(153,27,27,.22)}
@@ -345,14 +387,15 @@ body.open .sheet{transform:none;visibility:visible}
 .row+.row{border-top:1px solid var(--line)}
 .row .d{color:var(--muted);font-size:.9rem}
 .row .h{font-weight:500;text-align:right;font-variant-numeric:tabular-nums;display:flex;flex-wrap:wrap;justify-content:flex-end;gap:5px}
-.hour-pill{display:inline-flex;align-items:center;gap:4px;padding:3px 9px;border-radius:8px;
+.hour-pill{display:inline-flex;align-items:center;gap:5px;padding:3px 9px;border-radius:8px;
   background:var(--bg);border:1px solid var(--line);font-size:.82rem;font-weight:600;color:var(--ink);
   transition:border-color .15s,background .15s}
 .hour-pill.is-selected{border-color:var(--brand);background:var(--brand-soft);color:var(--brand)}
-.hour-pill .h-dot{font-size:.72rem;line-height:1}
+.hour-pill .h-dot{display:inline-flex;align-items:center;line-height:1}
+.hour-pill .h-dot svg{height:12px;width:auto}
 .note{color:var(--muted);font-size:.9rem;margin-top:8px}
 
-/* ============ Widget Interactivo de Concurrencia Comunitaria ("Lleno / Vacío") ============ */
+/* ============ Widget Interactivo de Concurrencia con Personas y Desglose por Horario ============ */
 .crowd-widget{margin-top:14px;padding-top:14px;border-top:1px dashed var(--line)}
 .crowd-head{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:8px}
 .crowd-title{font-size:.84rem;font-weight:600;color:var(--ink);display:inline-flex;align-items:center;gap:6px}
@@ -360,15 +403,38 @@ body.open .sheet{transform:none;visibility:visible}
   padding:2px 9px;border-radius:var(--r-pill);font-variant-numeric:tabular-nums}
 .crowd-sub{font-size:.77rem;color:var(--muted);margin-bottom:10px;line-height:1.35}
 .crowd-buttons{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
-@media (max-width:380px){.crowd-buttons{grid-template-columns:1fr}}
-.crowd-btn{height:40px;padding:0 10px;border-radius:11px;border:1px solid var(--line);
-  background:var(--bg);color:var(--ink);font-size:.81rem;font-weight:600;
-  display:inline-flex;align-items:center;justify-content:center;gap:5px;
+@media (max-width:400px){.crowd-buttons{grid-template-columns:1fr}}
+.crowd-btn{min-height:46px;padding:6px 10px;border-radius:12px;border:1px solid var(--line);
+  background:var(--bg);color:var(--ink);font-size:.8rem;font-weight:600;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
   transition:transform .12s,background .15s,border-color .15s,box-shadow .15s}
 .crowd-btn:active{transform:scale(.97)}
+.crowd-btn-top{display:inline-flex;align-items:center;gap:6px}
+.crowd-people-icon{display:inline-flex;align-items:center;justify-content:center}
+.crowd-people-icon svg{height:18px;width:auto;display:block}
+.crowd-btn.tranquilo .crowd-people-icon{color:#10B981}
+.crowd-btn.moderado .crowd-people-icon{color:#D97706}
+.crowd-btn.lleno .crowd-people-icon{color:#EF4444}
 .crowd-btn.tranquilo[aria-pressed="true"]{background:#ECFDF5;color:#065F46;border-color:#10B981;box-shadow:0 0 0 2px rgba(16,185,129,.18)}
 .crowd-btn.moderado[aria-pressed="true"]{background:#FEF9C3;color:#854D0E;border-color:#EAB308;box-shadow:0 0 0 2px rgba(234,179,8,.2)}
 .crowd-btn.lleno[aria-pressed="true"]{background:#FEE2E2;color:#991B1B;border-color:#EF4444;box-shadow:0 0 0 2px rgba(239,68,68,.18)}
+
+/* Desglose de votos comunitarios según el horario seleccionado */
+.crowd-breakdown{margin-top:11px;background:var(--bg);border:1px solid var(--line);
+  border-radius:12px;padding:10px 12px;display:grid;gap:7px}
+.crowd-breakdown-head{display:flex;align-items:center;justify-content:space-between;gap:8px;
+  font-size:.74rem;font-weight:600;color:var(--muted)}
+.crowd-breakdown-head strong{color:var(--ink)}
+.crowd-bar-row{display:grid;grid-template-columns:115px 1fr 64px;align-items:center;gap:8px;font-size:.75rem}
+.crowd-bar-label{display:inline-flex;align-items:center;gap:5px;font-weight:600;color:var(--ink);white-space:nowrap}
+.crowd-bar-label svg{height:13px;width:auto;flex:none}
+.crowd-bar-track{height:7px;border-radius:999px;background:#E2E8F0;overflow:hidden}
+.crowd-bar-fill{height:100%;border-radius:999px;transition:width .25s var(--ease)}
+.crowd-bar-fill.tranquilo{background:#10B981}
+.crowd-bar-fill.moderado{background:#EAB308}
+.crowd-bar-fill.lleno{background:#EF4444}
+.crowd-bar-count{text-align:right;color:var(--muted);font-variant-numeric:tabular-nums;font-weight:600}
+
 .crowd-meta{margin-top:9px;font-size:.76rem;color:var(--muted);display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
 .crowd-clear-btn{font-size:.74rem;font-weight:600;color:var(--muted);text-decoration:underline;padding:2px 4px}
 .crowd-clear-btn:hover{color:var(--danger)}
@@ -438,6 +504,21 @@ body.open .sheet{transform:none;visibility:visible}
 .comm-tab{flex:none;height:38px;padding:0 15px;border-radius:var(--r-pill);border:1px solid var(--line);
   background:var(--surface);color:var(--muted);font-size:.85rem;font-weight:600;transition:all .15s}
 .comm-tab.is-active{background:var(--brand);border-color:var(--brand);color:#fff}
+
+/* Buscador de Usuarios y Grupos Parroquiales */
+.comm-search-wrap{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);
+  padding:14px;margin-bottom:14px;display:grid;gap:10px}
+.comm-search-input-box{position:relative;display:flex;align-items:center}
+.comm-search-input-box svg{position:absolute;left:12px;width:18px;height:18px;color:var(--muted);pointer-events:none}
+.comm-search-input{width:100%;height:42px;border:1px solid var(--line);border-radius:11px;
+  background:var(--bg);padding:0 12px 0 38px;font:inherit;font-size:.9rem;color:var(--ink)}
+.comm-search-input:focus{outline:none;border-color:var(--brand);background:var(--surface);box-shadow:0 0 0 3px var(--brand-soft)}
+.comm-filter-pills{display:flex;gap:6px;flex-wrap:wrap}
+.comm-filter-pill{height:30px;padding:0 12px;border-radius:var(--r-pill);border:1px solid var(--line);
+  background:var(--bg);color:var(--muted);font-size:.77rem;font-weight:600}
+.comm-filter-pill.is-active{background:var(--brand-soft);color:var(--brand);border-color:rgba(36,59,143,.3)}
+.comm-dir-heading{font-size:.82rem;font-weight:700;color:var(--muted);text-transform:uppercase;
+  letter-spacing:.03em;margin:6px 2px 2px}
 
 .social-stats-bar{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
 .stat-box{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-md);
@@ -518,12 +599,14 @@ body.open .sheet{transform:none;visibility:visible}
   transition:background .15s,color .15s}
 .sheet-sec-tab.is-active{background:var(--night);color:#fff}
 
-/* Tarjetas de Actividades y Grupos Parroquiales */
+/* Tarjetas de Actividades y Grupos Parroquiales con Contador de Seguidores */
 .activities-grid{display:grid;gap:10px;margin-top:10px}
 .activity-card{background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:13px}
-.activity-top{display:flex;align-items:flex-start;justify-content:space-between;gap:8px;margin-bottom:6px}
+.activity-top{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;margin-bottom:6px}
 .activity-cat{font-size:.7rem;font-weight:600;padding:2px 8px;border-radius:var(--r-pill);
   background:var(--brand-soft);color:var(--brand)}
+.activity-followers-pill{font-size:.73rem;font-weight:600;color:var(--ink);background:var(--surface);
+  border:1px solid var(--line);padding:2px 8px;border-radius:var(--r-pill);font-variant-numeric:tabular-nums}
 .activity-card h4{font-size:.94rem;font-weight:600;color:var(--ink);margin-bottom:4px}
 .activity-desc{font-size:.82rem;color:var(--muted);line-height:1.38;margin-bottom:9px}
 .activity-foot{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap;
@@ -535,7 +618,7 @@ body.open .sheet{transform:none;visibility:visible}
   background:var(--surface);color:var(--brand);border:1px solid var(--brand);transition:all .15s}
 .btn-follow-activity.is-joined{background:var(--ok-soft);color:var(--ok);border-color:rgba(22,101,52,.3)}
 
-/* Perfil de Usuario y Configuración */
+/* Perfil de Usuario, Carga de Foto Base64 y Creador de Avatares Estilo Mii */
 .profile-card{background:var(--surface);border:1px solid var(--line);border-radius:var(--r-lg);
   padding:18px;margin-bottom:14px}
 .profile-hero{display:flex;align-items:center;gap:14px;margin-bottom:12px}
@@ -561,6 +644,40 @@ body.open .sheet{transform:none;visibility:visible}
 .avatar-opt{width:40px;height:40px;border-radius:50%;border:1px solid var(--line);background:var(--bg);
   font-size:1.2rem;display:grid;place-items:center;transition:all .15s}
 .avatar-opt.is-selected{border-color:var(--brand);background:var(--brand-soft);box-shadow:0 0 0 2px rgba(36,59,143,.2)}
+
+/* Subida de foto desde el dispositivo (Base64) y Creador Estilo Mii */
+.avatar-upload-box{display:flex;align-items:center;gap:12px;flex-wrap:wrap;
+  background:var(--bg);border:1px solid var(--line);border-radius:12px;padding:12px;margin-top:4px}
+.btn-upload-file{height:36px;padding:0 14px;border-radius:var(--r-pill);background:var(--surface);
+  border:1px solid var(--brand);color:var(--brand);font-size:.8rem;font-weight:600;
+  display:inline-flex;align-items:center;gap:6px;cursor:pointer;transition:background .15s}
+.btn-upload-file:hover{background:var(--brand-soft)}
+.btn-clear-photo{height:32px;padding:0 11px;border-radius:var(--r-pill);border:1px solid var(--line);
+  background:var(--surface);color:var(--muted);font-size:.76rem;font-weight:600}
+
+.mii-creator-box{background:var(--bg);border:1px solid var(--line);border-radius:14px;
+  padding:14px;margin-top:6px;display:grid;gap:12px}
+.mii-creator-top{display:flex;align-items:center;gap:14px;flex-wrap:wrap}
+.mii-stage{width:76px;height:76px;border-radius:50%;border:2.5px solid #FFF;
+  box-shadow:0 6px 16px rgba(20,24,31,.14);overflow:hidden;flex:none;background:#E0F2FE;
+  display:grid;place-items:center}
+.mii-stage img{width:100%;height:100%;object-fit:cover}
+.mii-creator-info{flex:1;min-width:170px}
+.mii-creator-info h4{font-size:.9rem;font-weight:600;color:var(--ink);margin-bottom:3px}
+.mii-creator-info p{font-size:.77rem;color:var(--muted);line-height:1.35;margin-bottom:8px}
+.btn-apply-mii{height:32px;padding:0 13px;border-radius:var(--r-pill);background:var(--night);
+  color:#fff;font-size:.76rem;font-weight:600;display:inline-flex;align-items:center;gap:5px}
+.btn-apply-mii:hover{background:var(--brand)}
+.mii-controls{display:grid;gap:9px}
+.mii-row{display:flex;align-items:center;justify-content:space-between;gap:8px;flex-wrap:wrap}
+.mii-row-label{font-size:.76rem;font-weight:600;color:var(--muted);min-width:82px}
+.mii-options{display:flex;gap:6px;flex-wrap:wrap;flex:1}
+.mii-chip{height:28px;padding:0 10px;border-radius:8px;border:1px solid var(--line);
+  background:var(--surface);color:var(--ink);font-size:.74rem;font-weight:600}
+.mii-chip.is-selected{border-color:var(--brand);background:var(--brand-soft);color:var(--brand)}
+.mii-swatch{width:26px;height:26px;border-radius:50%;border:2px solid #FFF;
+  box-shadow:0 0 0 1px rgba(20,24,31,.18);transition:transform .12s}
+.mii-swatch.is-selected{transform:scale(1.16);box-shadow:0 0 0 2px var(--brand)}
 
 .demo-accounts{display:flex;flex-wrap:wrap;gap:7px;margin-top:10px}
 .demo-pill{font-size:.78rem;font-weight:600;padding:5px 11px;border-radius:var(--r-pill);

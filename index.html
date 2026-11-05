@@ -115,12 +115,20 @@
   <div class="map-top-bar">
     <div class="map-legend-pill">
       <span class="legend-item">
-        <span class="legend-dot major" aria-hidden="true"></span>
-        Catedral / Basílica
+        <span class="legend-dot catedral" aria-hidden="true"></span>
+        Catedral
       </span>
       <span class="legend-item">
-        <span class="legend-dot minor" aria-hidden="true"></span>
-        Parroquia / Capilla
+        <span class="legend-dot basilica" aria-hidden="true"></span>
+        Basílica
+      </span>
+      <span class="legend-item">
+        <span class="legend-dot parroquia" aria-hidden="true"></span>
+        Parroquia
+      </span>
+      <span class="legend-item">
+        <span class="legend-dot capilla" aria-hidden="true"></span>
+        Capilla
       </span>
     </div>
     <button type="button" class="map-recenter-btn" id="btn-map-fit" aria-label="Ajustar vista a todos los templos">
@@ -133,12 +141,12 @@
   <div id="map" class="map-canvas-full" role="region" aria-label="Mapa interactivo a pantalla completa de parroquias en CABA"></div>
 </section>
 
-<!-- ==================== VISTA 3: COMUNIDAD (FEED SOCIAL + RANKING + PERSONAS) ==================== -->
+<!-- ==================== VISTA 3: COMUNIDAD (FEED SOCIAL + RANKING + BUSCADOR DE USUARIOS Y GRUPOS) ==================== -->
 <section class="app view-panel" id="view-community" role="tabpanel" aria-labelledby="tab-community" aria-hidden="true">
   <header class="app-header">
     <div>
       <h1>Comunidad y Ranking</h1>
-      <p class="sub">Mensajes cortos, amigos de fe y parroquias más activas.</p>
+      <p class="sub">Mensajes cortos, buscador de fieles/grupos y parroquias activas.</p>
     </div>
   </header>
 
@@ -146,7 +154,7 @@
     <button type="button" class="comm-tab is-active" data-comm-tab="all" role="tab" aria-selected="true">Muro General</button>
     <button type="button" class="comm-tab" data-comm-tab="following" role="tab" aria-selected="false">Siguiendo</button>
     <button type="button" class="comm-tab" data-comm-tab="ranking" role="tab" aria-selected="false">🏆 Ranking Parroquias</button>
-    <button type="button" class="comm-tab" data-comm-tab="people" role="tab" aria-selected="false">Personas y Amigos</button>
+    <button type="button" class="comm-tab" data-comm-tab="people" role="tab" aria-selected="false">🔍 Buscar Usuarios y Grupos</button>
   </div>
 
   <div id="community-content" class="community-body"></div>
