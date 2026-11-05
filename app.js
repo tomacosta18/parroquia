@@ -673,6 +673,7 @@ const state = {
   view: "list", // 'list' | 'map' | 'spiritual' | 'liturgy' | 'community' | 'profile'
   commTab: "all", // 'all' | 'following' | 'ranking' | 'people'
   spirTab: "streak", // 'streak' | 'notes' | 'stats'
+  litTab: "all", // 'all' | 'gospel' | 'saints'
   checkinSlot: "Mañana", // 'Mañana' | 'Tarde' | 'Noche'
   editingNoteId: null,
   liturgyDate: new Date().toISOString().slice(0, 10),
@@ -693,11 +694,16 @@ const state = {
 };
 
 /* =====================================================================
-   Navegación por Pestañas (Templos, Mapa, Racha/Notas, Liturgia, Comunidad y Perfil)
+   Navegación Superior con Scroll Horizontal y Animación de Libro
    ===================================================================== */
 function switchView(targetView) {
   const validViews = ["list", "map", "spiritual", "liturgy", "community", "profile"];
   if (!validViews.includes(targetView)) return;
+
+  const prevIdx = validViews.indexOf(state.view);
+  const nextIdx = validViews.indexOf(targetView);
+  const turnDirectionClass = nextIdx >= prevIdx ? "book-turn-next" : "book-turn-prev";
+
   state.view = targetView;
   document.body.setAttribute("data-active-view", targetView);
 
@@ -720,15 +726,28 @@ function switchView(targetView) {
 
   validViews.forEach(v => {
     const active = v === targetView;
-    if (panels[v]) {
-      panels[v].classList.toggle("is-active", active);
-      panels[v].setAttribute("aria-hidden", String(!active));
+    const panelEl = panels[v];
+    const tabEl = tabs[v];
+    if (panelEl) {
+      panelEl.classList.remove("book-turn-next", "book-turn-prev");
+      panelEl.classList.toggle("is-active", active);
+      panelEl.setAttribute("aria-hidden", String(!active));
+      if (active) {
+        void panelEl.offsetWidth; // Reflow para disparar la animación de paso de página de libro
+        panelEl.classList.add(turnDirectionClass);
+      }
     }
-    if (tabs[v]) {
-      tabs[v].classList.toggle("is-active", active);
-      tabs[v].setAttribute("aria-selected", String(active));
+    if (tabEl) {
+      tabEl.classList.toggle("is-active", active);
+      tabEl.setAttribute("aria-selected", String(active));
+      if (active && typeof tabEl.scrollIntoView === "function") {
+        tabEl.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+      }
     }
   });
+
+  // Scroll natural al inicio desde la cabecera sin contenedores bloqueados
+  window.scrollTo({ top: 0, behavior: "instant" });
 
   if (targetView === "map") {
     initMap();
@@ -740,16 +759,12 @@ function switchView(targetView) {
     });
   } else if (targetView === "spiritual") {
     renderSpiritualView();
-    window.scrollTo({ top: 0, behavior: "smooth" });
   } else if (targetView === "liturgy") {
     renderLiturgyView();
-    window.scrollTo({ top: 0, behavior: "smooth" });
   } else if (targetView === "community") {
     renderCommunityView();
-    window.scrollTo({ top: 0, behavior: "smooth" });
   } else if (targetView === "profile") {
     renderProfileView();
-    window.scrollTo({ top: 0, behavior: "smooth" });
   }
 }
 
@@ -3466,7 +3481,188 @@ function renderProfileView() {
 }
 
 /* =====================================================================
-   Módulo de Notas, Racha Espiritual y Estadísticas (localStorage)
+   Panel de Configuración: Modo Oscuro / Noche e Idioma (localStorage)
+   ===================================================================== */
+const SETTINGS_STORAGE_KEY = "app_settings_v1";
+
+const I18N_DICT = {
+  "es-AR": {
+    app_title: "Parroquias BA",
+    app_subtitle: "CABA y GBA · Comunidad y Liturgia",
+    account_btn: "Cuenta",
+    nav_temples: "Templos",
+    nav_map: "Mapa",
+    nav_spiritual: "Racha / Notas",
+    nav_liturgy: "Liturgia y Santos",
+    nav_community: "Comunidad",
+    nav_profile: "Perfil",
+    list_heading: "Parroquias de Buenos Aires",
+    list_subheading: "Encontrá misas, confesiones, grupos y concurrencia en CABA y GBA.",
+    search_placeholder: "Buscá por nombre, barrio, tipo o calle",
+    near_me_btn: "Cerca de mí",
+    spiritual_heading: "Racha Espiritual y Notas",
+    spiritual_subheading: "Registrá tus misas y adoraciones, guardá reflexiones y medí tu tiempo de oración.",
+    liturgy_heading: "Liturgia y Santos del Día",
+    liturgy_subheading: "Lecturas católicas oficiales en español de Argentina, reflexión homilética y santoral diario.",
+    community_heading: "Comunidad y Ranking",
+    community_subheading: "Mensajes comunitarios, buscador de fieles/grupos y parroquias más activas.",
+    profile_heading: "Perfil y Cuenta",
+    profile_subheading: "Tu identidad comunitaria, avatar Mii o foto, parroquias seguidas y grupos.",
+    settings_title: "⚙️ Configuración",
+    settings_subtitle: "Personalizá la apariencia visual y el idioma de la aplicación.",
+    dark_mode_label: "🌙 Modo Oscuro / Noche",
+    dark_mode_desc: "Aplica tonos profundos y descansa la vista durante la oración nocturna.",
+    lang_label: "🌎 Idioma de la Interfaz",
+    lang_desc: "Seleccioná el idioma para los menús y etiquetas principales.",
+    settings_done: "Listo"
+  },
+  "en": {
+    app_title: "Parishes BA",
+    app_subtitle: "Buenos Aires · Catholic Community & Liturgy",
+    account_btn: "Account",
+    nav_temples: "Churches",
+    nav_map: "Map",
+    nav_spiritual: "Streak & Notes",
+    nav_liturgy: "Liturgy & Saints",
+    nav_community: "Community",
+    nav_profile: "Profile",
+    list_heading: "Parishes of Buenos Aires",
+    list_subheading: "Find Mass times, confessions, parish groups and live occupancy.",
+    search_placeholder: "Search by parish name, neighborhood or street",
+    near_me_btn: "Near me",
+    spiritual_heading: "Spiritual Streak & Notes",
+    spiritual_subheading: "Log your Masses and Adoration, save reflections and track prayer time.",
+    liturgy_heading: "Daily Liturgy & Saints",
+    liturgy_subheading: "Official Catholic Gospel readings, homiletic reflection and Saint of the Day.",
+    community_heading: "Community & Ranking",
+    community_subheading: "Parish feed, member & group directory and most active churches.",
+    profile_heading: "Profile & Account",
+    profile_subheading: "Your community identity, Mii avatar or photo, followed parishes and groups.",
+    settings_title: "⚙️ Settings",
+    settings_subtitle: "Customize the visual theme and interface language.",
+    dark_mode_label: "🌙 Dark / Night Mode",
+    dark_mode_desc: "Applies deep nocturnal colors across the entire interface.",
+    lang_label: "🌎 Interface Language",
+    lang_desc: "Select the language for main menus and headings.",
+    settings_done: "Done"
+  },
+  "pt": {
+    app_title: "Paróquias BA",
+    app_subtitle: "CABA e GBA · Comunidade e Liturgia",
+    account_btn: "Conta",
+    nav_temples: "Igrejas",
+    nav_map: "Mapa",
+    nav_spiritual: "Ofensiva / Notas",
+    nav_liturgy: "Liturgia e Santos",
+    nav_community: "Comunidade",
+    nav_profile: "Perfil",
+    list_heading: "Paróquias de Buenos Aires",
+    list_subheading: "Encontre horários de missa, confissões, grupos e lotação em tempo real.",
+    search_placeholder: "Busque por nome, bairro, tipo ou rua",
+    near_me_btn: "Perto de mim",
+    spiritual_heading: "Ofensiva Espiritual e Notas",
+    spiritual_subheading: "Registre suas missas e adorações, salve reflexões e veja suas estatísticas.",
+    liturgy_heading: "Liturgia e Santos do Dia",
+    liturgy_subheading: "Evangelho oficial do dia, comentário homilético e santoral católico.",
+    community_heading: "Comunidade e Ranking",
+    community_subheading: "Mural comunitário, busca de fiéis/grupos e paróquias mais ativas.",
+    profile_heading: "Perfil e Conta",
+    profile_subheading: "Sua identidade comunitária, avatar Mii ou foto, paróquias e grupos.",
+    settings_title: "⚙️ Configurações",
+    settings_subtitle: "Personalize o modo noturno e o idioma do aplicativo.",
+    dark_mode_label: "🌙 Modo Escuro / Noite",
+    dark_mode_desc: "Aplica cores profundas para descansar a vista durante a oração noturna.",
+    lang_label: "🌎 Idioma da Interface",
+    lang_desc: "Selecione o idioma dos menus e títulos principais.",
+    settings_done: "Concluído"
+  },
+  "it": {
+    app_title: "Parrocchie BA",
+    app_subtitle: "Buenos Aires · Comunità e Liturgia",
+    account_btn: "Profilo",
+    nav_temples: "Chiese",
+    nav_map: "Mappa",
+    nav_spiritual: "Costanza / Note",
+    nav_liturgy: "Liturgia e Santi",
+    nav_community: "Comunità",
+    nav_profile: "Account",
+    list_heading: "Parrocchie di Buenos Aires",
+    list_subheading: "Trova orari delle Messe, confessioni, gruppi e affluenza in tempo reale.",
+    search_placeholder: "Cerca per nome, quartiere o via",
+    near_me_btn: "Vicino a me",
+    spiritual_heading: "Vita Spirituale e Note",
+    spiritual_subheading: "Registra Sante Messe e Adorazioni, salva riflessioni e statistiche.",
+    liturgy_heading: "Liturgia e Santi del Giorno",
+    liturgy_subheading: "Vangelo del giorno, commento dei Papi/Sacerdoti e Santo del giorno.",
+    community_heading: "Comunità e Classifica",
+    community_subheading: "Bacheca comunitaria, ricerca fedeli/gruppi e parrocchie più attive.",
+    profile_heading: "Profilo e Account",
+    profile_subheading: "La tua identità comunitaria, avatar Mii o foto e parrocchie seguite.",
+    settings_title: "⚙️ Impostazioni",
+    settings_subtitle: "Personalizza il tema notturno e la lingua dell'applicazione.",
+    dark_mode_label: "🌙 Modalità Scura / Notte",
+    dark_mode_desc: "Applica toni profondi per riposare la vista durante la preghiera serale.",
+    lang_label: "🌎 Lingua dell'Interfaccia",
+    lang_desc: "Scegli la lingua per i menu e le sezioni principali.",
+    settings_done: "Fatto"
+  }
+};
+
+let appSettings = (function loadAppSettings() {
+  const saved = Store.get(SETTINGS_STORAGE_KEY, null);
+  return {
+    darkMode: Boolean(saved && saved.darkMode),
+    lang: (saved && saved.lang && I18N_DICT[saved.lang]) ? saved.lang : "es-AR"
+  };
+})();
+
+function saveAppSettings() {
+  Store.set(SETTINGS_STORAGE_KEY, appSettings);
+}
+
+function applyAppSettings() {
+  const isDark = Boolean(appSettings.darkMode);
+  document.body.classList.toggle("dark-mode", isDark);
+  document.documentElement.setAttribute("data-theme", isDark ? "dark" : "light");
+  document.documentElement.setAttribute("lang", appSettings.lang || "es-AR");
+
+  const metaTheme = $("#meta-theme-color");
+  if (metaTheme) {
+    metaTheme.setAttribute("content", isDark ? "#0B0F19" : "#243B8F");
+  }
+
+  const toggleEl = $("#toggle-dark-mode");
+  if (toggleEl) toggleEl.checked = isDark;
+
+  const langSelect = $("#select-app-lang");
+  if (langSelect) langSelect.value = appSettings.lang || "es-AR";
+
+  const dict = I18N_DICT[appSettings.lang] || I18N_DICT["es-AR"];
+  $$("[data-i18n]").forEach(el => {
+    const key = el.getAttribute("data-i18n");
+    if (key === "account_btn" && getCurrentUserObj()) return; // Preservar apodo si hay sesión activa
+    if (dict[key]) el.textContent = dict[key];
+  });
+  $$("[data-i18n-placeholder]").forEach(el => {
+    const key = el.getAttribute("data-i18n-placeholder");
+    if (dict[key]) el.setAttribute("placeholder", dict[key]);
+  });
+}
+
+function openSettingsModal() {
+  const modal = $("#settings-modal");
+  if (!modal) return;
+  applyAppSettings();
+  modal.hidden = false;
+}
+
+function closeSettingsModal() {
+  const modal = $("#settings-modal");
+  if (modal) modal.hidden = true;
+}
+
+/* =====================================================================
+   Módulo de Notas, Racha Espiritual y Estadísticas (localStorage Validado)
    ===================================================================== */
 const SPIRITUAL_STORAGE_KEY = "spiritual_module_v1";
 
@@ -3612,20 +3808,55 @@ function buildInitialSpiritualDB() {
   };
 }
 
+function validateAndSanitizeSpiritualDB(raw) {
+  const seed = buildInitialSpiritualDB();
+  if (!raw || typeof raw !== "object") return seed;
+
+  const validTypes = new Set(["misa_finde", "adoracion", "misa_semana"]);
+  const validSlots = new Set(["Mañana", "Tarde", "Noche"]);
+
+  const checkins = Array.isArray(raw.checkins)
+    ? raw.checkins
+        .filter(c => c && typeof c === "object")
+        .map((c, idx) => ({
+          id: String(c.id || `chk_${Date.now()}_${idx}`),
+          date: /^\d{4}-\d{2}-\d{2}$/.test(String(c.date || "")) ? String(c.date) : getTodayIsoDate(),
+          type: validTypes.has(c.type) ? c.type : "misa_finde",
+          slot: validSlots.has(c.slot) ? c.slot : "Mañana",
+          parishId: String(c.parishId || "1"),
+          createdAt: Number(c.createdAt) || Date.now()
+        }))
+    : seed.checkins;
+
+  const notes = Array.isArray(raw.notes)
+    ? raw.notes
+        .filter(n => n && typeof n === "object" && (n.title || n.content))
+        .map((n, idx) => ({
+          id: String(n.id || `note_${Date.now()}_${idx}`),
+          title: String(n.title || "Reflexión personal").trim(),
+          category: String(n.category || "Oración").trim(),
+          parishId: String(n.parishId || ""),
+          content: String(n.content || "").trim(),
+          updatedAt: Number(n.updatedAt) || Date.now()
+        }))
+    : seed.notes;
+
+  return {
+    lastParishId: String(raw.lastParishId || "1"),
+    checkins,
+    notes
+  };
+}
+
 let spiritualDB = (function loadSpiritualDB() {
   const saved = Store.get(SPIRITUAL_STORAGE_KEY, null);
-  const seed = buildInitialSpiritualDB();
-  if (!saved || typeof saved !== "object") {
-    Store.set(SPIRITUAL_STORAGE_KEY, seed);
-    return seed;
-  }
-  if (!Array.isArray(saved.checkins)) saved.checkins = seed.checkins;
-  if (!Array.isArray(saved.notes)) saved.notes = seed.notes;
-  if (!saved.lastParishId) saved.lastParishId = "1";
-  return saved;
+  const sanitized = validateAndSanitizeSpiritualDB(saved);
+  Store.set(SPIRITUAL_STORAGE_KEY, sanitized);
+  return sanitized;
 })();
 
 function saveSpiritualDB() {
+  spiritualDB = validateAndSanitizeSpiritualDB(spiritualDB);
   Store.set(SPIRITUAL_STORAGE_KEY, spiritualDB);
 }
 
@@ -3657,7 +3888,6 @@ function evaluateSpiritualStreak(checkins) {
     };
   }
 
-  // Agrupamos por fin de semana (identificado por el domingo YYYY-MM-DD de esa semana)
   const firstSunday = getSundayOfWeekIso(list[0].date);
   const weekendHasFindeMass = new Map();
 
@@ -3668,7 +3898,7 @@ function evaluateSpiritualStreak(checkins) {
     }
   });
 
-  // Recorremos todos los fines de semana COMPLETADOS (cuyo domingo < today) desde el primero hasta hoy
+  // Recorremos todos los fines de semana COMPLETADOS (cuyo domingo < today)
   let cursorSun = firstSunday;
   let lastMissedWeekend = null;
 
@@ -3679,7 +3909,6 @@ function evaluateSpiritualStreak(checkins) {
     cursorSun = addDaysIso(cursorSun, 7);
   }
 
-  // Si hubo un fin de semana completado sin Misa de fin de semana, la racha se reseteó al terminar ese domingo
   const activeCheckins = lastMissedWeekend
     ? list.filter(chk => chk.date > lastMissedWeekend)
     : list;
@@ -3708,6 +3937,107 @@ function evaluateSpiritualStreak(checkins) {
     wasReset: Boolean(lastMissedWeekend),
     lastMissedWeekend,
     levelTitle
+  };
+}
+
+/**
+ * Calcula en tiempo real todas las métricas personales y comunitarias:
+ * Regla estricta: Misa = 60 min | Adoración = 90 min
+ */
+function computeSpiritualMetrics(checkins) {
+  const list = Array.isArray(checkins) ? checkins : [];
+  let totalMinutes = 0;
+  let massMinutes = 0;
+  let adorationMinutes = 0;
+  let massCount = 0;
+  let adorationCount = 0;
+
+  const dayCounts = {
+    "Domingo": 0,
+    "Lunes": 0,
+    "Martes": 0,
+    "Miércoles": 0,
+    "Jueves": 0,
+    "Viernes": 0,
+    "Sábado": 0
+  };
+  const FULL_DAYS = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
+  const MONTH_NAMES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
+
+  const parishCounts = new Map();
+  const monthStats = new Map();
+
+  list.forEach(chk => {
+    const isAdoracion = chk.type === "adoracion";
+    const mins = isAdoracion ? 90 : 60; // Misa = 60 min, Adoración = 90 min
+    const pts = ACTIVITY_POINTS[chk.type] || 1;
+
+    totalMinutes += mins;
+    if (isAdoracion) {
+      adorationMinutes += mins;
+      adorationCount += 1;
+    } else {
+      massMinutes += mins;
+      massCount += 1;
+    }
+
+    const parts = String(chk.date).split("-").map(Number);
+    if (parts.length === 3 && parts[0] && parts[1] && parts[2]) {
+      const dt = new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0);
+      const dayName = FULL_DAYS[dt.getDay()] || "Domingo";
+      dayCounts[dayName] = (dayCounts[dayName] || 0) + 1;
+
+      const monthKey = `${parts[0]}-${String(parts[1]).padStart(2, "0")}`;
+      const monthLabel = `${MONTH_NAMES[(parts[1] - 1) % 12]} ${parts[0]}`;
+      const prevM = monthStats.get(monthKey) || { label: monthLabel, count: 0, points: 0, minutes: 0 };
+      prevM.count += 1;
+      prevM.points += pts;
+      prevM.minutes += mins;
+      monthStats.set(monthKey, prevM);
+    }
+
+    if (chk.parishId) {
+      const pid = String(chk.parishId);
+      const prevP = parishCounts.get(pid) || { count: 0, minutes: 0, points: 0 };
+      prevP.count += 1;
+      prevP.minutes += mins;
+      prevP.points += pts;
+      parishCounts.set(pid, prevP);
+    }
+  });
+
+  const hours = Math.floor(totalMinutes / 60);
+  const remMins = totalMinutes % 60;
+  const formattedTime = hours > 0
+    ? `${hours} h ${remMins > 0 ? `${remMins} min` : ""}`.trim()
+    : `${totalMinutes} min`;
+
+  const sortedDays = Object.entries(dayCounts).sort((a, b) => b[1] - a[1]);
+  const maxDayVal = Math.max(1, sortedDays[0] ? sortedDays[0][1] : 1);
+  const topDayName = sortedDays[0] && sortedDays[0][1] > 0 ? sortedDays[0][0] : "Domingo";
+
+  const sortedParishes = [...parishCounts.entries()].sort((a, b) => b[1].count - a[1].count || b[1].minutes - a[1].minutes);
+  const topParishEntry = sortedParishes[0] || null;
+  const topParishObj = topParishEntry ? getParishById(topParishEntry[0]) : PARISHES[0];
+
+  const sortedMonths = [...monthStats.values()].sort((a, b) => b.points - a.points || b.minutes - a.minutes);
+  const maxMonthPts = Math.max(1, sortedMonths[0] ? sortedMonths[0].points : 1);
+
+  return {
+    totalMinutes,
+    massMinutes,
+    adorationMinutes,
+    massCount,
+    adorationCount,
+    formattedTime,
+    dayCounts,
+    sortedDays,
+    maxDayVal,
+    topDayName,
+    topParishEntry,
+    topParishObj,
+    sortedMonths,
+    maxMonthPts
   };
 }
 
@@ -3759,17 +4089,12 @@ const SVG_ANIMATED_PARISH_SCENE = `
     <span class="streak-spark s3"></span>
     <span class="streak-spark s4"></span>
     <svg viewBox="0 0 400 180" preserveAspectRatio="xMidYMax slice">
-      <!-- Colinas nocturnas suaves -->
       <path d="M0 180 L0 148 Q95 132 200 146 T400 140 L400 180 Z" fill="rgba(15, 7, 30, 0.72)"/>
-      <!-- Silueta arquitectónica de Parroquia / Basílica con campanario -->
       <path d="M85 165 L85 112 L130 84 L130 165 Z" fill="rgba(28, 14, 54, 0.85)"/>
       <path d="M270 165 L270 112 L315 84 L315 165 Z" fill="rgba(28, 14, 54, 0.85)"/>
-      <!-- Nave central y torre campanario -->
       <path d="M125 165 L125 96 L200 50 L275 96 L275 165 Z" fill="rgba(39, 19, 72, 0.92)" stroke="rgba(250, 243, 224, 0.22)" stroke-width="1.2"/>
       <path d="M178 64 L200 22 L222 64 Z" fill="rgba(54, 25, 96, 0.95)" stroke="rgba(250, 243, 224, 0.28)" stroke-width="1.2"/>
-      <!-- Cruz luminosa en la cúspide -->
       <path d="M200 6 V22 M194 12 H206" stroke="#FDE047" stroke-width="2.4" stroke-linecap="round"/>
-      <!-- Rosetón central y vitrales iluminados con animación -->
       <circle class="vitral-window" cx="200" cy="86" r="13" fill="#F59E0B" stroke="#FEF08A" stroke-width="1.5"/>
       <path class="vitral-window" d="M150 138 V112 A8 8 0 0 1 166 112 V138 Z" fill="#FBBF24"/>
       <path class="vitral-window" d="M234 138 V112 A8 8 0 0 1 250 112 V138 Z" fill="#FBBF24"/>
@@ -3779,6 +4104,7 @@ const SVG_ANIMATED_PARISH_SCENE = `
 
 function renderStreakTabHtml() {
   const streak = evaluateSpiritualStreak(spiritualDB.checkins);
+  const metrics = computeSpiritualMetrics(spiritualDB.checkins);
   const today = getTodayIsoDate();
 
   const recentCheckins = [...spiritualDB.checkins]
@@ -3795,9 +4121,9 @@ function renderStreakTabHtml() {
         <p class="streak-counter-label">Puntos de Racha Espiritual Activa</p>
 
         <div class="streak-points-pills">
-          <span class="streak-pt-pill"><strong>+5 pts</strong> Misa Finde</span>
-          <span class="streak-pt-pill"><strong>+3 pts</strong> Adoración</span>
-          <span class="streak-pt-pill"><strong>+1 pt</strong> Misa Semana</span>
+          <span class="streak-pt-pill"><strong>+5 pts</strong> Misa Finde (60m)</span>
+          <span class="streak-pt-pill"><strong>+3 pts</strong> Adoración (90m)</span>
+          <span class="streak-pt-pill"><strong>+1 pt</strong> Misa Semana (60m)</span>
         </div>
 
         <div class="streak-rule-banner">
@@ -3813,24 +4139,40 @@ function renderStreakTabHtml() {
       </div>
     </div>
 
+    <!-- Barra Resumen de Estadísticas en Tiempo Real (Actualización Instantánea) -->
+    <div class="social-stats-bar">
+      <div class="stat-box">
+        <strong id="live-stat-time">${metrics.formattedTime}</strong>
+        <span>⏱️ Tiempo (${metrics.totalMinutes}m)</span>
+      </div>
+      <div class="stat-box">
+        <strong id="live-stat-counts">${metrics.massCount}M · ${metrics.adorationCount}A</strong>
+        <span>⛪ Misa 60m / Ado 90m</span>
+      </div>
+      <div class="stat-box">
+        <strong id="live-stat-notes">${spiritualDB.notes.length}</strong>
+        <span>📓 Notas guardadas</span>
+      </div>
+    </div>
+
     <!-- Formulario de Check-in de Racha -->
     <div class="checkin-card">
-      <h4>✨ Registrar Check-in Espiritual</h4>
-      <p>Sumá puntos a tu racha eligiendo tu actividad, franja horaria y templo (tus parroquias seguidas aparecen primero y recordamos tu última elección).</p>
+      <h4>✨ Registrar Check-in de Racha</h4>
+      <p>Sumá puntos y tiempo de oración en tiempo real (Misa = 60 min · Adoración = 90 min). Tus parroquias seguidas aparecen primero.</p>
 
       <form id="streak-checkin-form" class="admin-form">
         <div class="form-row-2">
           <div class="form-field">
             <label for="streak-activity-select">Actividad</label>
             <select id="streak-activity-select" required>
-              <option value="misa_finde">⛪ Misa de fin de semana (Sáb tarde / Dom) · +5 pts</option>
-              <option value="adoracion">🙌 Adoración Eucarística · +3 pts</option>
-              <option value="misa_semana">🕯️ Misa de semana (Lun a Sáb mañana) · +1 pt</option>
+              <option value="misa_finde">⛪ Misa de fin de semana (Sáb tarde / Dom) · +5 pts (60 min)</option>
+              <option value="adoracion">🙌 Adoración Eucarística · +3 pts (90 min)</option>
+              <option value="misa_semana">🕯️ Misa de semana (Lun a Sáb mañana) · +1 pt (60 min)</option>
             </select>
           </div>
           <div class="form-field">
             <label for="streak-date-input">Fecha</label>
-            <input type="date" id="streak-date-input" value="${today}" max="${today}" required>
+            <input type="date" id="streak-date-input" value="${today}" required>
           </div>
         </div>
 
@@ -3860,7 +4202,7 @@ function renderStreakTabHtml() {
     <!-- Historial reciente de Check-ins -->
     <div class="checkin-card">
       <h4>📅 Tus últimos registros (${spiritualDB.checkins.length})</h4>
-      <p>Cada asistencia suma tiempo de gracia y fortalece la presencia comunitaria de tu parroquia.</p>
+      <p>Cada asistencia actualiza al instante el contador de racha y el panel de estadísticas.</p>
       <div class="checkin-history-list">
         ${recentCheckins.length ? recentCheckins.map(chk => {
           const p = getParishById(chk.parishId);
@@ -3892,7 +4234,7 @@ function renderNotesTabHtml() {
   return `
     <div class="checkin-card">
       <h4>${editingNote ? "✏️ Editar Reflexión Personal" : "📓 Bloc de Notas Espiritual"}</h4>
-      <p>Guardá tus meditaciones de la Misa, apuntes de homilías, propósitos de confesión o frutos de tu Adoración. Todo queda guardado de forma privada en tu dispositivo.</p>
+      <p>Guardá tus meditaciones de la Misa, apuntes de homilías, propósitos o frutos de tu Adoración en el almacenamiento local de tu dispositivo.</p>
 
       <form id="spiritual-note-form" class="admin-form">
         <div class="form-row-2">
@@ -3957,118 +4299,36 @@ function renderNotesTabHtml() {
 function renderStatsTabHtml() {
   const checkins = spiritualDB.checkins || [];
   const streak = evaluateSpiritualStreak(checkins);
+  const m = computeSpiritualMetrics(checkins);
 
-  // 1. Cálculo estricto de Tiempo Invertido: Misa = 60 min | Adoración = 90 min
-  let totalMinutes = 0;
-  let massMinutes = 0;
-  let adorationMinutes = 0;
-  let massCount = 0;
-  let adorationCount = 0;
-
-  const dayCounts = {
-    "Domingo": 0,
-    "Lunes": 0,
-    "Martes": 0,
-    "Miércoles": 0,
-    "Jueves": 0,
-    "Viernes": 0,
-    "Sábado": 0
-  };
-  const FULL_DAYS = ["Domingo", "Lunes", "Martes", "Miércoles", "Jueves", "Viernes", "Sábado"];
-  const MONTH_NAMES = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
-
-  const parishCounts = new Map();
-  const monthStats = new Map();
-
-  checkins.forEach(chk => {
-    const isAdoracion = chk.type === "adoracion";
-    const mins = isAdoracion ? 90 : 60; // Regla estricta: Misa = 60 min, Adoración = 90 min
-    const pts = ACTIVITY_POINTS[chk.type] || 1;
-
-    totalMinutes += mins;
-    if (isAdoracion) {
-      adorationMinutes += mins;
-      adorationCount += 1;
-    } else {
-      massMinutes += mins;
-      massCount += 1;
-    }
-
-    const parts = String(chk.date).split("-").map(Number);
-    if (parts.length === 3) {
-      const dt = new Date(parts[0], parts[1] - 1, parts[2], 12, 0, 0);
-      const dayName = FULL_DAYS[dt.getDay()] || "Domingo";
-      dayCounts[dayName] = (dayCounts[dayName] || 0) + 1;
-
-      const monthKey = `${parts[0]}-${String(parts[1]).padStart(2, "0")}`;
-      const monthLabel = `${MONTH_NAMES[(parts[1] - 1) % 12]} ${parts[0]}`;
-      const prevM = monthStats.get(monthKey) || { label: monthLabel, count: 0, points: 0, minutes: 0 };
-      prevM.count += 1;
-      prevM.points += pts;
-      prevM.minutes += mins;
-      monthStats.set(monthKey, prevM);
-    }
-
-    if (chk.parishId) {
-      const pid = String(chk.parishId);
-      const prevP = parishCounts.get(pid) || { count: 0, minutes: 0, points: 0 };
-      prevP.count += 1;
-      prevP.minutes += mins;
-      prevP.points += pts;
-      parishCounts.set(pid, prevP);
-    }
-  });
-
-  const hours = Math.floor(totalMinutes / 60);
-  const remMins = totalMinutes % 60;
-  const formattedTime = hours > 0
-    ? `${hours} h ${remMins > 0 ? `${remMins} min` : ""}`.trim()
-    : `${totalMinutes} min`;
-
-  // Días más frecuentes ordenados de mayor a menor
-  const sortedDays = Object.entries(dayCounts)
-    .sort((a, b) => b[1] - a[1]);
-  const maxDayVal = Math.max(1, sortedDays[0] ? sortedDays[0][1] : 1);
-  const topDayName = sortedDays[0] && sortedDays[0][1] > 0 ? sortedDays[0][0] : "Domingo";
-
-  // Parroquia Top
-  const sortedParishes = [...parishCounts.entries()].sort((a, b) => b[1].count - a[1].count || b[1].minutes - a[1].minutes);
-  const topParishEntry = sortedParishes[0] || null;
-  const topParishObj = topParishEntry ? getParishById(topParishEntry[0]) : PARISHES[0];
-
-  // Meses destacados
-  const sortedMonths = [...monthStats.values()].sort((a, b) => b.points - a.points || b.minutes - a.minutes);
-  const maxMonthPts = Math.max(1, sortedMonths[0] ? sortedMonths[0].points : 1);
-
-  // Métricas Comunitarias Globales (combinando la actividad local + comunidad parroquial)
   const commUsersCount = Object.keys(socialDB.users || {}).length;
-  const commTotalMasses = massCount + commUsersCount * 14;
-  const commTotalAdorations = adorationCount + commUsersCount * 6;
+  const commTotalMasses = m.massCount + commUsersCount * 14;
+  const commTotalAdorations = m.adorationCount + commUsersCount * 6;
   const commTotalMinutes = commTotalMasses * 60 + commTotalAdorations * 90;
   const commTotalHours = Math.round(commTotalMinutes / 60);
 
   return `
     <div class="checkin-card">
       <h4>📊 Mis Estadísticas Espirituales</h4>
-      <p>Cálculo exacto de dedicación: <strong>Santa Misa = 60 min</strong> · <strong>Adoración Eucarística = 90 min</strong>.</p>
+      <p>Cálculo exacto en tiempo real: <strong>Santa Misa = 60 min</strong> · <strong>Adoración Eucarística = 90 min</strong>.</p>
 
       <div class="stats-kpi-grid">
         <div class="stat-kpi-box">
           <span class="kpi-label">⏱️ Tiempo Invertido</span>
-          <span class="kpi-val">${formattedTime}</span>
-          <span class="kpi-sub">${totalMinutes} min totales (${massCount} Misas · ${adorationCount} Adoraciones)</span>
+          <span class="kpi-val">${m.formattedTime}</span>
+          <span class="kpi-sub">${m.totalMinutes} min totales (${m.massCount} Misas · ${m.adorationCount} Adoraciones)</span>
         </div>
 
         <div class="stat-kpi-box">
           <span class="kpi-label">🏛️ Parroquia Top</span>
-          <span class="kpi-val" style="font-size:1rem">${topParishObj ? topParishObj.nombre : "Sin datos"}</span>
-          <span class="kpi-sub">${topParishEntry ? `${topParishEntry[1].count} visitas · ${topParishEntry[1].minutes} min allí` : "Registrá tu primer check-in"}</span>
+          <span class="kpi-val" style="font-size:1rem">${m.topParishObj ? m.topParishObj.nombre : "Sin datos"}</span>
+          <span class="kpi-sub">${m.topParishEntry ? `${m.topParishEntry[1].count} visitas · ${m.topParishEntry[1].minutes} min allí` : "Registrá tu primer check-in"}</span>
         </div>
 
         <div class="stat-kpi-box">
           <span class="kpi-label">📅 Día Más Frecuente</span>
-          <span class="kpi-val">${topDayName}</span>
-          <span class="kpi-sub">${dayCounts[topDayName] || 0} asistencias en este día</span>
+          <span class="kpi-val">${m.topDayName}</span>
+          <span class="kpi-sub">${m.dayCounts[m.topDayName] || 0} asistencias en este día</span>
         </div>
 
         <div class="stat-kpi-box">
@@ -4078,8 +4338,8 @@ function renderStatsTabHtml() {
         </div>
       </div>
 
-      <div style="margin-top:14px;padding:10px 12px;border-radius:10px;background:var(--accent-soft);font-size:0.8rem;color:var(--accent)">
-        ⛪ <strong>Desglose de tiempo personal:</strong> ${massMinutes} min en Santa Misa (${massCount} × 60 min) + ${adorationMinutes} min en Adoración (${adorationCount} × 90 min).
+      <div style="margin-top:14px;padding:10px 12px;border-radius:10px;background:var(--brand-soft);font-size:0.82rem;color:var(--brand)">
+        ⛪ <strong>Desglose de tiempo personal:</strong> ${m.massMinutes} min en Santa Misa (${m.massCount} × 60 min) + ${m.adorationMinutes} min en Adoración (${m.adorationCount} × 90 min) = <strong>${m.totalMinutes} min</strong>.
       </div>
     </div>
 
@@ -4088,8 +4348,8 @@ function renderStatsTabHtml() {
       <h4>🗓️ Días más frecuentes de asistencia</h4>
       <p>Distribución semanal de tus Misas y momentos de Adoración Eucarística.</p>
       <div class="freq-bar-list">
-        ${sortedDays.map(([dName, count]) => {
-          const pct = Math.round((count / maxDayVal) * 100);
+        ${m.sortedDays.map(([dName, count]) => {
+          const pct = Math.round((count / m.maxDayVal) * 100);
           return `
             <div class="freq-row">
               <strong>${dName}</strong>
@@ -4100,18 +4360,18 @@ function renderStatsTabHtml() {
       </div>
     </div>
 
-    <!-- Meses destacados y Parroquias más visitadas -->
+    <!-- Meses destacados -->
     <div class="checkin-card">
       <h4>🌟 Meses destacados</h4>
       <p>Tus meses de mayor constancia espiritual según puntos de racha y minutos de oración.</p>
       <div class="freq-bar-list">
-        ${sortedMonths.length ? sortedMonths.map(m => {
-          const pct = Math.round((m.points / maxMonthPts) * 100);
+        ${m.sortedMonths.length ? m.sortedMonths.map(mo => {
+          const pct = Math.round((mo.points / m.maxMonthPts) * 100);
           return `
             <div class="freq-row">
-              <strong>${m.label}</strong>
+              <strong>${mo.label}</strong>
               <div class="freq-track"><div class="freq-fill" style="width:${Math.max(pct, 14)}%"></div></div>
-              <span class="freq-val">${m.points} pts · ${m.minutes}m</span>
+              <span class="freq-val">${mo.points} pts · ${mo.minutes}m</span>
             </div>`;
         }).join("") : `<div class="empty">Aún no hay meses registrados.</div>`}
       </div>
@@ -4141,7 +4401,9 @@ function renderSpiritualView() {
   if (!container) return;
 
   $$("#spiritual-subtabs [data-spir-tab]").forEach(btn => {
-    btn.classList.toggle("is-active", btn.dataset.spirTab === state.spirTab);
+    const active = btn.dataset.spirTab === state.spirTab;
+    btn.classList.toggle("is-active", active);
+    btn.setAttribute("aria-selected", String(active));
   });
 
   if (state.spirTab === "notes") {
@@ -4154,34 +4416,17 @@ function renderSpiritualView() {
 }
 
 /* =====================================================================
-   Módulo de Liturgia: Evangelio del Día (Traducción Argentina CEA - Libro del Pueblo de Dios)
-   + Reflexión Pastoral Estructurada (Papas / Sacerdotes)
+   Módulo de Liturgia: Lecturas Católicas Oficiales (Leccionario Argentino CEA)
+   + Santos del Día con Biografía Inspiradora y Selector de Fechas
    ===================================================================== */
-const ARGENTINE_GOSPELS_CYCLE = [
-  {
-    citation: "Lucas 15, 1-10",
-    title: "La alegría de Dios por encontrar lo que estaba perdido",
-    liturgicalSeason: "Tiempo Durante el Año · Liturgia en Español de Argentina (CEA)",
-    psalm: "Salmo 102 — «El Señor es bondadoso y compasivo»",
-    gospelText: `En aquel tiempo, todos los publicanos y los pecadores se acercaban a Jesús para escucharlo. Los fariseos y los escribas murmuraban, diciendo: «Este hombre recibe a los pecadores y come con ellos».
-
-Entonces Jesús les propuso esta parábola: «¿Quién de ustedes, si tiene cien ovejas y pierde una de ellas, no deja las noventa y nueve en el campo y va en busca de la que se había perdido, hasta encontrarla? Y cuando la encuentra, la carga sobre sus hombros, lleno de alegría, y al llegar a su casa llama a sus amigos y vecinos, y les dice: "Alégrense conmigo, porque encontré la oveja que se me había perdido".
-
-Les aseguro que, de la misma manera, habrá más alegría en el cielo por un solo pecador que se convierta, que por noventa y nueve justos que no necesitan convertirse».`,
-    popeQuote: "«El Dios de Jesús no es un juez frío que espera que nos equivoquemos, sino un Padre que sale a buscar a cada hijo por las calles de nuestra ciudad. Nunca se cansa de perdonarnos cuando volvemos a Él con el corazón humilde» (Papa Francisco, Reflexión sobre las parábolas de la misericordia).",
-    priestCommentary: "En nuestras parroquias de Buenos Aires vemos todos los días cómo una palabra de bienvenida en el atrio o un confesionario abierto le devuelven la paz a quien se sentía lejos. Jesús nos habla en plural —«¿quién de ustedes?»— invitándonos a que cada comunidad parroquial sea una casa de puertas abiertas donde nadie se sienta juzgado.",
-    prayerPrompts: [
-      "¿Hay alguien en mi familia o trabajo que hoy necesite un gesto concreto de cercanía y escucha sin prejuicios?",
-      "Agradecer al Señor las veces que Él me cargó sobre sus hombros cuando me sentía desorientado.",
-      "Acercarme esta semana unos minutos al Sagrario o al sacramento de la Reconciliación."
-    ]
-  },
-  {
+const OFFICIAL_GOSPELS_BY_MMDD = {
+  "11-01": {
     citation: "Mateo 5, 1-12a",
-    title: "Las Bienaventuranzas: El camino de la verdadera felicidad",
-    liturgicalSeason: "Tiempo Litúrgico · Traducción Oficial Conferencia Episcopal Argentina",
+    firstReading: "Primera Lectura: Apocalipsis 7, 2-4. 9-14 («Vi una multitud inmensa de todas las naciones»)",
     psalm: "Salmo 23 — «Ésta es la generación de los que buscan tu rostro, Señor»",
-    gospelText: `Al ver a la multitud, Jesús subió a la montaña, se sentó, y sus discípulos se acercaron a él. Entonces tomó la palabra y comenzó a enseñarles, diciendo:
+    title: "Solemnidad de Todos los Santos: Las Bienaventuranzas",
+    liturgicalSeason: "Solemnidad · Blanco Litúrgico · Leccionario Oficial CEA",
+    gospelText: `En aquel tiempo, al ver a la multitud, Jesús subió a la montaña, se sentó, y sus discípulos se acercaron a él. Entonces tomó la palabra y comenzó a enseñarles, diciendo:
 
 «Felices los que tienen alma de pobres, porque a ellos les pertenece el Reino de los Cielos.
 Felices los afligidos, porque serán consolados.
@@ -4193,94 +4438,276 @@ Felices los que trabajan por la paz, porque serán llamados hijos de Dios.
 Felices los que son perseguidos por practicar la justicia, porque a ellos les pertenece el Reino de los Cielos.
 
 Alégrense y regocíjense, porque ustedes tendrán una gran recompensa en el cielo».`,
-    popeQuote: "«La traducción argentina dice 'Felices': las Bienaventuranzas son el documento de identidad del cristiano. Vivirlas en lo cotidiano es ir contracorriente frente a la indiferencia, eligiendo la mansedumbre, la misericordia y el trabajo silencioso por la paz» (Papa Francisco, Gaudete et Exsultate).",
-    priestCommentary: "Cuando rezamos este Evangelio con el Libro del Pueblo de Dios, resuena con fuerza esa primera palabra: «Felices». Jesús no promete una vida sin dificultades, sino una felicidad honda que el mundo no puede quitar. Ser constructores de paz empieza en nuestra propia casa, en el barrio y en el modo en que tratamos al prójimo en la calle.",
+    popeQuote: "«Los santos no son superhéroes inalcanzables, sino amigos de Dios que vivieron las Bienaventuranzas en la vida cotidiana con alegría y humildad» (Papa Francisco, Gaudete et Exsultate).",
+    priestCommentary: "La santidad se teje todos los días en la familia, el estudio, el trabajo y la comunidad parroquial. Las Bienaventuranzas son el retrato del corazón mismo de Jesús.",
     prayerPrompts: [
-      "¿Cuál de las ocho Bienaventuranzas me invita hoy Jesús a practicar con más fuerza en mi casa o trabajo?",
-      "Pedir un corazón manso y paciente ante las demoras o tensiones del día.",
-      "Ofrecer mi próxima Misa por quienes hoy están afligidos o pasando soledad."
+      "¿Qué Bienaventuranza necesito encarnar hoy con más generosidad?",
+      "Dar gracias a Dios por los santos de la puerta de al lado que me transmitieron la fe."
     ]
   },
-  {
-    citation: "Marcos 4, 35-41",
-    title: "Jesús calma la tempestad: «¿Por qué tienen miedo?»",
-    liturgicalSeason: "Tiempo Durante el Año · Libro del Pueblo de Dios (Argentina)",
-    psalm: "Salmo 106 — «Den gracias al Señor, porque es bueno»",
-    gospelText: `Al atardecer de ese mismo día, Jesús dijo a sus discípulos: «Crucemos a la otra orilla». Ellos, dejando a la multitud, lo llevaron en la barca, así como estaba. Había otras barcas junto a la suya.
+  "11-02": {
+    citation: "Juan 6, 37-40",
+    firstReading: "Primera Lectura: Sabiduría 3, 1-9 («Las almas de los justos están en las manos de Dios»)",
+    psalm: "Salmo 22 — «El Señor es mi pastor, nada me puede faltar»",
+    title: "Conmemoración de Todos los Fieles Difuntos: La voluntad del Padre es que nadie se pierda",
+    liturgicalSeason: "Conmemoración Fieles Difuntos · Morado Litúrgico · CEA",
+    gospelText: `En aquel tiempo, Jesús dijo a la multitud: «Todo lo que me da el Padre viene a mí, y al que viene a mí yo no lo rechazaré, porque bajé del cielo, no para hacer mi voluntad, sino la de aquel que me envió.
 
-Entonces se desató un fuerte vendaval, y las olas entraban en la barca, de manera que se llenaba de agua. Jesús estaba en la popa, durmiendo sobre el cabezal.
+La voluntad del que me envió es que yo no pierda nada de lo que él me dio, sino que lo resucite en el último día.
 
-Lo despertaron y le dijeron: «¡Maestro! ¿No te importa que nos ahoguemos?». Él se despertó, increpó al viento y dijo al mar: «¡Silencio! ¡Cállate!». El viento se aplacó y sobrevino una gran calma. Después les dijo: «¿Por qué tienen miedo? ¿Cómo no tienen fe?».`,
-    popeQuote: "«En esta barca estamos todos nosotros. A veces pensamos que Jesús duerme frente a nuestras tormentas, pero Él está presente en la popa de nuestra vida. Despertarlo con la oración confiada es dejar que Su paz gobierne nuestro corazón» (Papa Francisco, Bendición Urbi et Orbi).",
-    priestCommentary: "Cuántas veces vamos apurados por las avenidas de nuestra ciudad sintiendo que las preocupaciones nos superan como olas en la barca. La pregunta de Jesús en nuestra traducción litúrgica argentina nos interpela directo al corazón: «¿Por qué tienen miedo?». Entrar cinco minutos a una parroquia abierta o hacer silencio ante el Sagrario es dejar que Él diga «¡Calma!» a nuestro interior.",
+Ésta es la voluntad de mi Padre: que todo el que ve al Hijo y cree en él, tenga Vida eterna y que yo lo resucite en el último día».`,
+    popeQuote: "«La memoria de los difuntos es un acto de profunda esperanza cristiana: sabemos que nuestros seres queridos están en las manos fieles del Padre que nos resucitará» (Papa Benedicto XVI, Angelus).",
+    priestCommentary: "Hoy rezamos por nuestros familiares y amigos difuntos ofreciendo la Santa Misa, certeza de que el amor en Cristo es más fuerte que la muerte.",
     prayerPrompts: [
-      "¿Qué preocupación o tormenta interior necesito entregarle hoy a Jesús en la barca?",
-      "Repetir como jaculatoria durante el día: «Jesús, en Vos confío».",
-      "Dedicar hoy un rato de silencio en mi parroquia más cercana."
+      "Rezar hoy una oración especial u ofrecer la Misa por los seres queridos que partieron a la Casa del Padre.",
+      "Renovar nuestra fe en la resurrección y la Vida eterna."
     ]
   },
-  {
-    citation: "Juan 15, 9-17",
-    title: "Permanezcan en mi amor para que den fruto abundante",
-    liturgicalSeason: "Tiempo Litúrgico · Conferencia Episcopal Argentina (CEA)",
-    psalm: "Salmo 97 — «El Señor reveló su salvación a las naciones»",
-    gospelText: `En aquel tiempo, Jesús dijo a sus discípulos: «Como el Padre me amó, también yo los he amado a ustedes. Permanezcan en mi amor. Si cumplen mis mandamientos, permanecerán en mi amor, como yo cumplí los mandamientos de mi Padre y permanezco en su amor.
+  "11-03": {
+    citation: "Lucas 14, 15-24",
+    firstReading: "Primera Lectura: Filipenses 2, 5-11 («Tengan los mismos sentimientos de Cristo Jesús»)",
+    psalm: "Salmo 21 — «Te alabaré, Señor, en la gran asamblea»",
+    title: "Los invitados al gran banquete del Reino: «Vengan, porque ya todo está preparado»",
+    liturgicalSeason: "Martes de la XXXI Semana durante el Año · Verde Litúrgico · CEA",
+    gospelText: `En aquel tiempo, uno de los que estaban sentados a la mesa con Jesús le dijo: «¡Feliz el que se siente a comer en el Reino de Dios!».
 
-Les he dicho esto para que mi gozo sea el de ustedes, y ese gozo sea perfecto. Éste es mi mandamiento: Ámense los unos a los otros, como yo los he amado. No hay amor más grande que dar la vida por los amigos. Ustedes son mis amigos si hacen lo que yo les mando.
+Jesús le respondió: «Un hombre preparó un gran banquete y convidó a mucha gente. A la hora de comer, mandó a su servidor que dijera a los invitados: "Vengan, todo está preparado". Pero todos, sin excepción, empezaron a excusarse.
 
-Ya no los llamo servidores, porque el servidor no sabe lo que hace su señor; yo los llamo amigos, porque les he dado a conocer todo lo que oí de mi Padre. No son ustedes los que me eligieron a mí, sino yo el que los elegí a ustedes, y los destiné para que vayan y den fruto, y ese fruto sea duradero».`,
-    popeQuote: "«Cristo nos llama amigos y nos invita a permanecer en Su amor. Permanecer no es quedarse quietos: es tener raíces profundas en la Eucaristía y la oración para salir con alegría a servir a los hermanos» (San Juan Pablo II / Magisterio Pontificio).",
-    priestCommentary: "La palabra clave que Jesús repite a sus discípulos es «Permanezcan». En una cultura de lo pasajero, la fidelidad a la Misa dominical, la Adoración y la vida en comunidad nos arraigan en la amistad con Cristo. No caminamos solos: somos elegidos para dar fruto allí donde vivimos y estudiamos o trabajamos.",
+Entonces el dueño de casa, indignado, dijo a su servidor: "Sal enseguida a las plazas y a las calles de la ciudad, y trae aquí a los pobres, a los lisiados, a los ciegos y a los paralíticos". Y el señor dijo al servidor: "Sal a los caminos y a los campos, e insiste a la gente para que entre, de manera que se llene mi casa"».`,
+    popeQuote: "«Dios prepara cada día el banquete de su Palabra y de la Eucaristía para todos, sin excluir a nadie. Cuidémonos de las excusas que nos cierran el corazón a Su invitación» (Papa Francisco).",
+    priestCommentary: "A veces ponemos mil excusas para postergar a Dios: la falta de tiempo, el cansancio o la rutina. El Señor nos espera hoy en el altar con la mesa servida.",
     prayerPrompts: [
-      "¿Cómo cuido mi amistad diaria con Jesús a través de la oración y la Eucaristía?",
-      "Tener hoy un gesto concreto de servicio desinteresado con un amigo o compañero.",
-      "Dar gracias por la comunidad parroquial en la que crezco en la fe."
+      "¿Qué excusas suelen alejarme de la oración diaria o de la Misa?",
+      "Invitar con calidez a alguien que se sienta alejado de la comunidad."
     ]
   },
-  {
-    citation: "Lucas 10, 38-42",
-    title: "Marta y María: Elegir la mejor parte que no será quitada",
-    liturgicalSeason: "Tiempo Durante el Año · Libro del Pueblo de Dios (Argentina)",
-    psalm: "Salmo 14 — «Señor, ¿quién habitará en tu Casa?»",
-    gospelText: `Mientras iban caminando, Jesús entró en un pueblo, y una mujer que se llamaba Marta lo recibió en su casa. Tenía una hermana llamada María, que sentada a los pies del Señor, escuchaba su Palabra.
+  "11-04": {
+    citation: "Lucas 14, 25-33",
+    firstReading: "Primera Lectura: Filipenses 2, 12-18 («Brillen como antorchas en el mundo, llevando la Palabra de Vida»)",
+    psalm: "Salmo 26 — «El Señor es mi luz y mi salvación»",
+    title: "Las condiciones para seguir a Jesús: Cargar con la cruz y calcular los gastos",
+    liturgicalSeason: "Memoria de San Carlos Borromeo · Miércoles XXXI durante el Año · CEA",
+    gospelText: `En aquel tiempo, junto con Jesús iba un gran gentío, y él, dándose vuelta, les dijo: «Cualquiera que venga a mí y no me ame más que a su padre y a su madre, a su mujer y a sus hijos, a sus hermanos y hermanas, y hasta a su propia vida, no puede ser mi discípulo. El que no carga con su cruz y me sigue, no puede ser mi discípulo.
 
-Marta, que estaba muy ocupada con los quehaceres de la casa, se acercó a Jesús y le dijo: «Señor, ¿no te importa que mi hermana me deje sola con todo el trabajo? Dile que me ayude».
-
-Pero el Señor le respondió: «Marta, Marta, te inquietas y te agitas por muchas cosas, y sin embargo, pocas cosas son necesarias, o más bien, una sola. María eligió la mejor parte, que no le será quitada».`,
-    popeQuote: "«Jesús no contrapone la vida activa a la contemplativa, sino que nos recuerda que todo servicio nace de sentarse primero a escuchar Su Palabra. Sin oración, el activismo nos agota y nos quita la alegría» (Papa Benedicto XVI / Papa Francisco, Angelus).",
-    priestCommentary: "A todos nos pasa lo de Marta: corremos de una obligación a otra y hasta en las tareas pastorales podemos agitarnos. El Evangelio de hoy nos regala una invitación luminosa: sentarnos a los pies de Jesús como María, escuchar su Palabra y dejar que Él ordene nuestras prioridades.",
+¿Quién de ustedes, si quiere edificar una torre, no se sienta primero a calcular los gastos, para ver si tiene con qué terminarla? De la misma manera, cualquiera de ustedes que no renuncie a todo lo que posee, no puede ser mi discípulo».`,
+    popeQuote: "«Seguir a Cristo exige valentía y libertad interior para poner su Amor en el primer lugar, sabiendo que quien entrega su vida por Él la gana en plenitud» (Papa Francisco).",
+    priestCommentary: "En la memoria de San Carlos Borromeo, este Evangelio oficial nos invita a edificar nuestra vida espiritual sobre roca firme, sin quedarnos a mitad de camino.",
     prayerPrompts: [
-      "¿En qué cosas me estoy agitando hoy sin necesidad, perdiendo la paz interior?",
-      "Separar hoy quince minutos de escucha silenciosa de la Palabra o Adoración.",
-      "Unir el trabajo de mis manos con la escucha amorosa de Dios."
+      "¿Qué apegos o distracciones me impiden hoy seguir a Jesús con mayor libertad?",
+      "Pedir la gracia de la perseverancia en los proyectos buenos que Dios me inspira."
     ]
   },
-  {
-    citation: "Lucas 24, 13-35",
-    title: "Los discípulos de Emaús: «¡Quédate con nosotros, porque ya es tarde!»",
-    liturgicalSeason: "Liturgia Dominical · Español de Argentina (CEA)",
-    psalm: "Salmo 15 — «Muéstranos, Señor, el camino de la vida»",
-    gospelText: `Aquel mismo día, dos de los discípulos iban a un pequeño pueblo llamado Emaús, situado a unos once kilómetros de Jerusalén. En el camino hablaban sobre lo que había ocurrido. Mientras conversaban y discutían, el mismo Jesús se acercó y siguió caminando con ellos, pero algo impedía que sus ojos lo reconocieran.
+  "11-05": {
+    citation: "Lucas 15, 1-10",
+    firstReading: "Primera Lectura: Filipenses 3, 3-8a («Todo lo considero pérdida comparado con el conocimiento de Cristo Jesús»)",
+    psalm: "Salmo 104 — «Que se alegren los que buscan al Señor»",
+    title: "La oveja perdida y la moneda encontrada: La alegría del Cielo por un pecador que vuelve",
+    liturgicalSeason: "Jueves de la XXXI Semana durante el Año · Verde Litúrgico · CEA",
+    gospelText: `En aquel tiempo, todos los publicanos y los pecadores se acercaban a Jesús para escucharlo. Los fariseos y los escribas murmuraban, diciendo: «Este hombre recibe a los pecadores y come con ellos».
 
-Cuando llegaron cerca del pueblo adonde iban, Jesús hizo ademán de seguir adelante. Pero ellos le insistieron: «Quédate con nosotros, porque ya es tarde y el día se acaba». Él entró y se quedó con ellos.
+Entonces Jesús les propuso esta parábola: «¿Quién de ustedes, si tiene cien ovejas y pierde una de ellas, no deja las noventa y nueve en el campo y va en busca de la que se había perdido, hasta encontrarla? Y cuando la encuentra, la carga sobre sus hombros, lleno de alegría, y al llegar a su casa llama a sus amigos y vecinos, y les dice: "Alégrense conmigo, porque encontré la oveja que se me había perdido". Les aseguro que, de la misma manera, habrá más alegría en el cielo por un solo pecador que se convierta, que por noventa y nueve justos que no necesitan convertirse.
 
-Y estando a la mesa, tomó el pan y pronunció la bendición; luego lo partió y se lo dio. Entonces los ojos de los discípulos se abrieron y lo reconocieron, pero él había desaparecido de su vista. Y se decían el uno al otro: «¿No ardía acaso nuestro corazón, mientras nos hablaba en el camino y nos explicaba las Escrituras?».`,
-    popeQuote: "«El camino de Emaús es el símbolo de cada Misa: Jesús sale a nuestro encuentro, nos explica las Escrituras para encender nuestro corazón y se deja reconocer al partir el Pan Eucarístico» (Papa Francisco, Catequesis sobre la Eucaristía).",
-    priestCommentary: "Cada vez que participamos de la Santa Misa en nuestra parroquia, vivimos exactamente lo mismo que los peregrinos de Emaús: llegamos con nuestras preguntas y cansancios de la semana, escuchamos la Palabra y, en el altar, reconocemos a Jesús vivo que nos devuelve el entusiasmo para volver a casa anunciando Su presencia.",
+¿Y qué mujer que tiene diez dracmas, si pierde una, no enciende una lámpara, barre la casa y busca cuidadosamente hasta encontrarla? Y cuando la encuentra, llama a sus amigas y vecinas, y les dice: "Alégrense conmigo, porque encontré la dracma que se me había perdido". Les aseguro que, de la misma manera, se alegran los ángeles de Dios por un solo pecador que se convierte».`,
+    popeQuote: "«El corazón de Dios se conmueve por cada hijo: Él enciende la lámpara, sale a buscarnos y hace fiesta cuando nos dejamos encontrar por Su misericordia» (Papa Francisco, Homilía sobre Lucas 15).",
+    priestCommentary: "Éste es el Evangelio oficial de hoy (Lucas 15, 1-10): frente a la murmuración de los que se creen perfectos, Jesús revela el rostro de un Dios que busca incansablemente a cada persona y celebra su regreso con alegría.",
     prayerPrompts: [
-      "Rezar hoy con los discípulos de Emaús: «Quédate con nosotros, Señor».",
-      "Recordar qué pasaje del Evangelio o qué Misa hizo arder especialmente mi corazón.",
-      "Invitar a algún amigo o familiar a compartir la Misa de este fin de semana."
+      "Dejarme encontrar hoy por la mirada misericordiosa de Jesús en la oración.",
+      "Ser puente de bienvenida y ternura para quienes desean volver a acercarse a la fe.",
+      "Acudir con confianza al sacramento de la Reconciliación en mi parroquia."
+    ]
+  },
+  "11-06": {
+    citation: "Lucas 16, 1-8",
+    firstReading: "Primera Lectura: Filipenses 3, 17 — 4, 1 («Nuestra patria está en el cielo»)",
+    psalm: "Salmo 121 — «¡Qué alegría cuando me dijeron: Vamos a la Casa del Señor!»",
+    title: "Creatividad y fidelidad de los hijos de la luz en los bienes de este mundo",
+    liturgicalSeason: "Viernes de la XXXI Semana durante el Año · Verde Litúrgico · CEA",
+    gospelText: `En aquel tiempo, Jesús decía a sus discípulos: «Había un hombre rico que tenía un administrador, al cual acusaron de malgastar sus bienes. Lo llamó y le dijo: "¿Qué es lo que oigo decir de ti? Rinde cuenta de tu administración, porque ya no podrás seguir administrando".
+
+El administrador llamó uno por uno a los deudores de su señor y redujo sus deudas con astucia. El señor alabó a este administrador deshonesto, por haber obrado tan hábilmente. Porque los hijos de este mundo son más astutos en su trato con los demás que los hijos de la luz».`,
+    popeQuote: "«Jesús nos invita a tener la misma prontitud, creatividad y empeño para construir el Reino de Dios y ayudar a los hermanos que el mundo pone para sus negocios» (Papa Francisco).",
+    priestCommentary: "La creatividad pastoral y la caridad concreta son la verdadera astucia evangélica que transforma nuestros barrios.",
+    prayerPrompts: [
+      "¿Pongo mis talentos y mi tiempo al servicio del bien con verdadero entusiasmo?",
+      "Realizar hoy una obra de misericordia concreta con alguien necesitado."
+    ]
+  },
+  "11-07": {
+    citation: "Lucas 16, 9-15",
+    firstReading: "Primera Lectura: Filipenses 4, 10-19 («Todo lo puedo en aquel que me conforta»)",
+    psalm: "Salmo 111 — «Feliz el hombre que teme al Señor»",
+    title: "Fidelidad en lo poco: «El que es fiel en lo mínimo, también es fiel en lo mucho»",
+    liturgicalSeason: "Sábado de la XXXI Semana durante el Año · Verde Litúrgico · CEA",
+    gospelText: `En aquel tiempo, Jesús decía a sus discípulos: «El que es fiel en lo poco, también es fiel en lo mucho, y el que es deshonesto en lo poco, también es deshonesto en lo mucho. Si ustedes no son fieles en el uso del dinero injusto, ¿quién les confiará el verdadero bien?
+
+Ningún servidor puede servir a dos señores, porque aborrecerá a uno y amará al otro, o bien se interesará por el primero y menospreciará al segundo. No pueden servir a Dios y al Dinero».`,
+    popeQuote: "«La santidad crece en los pequeños gestos diarios de fidelidad que sólo Dios ve» (Papa Francisco).",
+    priestCommentary: "En vísperas del domingo, la Palabra nos recuerda que la fidelidad en las cosas pequeñas prepara nuestro corazón para recibir los grandes dones de Dios.",
+    prayerPrompts: [
+      "Cuidar hoy con amor los pequeños deberes cotidianos y la oración breve.",
+      "Preparar el corazón para celebrar la Misa de este fin de semana."
+    ]
+  },
+  "11-08": {
+    citation: "Marcos 12, 38-44",
+    firstReading: "Primera Lectura: 1 Reyes 17, 10-16 (La viuda de Sarepta comparte su pan con el profeta Elías)",
+    psalm: "Salmo 145 — «Alaba, alma mía, al Señor»",
+    title: "La ofrenda de la viuda pobre: «Dio todo lo que tenía para vivir»",
+    liturgicalSeason: "XXXII Domingo Durante el Año · Verde Litúrgico · CEA",
+    gospelText: `En aquel tiempo, Jesús, sentado frente a la sala del tesoro del Templo, miraba cómo la gente depositaba su limosna. Muchos ricos daban en abundancia. Llegó una viuda pobre y puso dos pequeñas monedas de cobre.
+
+Entonces Jesús, llamando a sus discípulos, les dijo: «Les aseguro que esta viuda pobre ha dado más que todos los que pusieron dinero en el tesoro. Porque todos daban de lo que les sobraba, pero ella, de su indigencia, dio todo lo que poseía, todo lo que tenía para vivir».`,
+    popeQuote: "«La medida de Dios no es la cantidad ni la apariencia, sino la entrega total del corazón humilde que confía en la Providencia» (Papa Francisco, Angelus).",
+    priestCommentary: "En este Domingo XXXII durante el Año, Jesús fija su mirada en el gesto silencioso de la viuda: ella no entrega lo que le sobra, sino su propia vida confiada en las manos de Dios.",
+    prayerPrompts: [
+      "¿Le doy a Dios y a mis hermanos sólo lo que me sobra de tiempo, o le entrego lo mejor de mi corazón?",
+      "Participar hoy en la Misa dominical ofreciendo toda nuestra semana en el altar."
     ]
   }
+};
+
+const ARGENTINE_GOSPELS_CYCLE = [
+  OFFICIAL_GOSPELS_BY_MMDD["11-05"],
+  OFFICIAL_GOSPELS_BY_MMDD["11-01"],
+  OFFICIAL_GOSPELS_BY_MMDD["11-08"],
+  OFFICIAL_GOSPELS_BY_MMDD["11-03"],
+  OFFICIAL_GOSPELS_BY_MMDD["11-04"],
+  OFFICIAL_GOSPELS_BY_MMDD["11-06"],
+  OFFICIAL_GOSPELS_BY_MMDD["11-07"],
+  OFFICIAL_GOSPELS_BY_MMDD["11-02"]
+];
+
+const SAINTS_BY_MMDD = {
+  "11-01": [
+    {
+      name: "Solemnidad de Todos los Santos",
+      feast: "Solemnidad Litúrgica",
+      icon: "👑",
+      bio: "La Iglesia celebra en una única fiesta jubilosa a todos los bienaventurados que ya gozan de la presencia de Dios en el Cielo: tanto los santos canonizados como la multitud inmensa de hombres y mujeres sencillos que vivieron fielmente el Evangelio.",
+      quote: "«La santidad es el rostro más bello de la Iglesia»."
+    }
+  ],
+  "11-02": [
+    {
+      name: "Conmemoración de Todos los Fieles Difuntos",
+      feast: "Conmemoración Litúrgica",
+      icon: "🕯️",
+      bio: "Jornada universal de oración y sufragio por todos los hermanos que han partido de este mundo, renovando nuestra esperanza en la Resurrección de Cristo y en la comunión de los santos.",
+      quote: "«Para los que creen en Ti, Señor, la vida no termina, se transforma»."
+    }
+  ],
+  "11-03": [
+    {
+      name: "San Martín de Porres, Religioso",
+      feast: "Memoria Libre · Patrono de la Justicia Social",
+      icon: "🧹",
+      bio: "Nacido en Lima (1579-1639), hermano cooperador dominico conocido como «el santo de la escoba». Dedicó su vida a curar enfermos, asistir a los más pobres y reconciliar corazones con una humildad radiante y profunda vida eucarística.",
+      quote: "«Yo te curo, Dios te sana»."
+    }
+  ],
+  "11-04": [
+    {
+      name: "San Carlos Borromeo, Obispo",
+      feast: "Memoria Obligatoria",
+      icon: "🏛️",
+      bio: "Arzobispo de Milán (1538-1584) y gran impulsor de la renovación pastoral tras el Concilio de Trento. Fundó seminarios, visitó cada parroquia de su diócesis y entregó sus bienes y su salud cuidando personalmente a los enfermos durante la peste.",
+      quote: "«Un pastor debe arder primero en el amor de Dios para iluminar a su pueblo»."
+    }
+  ],
+  "11-05": [
+    {
+      name: "Santa Ángela de la Cruz, Virgen y Fundadora",
+      feast: "Santo del Día · 5 de Noviembre",
+      icon: "✝️",
+      bio: "Religiosa sevillana (1846-1932), fundadora del Instituto de las Hermanas de la Compañía de la Cruz. Llamada «Madre de los pobres», vivió haciéndose pequeña con los humildes, cuidando enfermos abandonados y llevando consuelo silencioso a los hogares más necesitados.",
+      quote: "«No ser nunca nada para mí, y serlo todo para Dios y para los pobres»."
+    },
+    {
+      name: "San Zacarías y Santa Isabel",
+      feast: "Padres de San Juan Bautista",
+      icon: "🕊️",
+      bio: "Esposos justos ante los ojos de Dios (Lucas 1, 5-25). En su ancianidad acogieron con fe el milagro de la vida de Juan el Precursor y entonaron el cántico del Benedictus, bendiciendo la fidelidad del Señor que visita y redime a su pueblo.",
+      quote: "«¡Feliz de ti por haber creído que se cumplirá lo que te fue anunciado de parte del Señor!» (Lc 1, 45)."
+    }
+  ],
+  "11-06": [
+    {
+      name: "San Nuno de Santa María Álvarez Pereira y Beatos Mártires",
+      feast: "Santo del Día · 6 de Noviembre",
+      icon: "🛡️",
+      bio: "Después de servir con rectitud y buscar siempre la paz, ingresó como hermano carmelita descalzo dedicando sus últimos años a la oración contemplativa y al reparto diario de alimento a los pobres desde su convento.",
+      quote: "«Sólo quien se arrodilla ante Dios permanece firme ante las pruebas»."
+    }
+  ],
+  "11-07": [
+    {
+      name: "San Willibrordo, Obispo y Misionero",
+      feast: "Santo del Día · 7 de Noviembre",
+      icon: "⛵",
+      bio: "Monje benedictino y apóstol de Frisia (658-739). Evangelizó con paciencia, fundó monasterios y comunidades parroquiales, anunciando la alegría del Evangelio con mansedumbre y caridad.",
+      quote: "«Sembrar la Palabra con paciencia es confiar en el tiempo de Dios»."
+    }
+  ],
+  "11-08": [
+    {
+      name: "Santa Isabel de la Trinidad, Virgen Carmelita",
+      feast: "Santo del Día · 8 de Noviembre",
+      icon: "✨",
+      bio: "Joven carmelita descalza de Dijon (1880-1906), mística de la presencia de la Santísima Trinidad en el alma bautizada. Enseñó que cada cristiano puede encontrar un «cielo interior» de silencio y adoración en medio de sus tareas cotidianas.",
+      quote: "«¡Oh Dios mío, Trinidad a quien adoro, ayúdame a olvidarme enteramente de mí para establecerme en Ti!»."
+    }
+  ],
+  "11-09": [
+    {
+      name: "Dedicación de la Basílica de San Juan de Letrán",
+      feast: "Fiesta Litúrgica Universal",
+      icon: "⛪",
+      bio: "Celebración de la Catedral del Obispo de Roma, «Madre y Cabeza de todas las iglesias de la Ciudad y del Mundo», signo visible de la unidad de todas las parroquias y comunidades católicas con la Cátedra de Pedro.",
+      quote: "«Ustedes son piedras vivas edificadas como templo espiritual» (1 Pe 2, 5)."
+    }
+  ],
+  "11-10": [
+    {
+      name: "San León Magno, Papa y Doctor de la Iglesia",
+      feast: "Memoria Obligatoria",
+      icon: "📖",
+      bio: "Gran pastor del siglo V que defendió la fe en la verdadera humanidad y divinidad de Cristo en el Concilio de Calcedonia y protegió al pueblo de Roma promoviendo la paz y las obras de caridad.",
+      quote: "«Reconoce, oh cristiano, tu dignidad de hijo de Dios»."
+    }
+  ],
+  "11-11": [
+    {
+      name: "San Martín de Tours, Obispo (Patrono de Buenos Aires)",
+      feast: "Memoria Obligatoria · Patrono de CABA",
+      icon: "🧥",
+      bio: "Joven soldado que en una noche helada partió su capa con la espada para abrigar a un mendigo tembloroso; esa noche soñó a Jesucristo vestido con aquella media capa. Elegido en 1580 como Santo Patrono de la Ciudad de Buenos Aires.",
+      quote: "«Martín, todavía catecúmeno, me ha cubierto con este vestido»."
+    }
+  ]
+};
+
+const SAINTS_FALLBACK_CYCLE = [
+  SAINTS_BY_MMDD["11-05"],
+  SAINTS_BY_MMDD["11-11"],
+  SAINTS_BY_MMDD["11-03"],
+  SAINTS_BY_MMDD["11-04"],
+  SAINTS_BY_MMDD["11-08"],
+  SAINTS_BY_MMDD["11-10"],
+  SAINTS_BY_MMDD["11-01"]
 ];
 
 function getGospelForDate(isoDateStr) {
-  const parts = String(isoDateStr || getTodayIsoDate()).split("-").map(Number);
+  const cleanIso = /^\d{4}-\d{2}-\d{2}$/.test(String(isoDateStr || "")) ? String(isoDateStr) : getTodayIsoDate();
+  const parts = cleanIso.split("-").map(Number);
   const y = parts[0] || 2026;
   const m = parts[1] || 11;
   const d = parts[2] || 5;
+  const mmdd = `${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+
+  const exactMatch = OFFICIAL_GOSPELS_BY_MMDD[mmdd];
   const seedIndex = Math.abs(y * 372 + m * 31 + d) % ARGENTINE_GOSPELS_CYCLE.length;
+  const baseReading = exactMatch || ARGENTINE_GOSPELS_CYCLE[seedIndex];
+
   const dt = new Date(y, m - 1, d, 12, 0, 0);
   const formattedLongDate = dt.toLocaleDateString("es-AR", {
     weekday: "long",
@@ -4288,11 +4715,24 @@ function getGospelForDate(isoDateStr) {
     month: "long",
     year: "numeric"
   });
+
   return {
-    ...ARGENTINE_GOSPELS_CYCLE[seedIndex],
-    isoDate: `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`,
+    ...baseReading,
+    isoDate: cleanIso,
+    mmdd,
     formattedLongDate: formattedLongDate.charAt(0).toUpperCase() + formattedLongDate.slice(1)
   };
+}
+
+function getSaintsForDate(isoDateStr) {
+  const cleanIso = /^\d{4}-\d{2}-\d{2}$/.test(String(isoDateStr || "")) ? String(isoDateStr) : getTodayIsoDate();
+  const parts = cleanIso.split("-").map(Number);
+  const m = parts[1] || 11;
+  const d = parts[2] || 5;
+  const mmdd = `${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+  if (SAINTS_BY_MMDD[mmdd]) return SAINTS_BY_MMDD[mmdd];
+  const idx = Math.abs(m * 31 + d) % SAINTS_FALLBACK_CYCLE.length;
+  return SAINTS_FALLBACK_CYCLE[idx];
 }
 
 function renderLiturgyView() {
@@ -4300,58 +4740,99 @@ function renderLiturgyView() {
   if (!container) return;
 
   const g = getGospelForDate(state.liturgyDate);
+  const saints = getSaintsForDate(state.liturgyDate);
+  const showGospel = state.litTab === "all" || state.litTab === "gospel";
+  const showSaints = state.litTab === "all" || state.litTab === "saints";
 
   container.innerHTML = `
-    <!-- Barra de Selección de Fecha Litúrgica -->
+    <!-- Sub-pestañas de Liturgia: Vista Completa, Evangelio del Día, Santos del Día -->
+    <div class="community-subnav" id="liturgy-subtabs" role="tablist" aria-label="Secciones de liturgia">
+      <button type="button" class="comm-tab ${state.litTab === "all" ? "is-active" : ""}" data-lit-tab="all" role="tab" aria-selected="${state.litTab === "all"}">📚 Evangelio y Santos</button>
+      <button type="button" class="comm-tab ${state.litTab === "gospel" ? "is-active" : ""}" data-lit-tab="gospel" role="tab" aria-selected="${state.litTab === "gospel"}">📖 Evangelio del Día</button>
+      <button type="button" class="comm-tab ${state.litTab === "saints" ? "is-active" : ""}" data-lit-tab="saints" role="tab" aria-selected="${state.litTab === "saints"}">👼 Santos del Día (${saints.length})</button>
+    </div>
+
+    <!-- Barra de Selección de Fecha Litúrgica (Permite fechas pasadas, actual y futuras) -->
     <div class="liturgy-toolbar">
       <div class="liturgy-toolbar-info">
-        <strong>📅 Selector de Fecha Litúrgica</strong>
-        <span>${g.formattedLongDate} · Leccionario Argentino (Libro del Pueblo de Dios)</span>
+        <strong>📅 ${g.formattedLongDate}</strong>
+        <span>Leccionario Oficial Argentino (Libro del Pueblo de Dios) · Podés elegir fechas anteriores o futuras</span>
       </div>
       <div class="liturgy-date-controls">
         <button type="button" class="btn-sm" id="btn-liturgy-prev" title="Día anterior">◀ Ant.</button>
-        <input type="date" id="liturgy-date-input" value="${g.isoDate}" aria-label="Seleccionar fecha del Evangelio">
+        <input type="date" id="liturgy-date-input" value="${g.isoDate}" aria-label="Seleccionar fecha litúrgica">
         <button type="button" class="btn-sm" id="btn-liturgy-today">Hoy</button>
         <button type="button" class="btn-sm" id="btn-liturgy-next" title="Día siguiente">Sig. ▶</button>
       </div>
     </div>
 
-    <!-- Ficha Principal del Evangelio del Día -->
-    <article class="gospel-card">
-      <div class="gospel-head">
-        <span class="gospel-tag">🇦🇷 ${g.liturgicalSeason}</span>
-        <h3>Evangelio según San ${g.citation}: «${g.title}»</h3>
-        <p class="gospel-ref">🎵 ${g.psalm}</p>
-      </div>
-
-      <div class="gospel-body-text">${g.gospelText.split("\n\n").map(p => `<p style="margin:0 0 12px">${p}</p>`).join("")}</div>
-      <p style="margin:10px 0 0;font-size:0.82rem;font-weight:700;color:var(--accent)">— Palabra del Señor. / Gloria a Ti, Señor Jesús.</p>
-
-      <!-- Botón de Explicación del Evangelio (Papas / Sacerdotes) -->
-      <button type="button" class="btn-explain-gospel" id="btn-toggle-gospel-explain" aria-expanded="${state.liturgyExplainOpen}">
-        <span>📖 Explicación del Evangelio (Papas / Sacerdotes)</span>
-        <span>${state.liturgyExplainOpen ? "▲ Ocultar reflexión" : "▼ Ver comentario homilético"}</span>
-      </button>
-
-      ${state.liturgyExplainOpen ? `
-        <div class="gospel-explanation-panel" id="gospel-explanation-panel">
-          <h4>🏛️ 1. Magisterio de los Papas</h4>
-          <p>${g.popeQuote}</p>
-
-          <h4>⛪ 2. Reflexión Homilética Sacerdotal</h4>
-          <p>${g.priestCommentary}</p>
-
-          <h4>🕯️ 3. Puntos para tu Oración Personal Hoy</h4>
-          <ul>
-            ${g.prayerPrompts.map(pr => `<li>${pr}</li>`).join("")}
-          </ul>
-
-          <div style="margin-top:14px;display:flex;justify-content:flex-end">
-            <button type="button" class="btn-sm submit" id="btn-save-gospel-to-notes">📓 Anotar reflexión sobre este Evangelio</button>
-          </div>
+    ${showGospel ? `
+      <!-- Ficha Principal del Evangelio Oficial del Día -->
+      <article class="gospel-card">
+        <div class="gospel-head">
+          <span class="gospel-tag">🇦🇷 ${g.liturgicalSeason}</span>
+          <h3>Evangelio según San ${g.citation}: «${g.title}»</h3>
+          ${g.firstReading ? `<p class="gospel-ref" style="margin-bottom:4px">📜 ${g.firstReading}</p>` : ""}
+          <p class="gospel-ref">🎵 ${g.psalm}</p>
         </div>
-      ` : ""}
-    </article>`;
+
+        <div class="gospel-body-text">${g.gospelText.split("\n\n").map(p => `<p style="margin:0 0 12px">${p}</p>`).join("")}</div>
+        <p style="margin:10px 0 0;font-size:0.82rem;font-weight:700;color:var(--brand)">— Palabra del Señor. / Gloria a Ti, Señor Jesús.</p>
+
+        <!-- Botón de Explicación del Evangelio (Papas / Sacerdotes) -->
+        <button type="button" class="btn-explain-gospel" id="btn-toggle-gospel-explain" aria-expanded="${state.liturgyExplainOpen}">
+          <span>📖 Explicación del Evangelio (Papas / Sacerdotes)</span>
+          <span>${state.liturgyExplainOpen ? "▲ Ocultar reflexión" : "▼ Ver comentario homilético"}</span>
+        </button>
+
+        ${state.liturgyExplainOpen ? `
+          <div class="gospel-explanation-panel" id="gospel-explanation-panel">
+            <h4>🏛️ 1. Magisterio de los Papas</h4>
+            <p>${g.popeQuote}</p>
+
+            <h4>⛪ 2. Reflexión Homilética Sacerdotal</h4>
+            <p>${g.priestCommentary}</p>
+
+            <h4>🕯️ 3. Puntos para tu Oración Personal Hoy</h4>
+            <ul>
+              ${g.prayerPrompts.map(pr => `<li>${pr}</li>`).join("")}
+            </ul>
+
+            <div style="margin-top:14px;display:flex;justify-content:flex-end">
+              <button type="button" class="btn-sm submit" id="btn-save-gospel-to-notes">📓 Anotar reflexión sobre este Evangelio</button>
+            </div>
+          </div>
+        ` : ""}
+      </article>
+    ` : ""}
+
+    ${showSaints ? `
+      <!-- Sección Dedicada: Santos del Día con Biografía Breve e Inspiradora -->
+      <section class="saints-section-card" aria-label="Santos del Día">
+        <div class="gospel-head" style="margin-bottom:8px">
+          <span class="gospel-tag">👼 Santoral Católico del Día</span>
+          <h3>Santos del Día · ${g.formattedLongDate}</h3>
+          <p class="gospel-ref">Vidas breves e inspiradoras de los testigos de la fe que la Iglesia celebra en esta fecha.</p>
+        </div>
+
+        ${saints.map((st, idx) => `
+          <article class="saint-card">
+            <div class="saint-card-head">
+              <div class="saint-title-wrap">
+                <span class="saint-halo-icon" aria-hidden="true">${st.icon || "👼"}</span>
+                <div>
+                  <h4>${st.name}</h4>
+                  <span class="saint-feast-badge">${st.feast}</span>
+                </div>
+              </div>
+              <button type="button" class="btn-sm" style="flex:none" data-save-saint-idx="${idx}">📓 Guardar en Notas</button>
+            </div>
+            <p class="saint-bio">${st.bio}</p>
+            <div class="saint-quote">${st.quote}</div>
+          </article>
+        `).join("")}
+      </section>
+    ` : ""}`;
 }
 
 let toastTimer;
@@ -4854,7 +5335,7 @@ function bindAppEvents() {
     }
   });
 
-  // Delegación de eventos en el Módulo de Liturgia (Selector de fecha y Explicación de Papas / Sacerdotes)
+  // Delegación de eventos en el Módulo de Liturgia (Sub-pestañas, Selector de fecha, Explicación y Santos del Día)
   $("#liturgy-content")?.addEventListener("change", e => {
     if (e.target && e.target.id === "liturgy-date-input" && e.target.value) {
       state.liturgyDate = e.target.value;
@@ -4863,6 +5344,12 @@ function bindAppEvents() {
   });
 
   $("#liturgy-content")?.addEventListener("click", e => {
+    const litTabBtn = e.target.closest("[data-lit-tab]");
+    if (litTabBtn) {
+      state.litTab = litTabBtn.dataset.litTab;
+      renderLiturgyView();
+      return;
+    }
     if (e.target.closest("#btn-liturgy-prev")) {
       state.liturgyDate = addDaysIso(state.liturgyDate, -1);
       renderLiturgyView();
@@ -4876,7 +5363,7 @@ function bindAppEvents() {
     if (e.target.closest("#btn-liturgy-today")) {
       state.liturgyDate = getTodayIsoDate();
       renderLiturgyView();
-      toast("Evangelio actualizado a la fecha de hoy");
+      toast("Liturgia y Santos actualizados a la fecha de hoy");
       return;
     }
     if (e.target.closest("#btn-toggle-gospel-explain")) {
@@ -4901,7 +5388,50 @@ function bindAppEvents() {
         }
       });
       toast("Cita del Evangelio cargada en tu Bloc de Notas");
+      return;
     }
+    const saveSaintBtn = e.target.closest("[data-save-saint-idx]");
+    if (saveSaintBtn) {
+      const idx = Number(saveSaintBtn.dataset.saveSaintIdx) || 0;
+      const saints = getSaintsForDate(state.liturgyDate);
+      const st = saints[idx] || saints[0];
+      if (!st) return;
+      state.spirTab = "notes";
+      state.editingNoteId = null;
+      switchView("spiritual");
+      requestAnimationFrame(() => {
+        const titleEl = $("#note-title-input");
+        const catEl = $("#note-category-select");
+        const contentEl = $("#note-content-input");
+        if (titleEl) titleEl.value = `Santo del Día: ${st.name}`;
+        if (catEl) catEl.value = "Oración";
+        if (contentEl) {
+          contentEl.value = `${st.quote}\n\nPropósito inspirado en ${st.name}:\n`;
+          contentEl.focus();
+        }
+      });
+      toast(`Inspiración de ${st.name} cargada en tus Notas`);
+    }
+  });
+
+  // Eventos del Panel de Configuración (⚙️ Modo Noche e Idioma)
+  $("#btn-open-settings")?.addEventListener("click", openSettingsModal);
+  $("#btn-close-settings")?.addEventListener("click", closeSettingsModal);
+  $("#btn-save-settings")?.addEventListener("click", closeSettingsModal);
+  $("#settings-modal")?.addEventListener("click", e => {
+    if (e.target && e.target.id === "settings-modal") closeSettingsModal();
+  });
+  $("#toggle-dark-mode")?.addEventListener("change", e => {
+    appSettings.darkMode = Boolean(e.target.checked);
+    saveAppSettings();
+    applyAppSettings();
+    toast(appSettings.darkMode ? "🌙 Modo Oscuro / Noche activado" : "☀️ Modo Claro activado");
+  });
+  $("#select-app-lang")?.addEventListener("change", e => {
+    appSettings.lang = e.target.value || "es-AR";
+    saveAppSettings();
+    applyAppSettings();
+    toast("🌎 Idioma actualizado");
   });
 
   $("#btn-load-more")?.addEventListener("click", () => {
@@ -4950,6 +5480,7 @@ function bindAppEvents() {
 
   document.addEventListener("keydown", e => {
     if (e.key === "Escape") {
+      if ($("#settings-modal") && !$("#settings-modal").hidden) return closeSettingsModal();
       if ($("#public-profile-modal") && !$("#public-profile-modal").hidden) return closePublicProfileModal();
       if ($("#admin-edit-modal") && !$("#admin-edit-modal").hidden) return closeParishEditor();
       if ($("#admin-login-modal") && !$("#admin-login-modal").hidden) return closeAdminLoginModal();
@@ -4961,6 +5492,7 @@ function bindAppEvents() {
 function bootstrapApp() {
   if (appInitialized) return;
   appInitialized = true;
+  applyAppSettings();
   bindAppEvents();
   syncAdminUI();
   syncHeaderUserPill();

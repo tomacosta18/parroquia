@@ -1,11 +1,11 @@
 <!DOCTYPE html>
-<html lang="es-AR">
+<html lang="es-AR" data-theme="light">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Parroquias CABA</title>
-<meta name="description" content="Guía de parroquias y templos católicos de la Ciudad de Buenos Aires: horarios de misas y confesiones.">
-<meta name="theme-color" content="#243B8F">
+<title>Parroquias CABA y GBA · Comunidad Católica</title>
+<meta name="description" content="Guía de parroquias y templos católicos de Buenos Aires: horarios de misas, confesiones, racha espiritual, liturgia diaria, santoral y comunidad.">
+<meta name="theme-color" content="#243B8F" id="meta-theme-color">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Parroquias">
@@ -16,191 +16,253 @@
 <link rel="manifest" href="manifest.json">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+<link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
 <link rel="stylesheet" href="style.css">
 </head>
 <body data-active-view="list">
 
-<!-- ==================== VISTA 1: LISTADO ==================== -->
-<div class="app view-panel is-active" id="view-list" role="tabpanel" aria-labelledby="tab-list">
-  <header class="app-header">
-    <div>
-      <h1>Parroquias de Buenos Aires</h1>
-      <p class="sub">Encontrá misas, grupos y comunidad en CABA y GBA.</p>
+<!-- ==================== CABECERA SUPERIOR GLOBAL + NAVEGACIÓN DE PESTAÑAS (ESTILO LIBRO) ==================== -->
+<header class="top-app-shell" id="top-app-shell">
+  <div class="global-topbar">
+    <div class="brand-lockup">
+      <span class="brand-cross-badge" aria-hidden="true">✝</span>
+      <div class="brand-titles">
+        <span class="brand-name" data-i18n="app_title">Parroquias BA</span>
+        <span class="brand-sub" data-i18n="app_subtitle">CABA y GBA · Comunidad y Liturgia</span>
+      </div>
     </div>
-    <button type="button" class="header-user-pill" id="header-user-btn" aria-label="Abrir mi perfil o cuenta">
-      <span class="header-user-avatar" id="header-user-avatar">👤</span>
-      <span id="header-user-label">Cuenta</span>
-    </button>
-  </header>
 
-  <!-- Panel de Administración (visible solo en Modo Admin) -->
-  <section class="admin-panel" id="admin-panel" hidden aria-label="Panel de administración">
-    <div class="admin-panel-head">
-      <span class="admin-badge">
-        <span class="admin-dot" aria-hidden="true"></span>
-        Modo Administrador Activo
-      </span>
-      <button type="button" class="admin-logout-btn" id="btn-admin-logout">Cerrar sesión</button>
-    </div>
-    <div class="admin-panel-actions">
-      <button type="button" class="admin-action-btn primary" id="btn-admin-add">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
-        Agregar Nueva Parroquia
+    <div class="topbar-actions">
+      <button type="button" class="header-user-pill" id="header-user-btn" aria-label="Abrir mi perfil o cuenta">
+        <span class="header-user-avatar" id="header-user-avatar">👤</span>
+        <span id="header-user-label" data-i18n="account_btn">Cuenta</span>
       </button>
-      <button type="button" class="admin-action-btn export" id="btn-admin-export">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
-        Exportar JSON Actualizado
+      <button type="button" class="settings-gear-btn" id="btn-open-settings" aria-label="Abrir configuración de modo noche e idioma" title="Configuración (⚙️)">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="12" cy="12" r="3"/>
+          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+        </svg>
       </button>
     </div>
+  </div>
+
+  <!-- Barra de Navegación Superior con Scroll Horizontal Suave y Pestañas de Libro -->
+  <nav class="top-nav" id="top-nav" role="tablist" aria-label="Navegación principal">
+    <button type="button" class="nav-tab is-active" id="tab-list" role="tab" aria-selected="true" aria-controls="view-list" data-target-view="list">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true">
+        <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>
+      </svg>
+      <span data-i18n="nav_temples">Templos</span>
+    </button>
+    <button type="button" class="nav-tab" id="tab-map" role="tab" aria-selected="false" aria-controls="view-map" data-target-view="map">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/>
+        <line x1="9" y1="3" x2="9" y2="18"/>
+        <line x1="15" y1="6" x2="15" y2="21"/>
+      </svg>
+      <span data-i18n="nav_map">Mapa</span>
+    </button>
+    <button type="button" class="nav-tab" id="tab-spiritual" role="tab" aria-selected="false" aria-controls="view-spiritual" data-target-view="spiritual">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 2c.5 3.5 3.5 5.5 3.5 9a5.5 5.5 0 1 1-11 0c0-2.5 1.5-4.5 3-6 .5 2 2 3 2 3s1-2.5 2.5-6z"/>
+      </svg>
+      <span data-i18n="nav_spiritual">Racha / Notas</span>
+    </button>
+    <button type="button" class="nav-tab" id="tab-liturgy" role="tab" aria-selected="false" aria-controls="view-liturgy" data-target-view="liturgy">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
+        <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
+        <path d="M12 6v7M9.5 8.5h5"/>
+      </svg>
+      <span data-i18n="nav_liturgy">Liturgia y Santos</span>
+    </button>
+    <button type="button" class="nav-tab" id="tab-community" role="tab" aria-selected="false" aria-controls="view-community" data-target-view="community">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
+      </svg>
+      <span data-i18n="nav_community">Comunidad</span>
+    </button>
+    <button type="button" class="nav-tab" id="tab-profile" role="tab" aria-selected="false" aria-controls="view-profile" data-target-view="profile">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
+        <circle cx="12" cy="7" r="4"/>
+      </svg>
+      <span id="nav-profile-label" data-i18n="nav_profile">Perfil</span>
+    </button>
+  </nav>
+</header>
+
+<!-- ==================== CONTENEDOR DE PÁGINAS CON TRANSICIÓN DE LIBRO ==================== -->
+<div class="book-viewport" id="book-viewport">
+
+  <!-- ==================== VISTA 1: LISTADO DE TEMPLOS ==================== -->
+  <section class="app view-panel is-active" id="view-list" role="tabpanel" aria-labelledby="tab-list">
+    <div class="page-intro">
+      <h1 data-i18n="list_heading">Parroquias de Buenos Aires</h1>
+      <p class="sub" data-i18n="list_subheading">Encontrá misas, confesiones, grupos y concurrencia en CABA y GBA.</p>
+    </div>
+
+    <!-- Panel de Administración (visible solo en Modo Admin) -->
+    <section class="admin-panel" id="admin-panel" hidden aria-label="Panel de administración">
+      <div class="admin-panel-head">
+        <span class="admin-badge">
+          <span class="admin-dot" aria-hidden="true"></span>
+          Modo Administrador Activo
+        </span>
+        <button type="button" class="admin-logout-btn" id="btn-admin-logout">Cerrar sesión</button>
+      </div>
+      <div class="admin-panel-actions">
+        <button type="button" class="admin-action-btn primary" id="btn-admin-add">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg>
+          Agregar Nueva Parroquia
+        </button>
+        <button type="button" class="admin-action-btn export" id="btn-admin-export">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4M7 10l5 5 5-5M12 15V3"/></svg>
+          Exportar JSON Actualizado
+        </button>
+      </div>
+    </section>
+
+    <div class="search">
+      <div class="field">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+        <input id="q" type="search" placeholder="Buscá por nombre, barrio, tipo o calle" data-i18n-placeholder="search_placeholder" autocomplete="off" aria-label="Buscar parroquias" aria-controls="suggest">
+        <div class="suggest" id="suggest" role="listbox"></div>
+      </div>
+
+      <div class="loc-bar" aria-label="Ubicación de referencia">
+        <div class="loc-select-wrap">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+            <path d="M12 21s-6-5.2-6-10a6 6 0 1 1 12 0c0 4.8-6 10-6 10z"/>
+            <circle cx="12" cy="11" r="2.2"/>
+          </svg>
+          <select id="manual-zone" aria-label="Elegir zona o barrio de referencia para calcular distancias">
+            <option value="">Ubicación: Orden alfabético (general)</option>
+          </select>
+        </div>
+        <button type="button" class="btn-gps-inline" id="btn-gps-inline" aria-label="Usar mi ubicación GPS">
+          Usar GPS
+        </button>
+      </div>
+
+      <div class="loc-banner" id="loc-banner" role="status" aria-live="polite" hidden>
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <circle cx="12" cy="12" r="9"/><path d="M12 8v4"/><path d="M12 16h.01"/>
+        </svg>
+        <span id="loc-banner-text">No pudimos obtener tu ubicación automática. Mostrando listado general o elegí tu zona manualmente</span>
+        <button type="button" class="loc-banner-close" id="loc-banner-close" aria-label="Cerrar aviso">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6 6 18"/></svg>
+        </button>
+      </div>
+
+      <div class="region-tabs" id="region-tabs" role="group" aria-label="Filtrar por región CABA o GBA"></div>
+      <div class="chips" id="chips" role="group" aria-label="Filtros rápidos y barrios o partidos"></div>
+    </div>
+
+    <p class="count" id="count" aria-live="polite"></p>
+    <main class="list" id="list"></main>
+    <div class="list-sentinel" id="list-sentinel" hidden>
+      <button type="button" class="btn-load-more" id="btn-load-more">Mostrar más parroquias</button>
+    </div>
+
+    <footer class="app-footer">
+      <p>Guía colaborativa de templos católicos · CABA y GBA</p>
+      <button type="button" class="footer-admin-link" id="btn-admin-access" aria-label="Acceso administrador">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+          <rect x="4" y="11" width="16" height="10" rx="2"/>
+          <path d="M8 11V7a4 4 0 0 1 8 0v4"/>
+        </svg>
+        <span id="footer-admin-label">Acceso administrador</span>
+      </button>
+    </footer>
   </section>
 
-  <div class="search">
-    <div class="field">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
-      <input id="q" type="search" placeholder="Buscá por nombre, barrio, tipo o calle" autocomplete="off" aria-label="Buscar parroquias" aria-controls="suggest">
-      <div class="suggest" id="suggest" role="listbox"></div>
-    </div>
-
-    <div class="loc-bar" aria-label="Ubicación de referencia">
-      <div class="loc-select-wrap">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-          <path d="M12 21s-6-5.2-6-10a6 6 0 1 1 12 0c0 4.8-6 10-6 10z"/>
-          <circle cx="12" cy="11" r="2.2"/>
-        </svg>
-        <select id="manual-zone" aria-label="Elegir zona o barrio de referencia para calcular distancias">
-          <option value="">Ubicación: Orden alfabético (general)</option>
-        </select>
+  <!-- ==================== VISTA 2: MAPA INTERACTIVO ==================== -->
+  <section class="map-fullscreen view-panel" id="view-map" role="tabpanel" aria-labelledby="tab-map" aria-hidden="true">
+    <div class="map-top-bar">
+      <div class="map-legend-pill">
+        <span class="legend-item">
+          <span class="legend-dot catedral" aria-hidden="true"></span>
+          Catedral
+        </span>
+        <span class="legend-item">
+          <span class="legend-dot basilica" aria-hidden="true"></span>
+          Basílica
+        </span>
+        <span class="legend-item">
+          <span class="legend-dot parroquia" aria-hidden="true"></span>
+          Parroquia
+        </span>
+        <span class="legend-item">
+          <span class="legend-dot capilla" aria-hidden="true"></span>
+          Capilla
+        </span>
       </div>
-      <button type="button" class="btn-gps-inline" id="btn-gps-inline" aria-label="Usar mi ubicación GPS">
-        Usar GPS
+      <button type="button" class="map-recenter-btn" id="btn-map-fit" aria-label="Ajustar vista a todos los templos">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+          <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+        </svg>
+        <span>Ver todos</span>
       </button>
     </div>
+    <div id="map" class="map-canvas-full" role="region" aria-label="Mapa interactivo de parroquias en CABA y GBA"></div>
+  </section>
 
-    <div class="loc-banner" id="loc-banner" role="status" aria-live="polite" hidden>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-        <circle cx="12" cy="12" r="9"/><path d="M12 8v4"/><path d="M12 16h.01"/>
-      </svg>
-      <span id="loc-banner-text">No pudimos obtener tu ubicación automática. Mostrando listado general o elegí tu zona manualmente</span>
-      <button type="button" class="loc-banner-close" id="loc-banner-close" aria-label="Cerrar aviso">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 6l12 12M18 6 6 18"/></svg>
-      </button>
+  <!-- ==================== VISTA 3: RACHA ESPIRITUAL, NOTAS Y ESTADÍSTICAS ==================== -->
+  <section class="app view-panel" id="view-spiritual" role="tabpanel" aria-labelledby="tab-spiritual" aria-hidden="true">
+    <div class="page-intro">
+      <h1 data-i18n="spiritual_heading">Racha Espiritual y Notas</h1>
+      <p class="sub" data-i18n="spiritual_subheading">Registrá tus misas y adoraciones, guardá reflexiones y medí tu tiempo de oración.</p>
     </div>
 
-    <div class="region-tabs" id="region-tabs" role="group" aria-label="Filtrar por región CABA o GBA"></div>
-    <div class="chips" id="chips" role="group" aria-label="Filtros rápidos y barrios o partidos"></div>
-  </div>
+    <div class="community-subnav" id="spiritual-subtabs" role="tablist" aria-label="Secciones de vida espiritual">
+      <button type="button" class="comm-tab is-active" data-spir-tab="streak" role="tab" aria-selected="true">🔥 Racha y Check-in</button>
+      <button type="button" class="comm-tab" data-spir-tab="notes" role="tab" aria-selected="false">📓 Bloc de Notas</button>
+      <button type="button" class="comm-tab" data-spir-tab="stats" role="tab" aria-selected="false">📊 Estadísticas</button>
+    </div>
 
-  <p class="count" id="count" aria-live="polite"></p>
-  <main class="list" id="list"></main>
-  <div class="list-sentinel" id="list-sentinel" hidden>
-    <button type="button" class="btn-load-more" id="btn-load-more">Mostrar más parroquias</button>
-  </div>
+    <div id="spiritual-content" class="spiritual-body"></div>
+  </section>
 
-  <footer class="app-footer">
-    <p>Guía colaborativa de templos católicos · CABA y GBA</p>
-    <button type="button" class="footer-admin-link" id="btn-admin-access" aria-label="Acceso administrador">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-        <rect x="4" y="11" width="16" height="10" rx="2"/>
-        <path d="M8 11V7a4 4 0 0 1 8 0v4"/>
-      </svg>
-      <span id="footer-admin-label">Acceso administrador</span>
-    </button>
-  </footer>
+  <!-- ==================== VISTA 4: LITURGIA, EVANGELIO REAL Y SANTOS DEL DÍA ==================== -->
+  <section class="app view-panel" id="view-liturgy" role="tabpanel" aria-labelledby="tab-liturgy" aria-hidden="true">
+    <div class="page-intro">
+      <h1 data-i18n="liturgy_heading">Liturgia y Santos del Día</h1>
+      <p class="sub" data-i18n="liturgy_subheading">Lecturas católicas oficiales en español de Argentina, reflexión homilética y santoral diario.</p>
+    </div>
+
+    <div id="liturgy-content" class="liturgy-body"></div>
+  </section>
+
+  <!-- ==================== VISTA 5: COMUNIDAD (FEED SOCIAL + RANKING + BUSCADOR) ==================== -->
+  <section class="app view-panel" id="view-community" role="tabpanel" aria-labelledby="tab-community" aria-hidden="true">
+    <div class="page-intro">
+      <h1 data-i18n="community_heading">Comunidad y Ranking</h1>
+      <p class="sub" data-i18n="community_subheading">Mensajes comunitarios, buscador de fieles/grupos y parroquias más activas.</p>
+    </div>
+
+    <div class="community-subnav" id="community-subtabs" role="tablist" aria-label="Secciones de comunidad">
+      <button type="button" class="comm-tab is-active" data-comm-tab="all" role="tab" aria-selected="true">Muro General</button>
+      <button type="button" class="comm-tab" data-comm-tab="following" role="tab" aria-selected="false">Siguiendo</button>
+      <button type="button" class="comm-tab" data-comm-tab="ranking" role="tab" aria-selected="false">🏆 Ranking Parroquias</button>
+      <button type="button" class="comm-tab" data-comm-tab="people" role="tab" aria-selected="false">🔍 Buscar Usuarios y Grupos</button>
+    </div>
+
+    <div id="community-content" class="community-body"></div>
+  </section>
+
+  <!-- ==================== VISTA 6: PERFIL / CUENTA DE USUARIO ==================== -->
+  <section class="app view-panel" id="view-profile" role="tabpanel" aria-labelledby="tab-profile" aria-hidden="true">
+    <div class="page-intro">
+      <h1 data-i18n="profile_heading">Perfil y Cuenta</h1>
+      <p class="sub" data-i18n="profile_subheading">Tu identidad comunitaria, avatar Mii o foto, parroquias seguidas y grupos.</p>
+    </div>
+
+    <div id="profile-content" class="profile-body"></div>
+  </section>
+
 </div>
-
-<!-- ==================== VISTA 2: MAPA COMPLETO ==================== -->
-<section class="map-fullscreen view-panel" id="view-map" role="tabpanel" aria-labelledby="tab-map" aria-hidden="true">
-  <div class="map-top-bar">
-    <div class="map-legend-pill">
-      <span class="legend-item">
-        <span class="legend-dot catedral" aria-hidden="true"></span>
-        Catedral
-      </span>
-      <span class="legend-item">
-        <span class="legend-dot basilica" aria-hidden="true"></span>
-        Basílica
-      </span>
-      <span class="legend-item">
-        <span class="legend-dot parroquia" aria-hidden="true"></span>
-        Parroquia
-      </span>
-      <span class="legend-item">
-        <span class="legend-dot capilla" aria-hidden="true"></span>
-        Capilla
-      </span>
-    </div>
-    <button type="button" class="map-recenter-btn" id="btn-map-fit" aria-label="Ajustar vista a todos los templos">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
-        <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
-      </svg>
-      <span>Ver todos</span>
-    </button>
-  </div>
-  <div id="map" class="map-canvas-full" role="region" aria-label="Mapa interactivo a pantalla completa de parroquias en CABA"></div>
-</section>
-
-<!-- ==================== VISTA 3: RACHA ESPIRITUAL, NOTAS Y ESTADÍSTICAS ==================== -->
-<section class="app view-panel" id="view-spiritual" role="tabpanel" aria-labelledby="tab-spiritual" aria-hidden="true">
-  <header class="app-header">
-    <div>
-      <h1>Vida Espiritual</h1>
-      <p class="sub">Tu racha de misa y adoración, bloc de notas y estadísticas.</p>
-    </div>
-  </header>
-
-  <div class="community-subnav" id="spiritual-subtabs" role="tablist" aria-label="Secciones de vida espiritual">
-    <button type="button" class="comm-tab is-active" data-spir-tab="streak" role="tab" aria-selected="true">🔥 Racha</button>
-    <button type="button" class="comm-tab" data-spir-tab="notes" role="tab" aria-selected="false">📓 Notas</button>
-    <button type="button" class="comm-tab" data-spir-tab="stats" role="tab" aria-selected="false">📊 Estadísticas</button>
-  </div>
-
-  <div id="spiritual-content" class="spiritual-body"></div>
-</section>
-
-<!-- ==================== VISTA 4: LITURGIA Y EVANGELIO DEL DÍA ==================== -->
-<section class="app view-panel" id="view-liturgy" role="tabpanel" aria-labelledby="tab-liturgy" aria-hidden="true">
-  <header class="app-header">
-    <div>
-      <h1>Liturgia Diaria</h1>
-      <p class="sub">Evangelio del día (español de Argentina) y reflexión pastoral.</p>
-    </div>
-  </header>
-
-  <div id="liturgy-content" class="liturgy-body"></div>
-</section>
-
-<!-- ==================== VISTA 5: COMUNIDAD (FEED SOCIAL + RANKING + BUSCADOR DE USUARIOS Y GRUPOS) ==================== -->
-<section class="app view-panel" id="view-community" role="tabpanel" aria-labelledby="tab-community" aria-hidden="true">
-  <header class="app-header">
-    <div>
-      <h1>Comunidad y Ranking</h1>
-      <p class="sub">Mensajes cortos, buscador de fieles/grupos y parroquias activas.</p>
-    </div>
-  </header>
-
-  <div class="community-subnav" id="community-subtabs" role="tablist" aria-label="Secciones de comunidad">
-    <button type="button" class="comm-tab is-active" data-comm-tab="all" role="tab" aria-selected="true">Muro General</button>
-    <button type="button" class="comm-tab" data-comm-tab="following" role="tab" aria-selected="false">Siguiendo</button>
-    <button type="button" class="comm-tab" data-comm-tab="ranking" role="tab" aria-selected="false">🏆 Ranking Parroquias</button>
-    <button type="button" class="comm-tab" data-comm-tab="people" role="tab" aria-selected="false">🔍 Buscar Usuarios y Grupos</button>
-  </div>
-
-  <div id="community-content" class="community-body"></div>
-</section>
-
-<!-- ==================== VISTA 6: PERFIL / CUENTA DE USUARIO ==================== -->
-<section class="app view-panel" id="view-profile" role="tabpanel" aria-labelledby="tab-profile" aria-hidden="true">
-  <header class="app-header">
-    <div>
-      <h1>Perfil y Cuenta</h1>
-      <p class="sub">Tu identidad comunitaria, parroquias seguidas y grupos.</p>
-    </div>
-  </header>
-
-  <div id="profile-content" class="profile-body"></div>
-</section>
 
 <!-- ==================== BOTONES FLOTANTES ==================== -->
 <button class="fab-admin-add" id="fab-admin-add" type="button" hidden aria-label="Agregar nueva parroquia">
@@ -215,53 +277,8 @@
     <path d="M12 21s-6-5.2-6-10a6 6 0 1 1 12 0c0 4.8-6 10-6 10z"/>
     <circle cx="12" cy="11" r="2.2"/>
   </svg>
-  <span id="btn-near-label">Cerca de mí</span>
+  <span id="btn-near-label" data-i18n="near_me_btn">Cerca de mí</span>
 </button>
-
-<!-- ==================== BARRA DE NAVEGACIÓN INFERIOR (BOTTOM NAV) ==================== -->
-<nav class="bottom-nav" role="tablist" aria-label="Navegación principal">
-  <button type="button" class="nav-tab is-active" id="tab-list" role="tab" aria-selected="true" aria-controls="view-list" data-target-view="list">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" aria-hidden="true">
-      <path d="M8 6h13M8 12h13M8 18h13M3 6h.01M3 12h.01M3 18h.01"/>
-    </svg>
-    <span>Templos</span>
-  </button>
-  <button type="button" class="nav-tab" id="tab-map" role="tab" aria-selected="false" aria-controls="view-map" data-target-view="map">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <polygon points="3 6 9 3 15 6 21 3 21 18 15 21 9 18 3 21"/>
-      <line x1="9" y1="3" x2="9" y2="18"/>
-      <line x1="15" y1="6" x2="15" y2="21"/>
-    </svg>
-    <span>Mapa</span>
-  </button>
-  <button type="button" class="nav-tab" id="tab-spiritual" role="tab" aria-selected="false" aria-controls="view-spiritual" data-target-view="spiritual">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <path d="M12 2c.5 3.5 3.5 5.5 3.5 9a5.5 5.5 0 1 1-11 0c0-2.5 1.5-4.5 3-6 .5 2 2 3 2 3s1-2.5 2.5-6z"/>
-    </svg>
-    <span>Racha / Notas</span>
-  </button>
-  <button type="button" class="nav-tab" id="tab-liturgy" role="tab" aria-selected="false" aria-controls="view-liturgy" data-target-view="liturgy">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/>
-      <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/>
-      <path d="M12 6v7M9.5 8.5h5"/>
-    </svg>
-    <span>Liturgia</span>
-  </button>
-  <button type="button" class="nav-tab" id="tab-community" role="tab" aria-selected="false" aria-controls="view-community" data-target-view="community">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"/>
-    </svg>
-    <span>Comunidad</span>
-  </button>
-  <button type="button" class="nav-tab" id="tab-profile" role="tab" aria-selected="false" aria-controls="view-profile" data-target-view="profile">
-    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-      <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/>
-      <circle cx="12" cy="7" r="4"/>
-    </svg>
-    <span id="nav-profile-label">Perfil</span>
-  </button>
-</nav>
 
 <!-- ==================== HOJA DESLIZANTE DE DETALLE ==================== -->
 <div class="scrim" id="scrim"></div>
@@ -280,6 +297,59 @@
     <a class="btn primary" id="d-map" target="_blank" rel="noopener noreferrer">Cómo llegar</a>
   </div>
 </section>
+
+<!-- ==================== PANEL LATERAL / MODAL DE CONFIGURACIÓN (⚙️ MODO NOCHE E IDIOMA) ==================== -->
+<div class="modal-backdrop settings-drawer-backdrop" id="settings-modal" role="dialog" aria-modal="true" aria-labelledby="settings-modal-title" hidden>
+  <aside class="settings-drawer">
+    <div class="modal-head">
+      <h2 id="settings-modal-title" data-i18n="settings_title">⚙️ Configuración</h2>
+      <button type="button" class="icon-btn modal-close" id="btn-close-settings" aria-label="Cerrar configuración">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
+    <p class="modal-sub" data-i18n="settings_subtitle">Personalizá la apariencia visual y el idioma de la aplicación.</p>
+
+    <div class="settings-list">
+      <!-- Interruptor (Switch) de Modo Oscuro / Noche -->
+      <div class="settings-item">
+        <div class="settings-item-info">
+          <strong data-i18n="dark_mode_label">🌙 Modo Oscuro / Noche</strong>
+          <span data-i18n="dark_mode_desc">Aplica tonos profundos y descansa la vista durante la oración nocturna.</span>
+        </div>
+        <label class="theme-switch" for="toggle-dark-mode" aria-label="Activar Modo Oscuro">
+          <input type="checkbox" id="toggle-dark-mode">
+          <span class="theme-slider"></span>
+        </label>
+      </div>
+
+      <!-- Selector de Idioma -->
+      <div class="settings-item settings-item-col">
+        <div class="settings-item-info">
+          <strong data-i18n="lang_label">🌎 Idioma de la Interfaz</strong>
+          <span data-i18n="lang_desc">Seleccioná el idioma para los menús y etiquetas principales.</span>
+        </div>
+        <select id="select-app-lang" class="settings-select" aria-label="Seleccionar idioma">
+          <option value="es-AR">🇦🇷 Español (Argentina)</option>
+          <option value="en">🇺🇸 English (Inglés)</option>
+          <option value="pt">🇧🇷 Português (Portugués)</option>
+          <option value="it">🇻🇦 Italiano (Vaticano)</option>
+        </select>
+      </div>
+
+      <!-- Acceso Rápido a Secciones -->
+      <div class="settings-item settings-item-col">
+        <div class="settings-item-info">
+          <strong>📖 Navegación estilo Libro</strong>
+          <span>Barra superior deslizable libre del borde inferior para evitar superposiciones en móviles.</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="form-actions" style="margin-top:18px">
+      <button type="button" class="btn-sm submit" id="btn-save-settings" data-i18n="settings_done">Listo</button>
+    </div>
+  </aside>
+</div>
 
 <!-- ==================== MODAL 1: ACCESO ADMINISTRADOR (CONTRASEÑA) ==================== -->
 <div class="modal-backdrop" id="admin-login-modal" role="dialog" aria-modal="true" aria-labelledby="admin-login-title" hidden>
