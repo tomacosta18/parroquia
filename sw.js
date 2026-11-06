@@ -1,5 +1,5 @@
-const APP_CACHE = "parroquias-app-v28";
-const DATA_CACHE = "parroquias-data-v28";
+const APP_CACHE = "parroquias-app-v29";
+const DATA_CACHE = "parroquias-data-v29";
 
 const APP_SHELL = [
   "./",
@@ -23,7 +23,7 @@ self.addEventListener("install", (event) => {
   event.waitUntil(
     Promise.all([
       caches.open(APP_CACHE).then((cache) =>
-        Promise.all(
+        Promise.allSettled(
           APP_SHELL.map((url) =>
             fetch(new Request(url, { cache: "reload" })).then((res) => {
               if (res.ok) return cache.put(url, res);
@@ -31,7 +31,9 @@ self.addEventListener("install", (event) => {
           )
         )
       ),
-      caches.open(DATA_CACHE).then((cache) => cache.addAll(DATA_URLS))
+      caches.open(DATA_CACHE).then((cache) =>
+        Promise.allSettled(DATA_URLS.map((u) => fetch(u, { cache: "reload" }).then((r) => r.ok && cache.put(u, r))))
+      )
     ]).then(() => self.skipWaiting())
   );
 });

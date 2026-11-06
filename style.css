@@ -3666,3 +3666,38 @@ svg.audio-vol-icon[data-level="mute"] .vol-wave-2 {
   font-size: 0.7rem;
   color: var(--muted);
 }
+
+
+/* ============ Bienvenida por roles (splash interactivo) ============ */
+.app-splash-screen.is-ready .splash-spinner { display: none; }
+.splash-options { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; width: 100%; margin-top: 18px; }
+.splash-opt {
+  aspect-ratio: 1 / 1; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 20px; color: var(--ink);
+  box-shadow: 0 6px 18px rgba(0, 0, 0, .08); font: inherit; cursor: pointer; padding: 10px;
+  transition: transform .15s ease, border-color .15s ease;
+}
+.splash-opt:active { transform: scale(.96); }
+.splash-opt:hover, .splash-opt:focus-visible { border-color: #6b1426; }
+.splash-opt-ico { font-size: 2rem; line-height: 1; }
+.splash-opt strong { font-family: var(--serif); font-size: 1.05rem; }
+.splash-opt small { color: var(--muted); font-size: .74rem; }
+.splash-guest-btn {
+  margin-top: 14px; min-height: 44px; padding: 0 22px; border-radius: 999px; border: 0; cursor: pointer;
+  background: #6b1426; color: #fff; font: inherit; font-weight: 600; font-size: .92rem;
+}
+.splash-staff-link {
+  position: absolute; left: calc(10px + env(safe-area-inset-left, 0px)); bottom: calc(10px + env(safe-area-inset-bottom, 0px));
+  min-height: 44px; display: inline-flex; align-items: center; gap: 6px; padding: 0 10px;
+  background: none; border: 0; color: var(--muted); font: inherit; font-size: .74rem; cursor: pointer; opacity: .85;
+}
+.splash-staff-link:hover, .splash-staff-link:focus-visible { color: var(--ink); opacity: 1; }
+.btn-guest-wide {
+  width: 100%; min-height: 44px; margin-top: 10px; border-radius: 12px; border: 1px dashed var(--line);
+  background: transparent; color: var(--ink); font: inherit; font-weight: 600; cursor: pointer;
+}
+/* El modal de PIN debe verse por encima del splash; la radio no se muestra detrás */
+body.splash-open .modal-backdrop { z-index: 100020; }
+body.splash-open .floating-audio-widget { display: none; }
+body.dark-mode .splash-guest-btn { background: #f1c40f; color: #1a1a1a; }
+@media (prefers-reduced-motion: reduce) { .splash-opt, .app-splash-screen { transition: none; } }

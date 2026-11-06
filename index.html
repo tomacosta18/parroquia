@@ -20,18 +20,33 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
 <link rel="stylesheet" href="style.css">
 </head>
-<body data-active-view="list">
+<body data-active-view="list" class="splash-open">
 
-<!-- ==================== PANTALLA DE BIENVENIDA / SPLASH SCREEN INSTITUCIONAL (AUTO-DISMISS) ==================== -->
-<div class="app-splash-screen" id="app-splash-screen" role="status" aria-label="Cargando Guía Católica CABA y GBA">
+<!-- ==================== BIENVENIDA: ACCESO POR ROLES (INVITADO / ADMIN / COLABORADOR) ==================== -->
+<div class="app-splash-screen" id="app-splash-screen" role="dialog" aria-modal="true" aria-labelledby="splash-title">
   <div class="splash-content">
     <img src="icons/logo.png" alt="No apartes tu rostro del pobre" class="splash-logo">
     <div class="splash-titles">
-      <span class="splash-brand-title">Guía Católica</span>
+      <span class="splash-brand-title" id="splash-title">Guía Católica</span>
       <span class="splash-brand-sub">CABA y GBA · Parroquias y Liturgia</span>
     </div>
     <div class="splash-spinner" aria-hidden="true"></div>
+    <div class="splash-options" role="group" aria-label="Cómo querés empezar">
+      <button type="button" class="splash-opt" id="btn-splash-list">
+        <span class="splash-opt-ico" aria-hidden="true">⛪</span>
+        <strong>Templos</strong><small>Misas y horarios</small>
+      </button>
+      <button type="button" class="splash-opt" id="btn-splash-map">
+        <span class="splash-opt-ico" aria-hidden="true">🗺️</span>
+        <strong>Mapa</strong><small>Templos cercanos</small>
+      </button>
+    </div>
+    <button type="button" class="splash-guest-btn" id="btn-splash-guest">Ingresar como Invitado</button>
   </div>
+  <button type="button" class="splash-staff-link" id="btn-splash-staff">
+    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true"><rect x="4" y="11" width="16" height="10" rx="2"/><path d="M8 11V7a4 4 0 0 1 8 0v4"/></svg>
+    Ingreso como Administrador / Colaborador
+  </button>
 </div>
 
 <!-- ==================== CABECERA SUPERIOR GLOBAL + NAVEGACIÓN DE PESTAÑAS (ESTILO LIBRO) ==================== -->
@@ -438,17 +453,18 @@
         <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>
       </button>
     </div>
-    <p class="modal-sub">Ingresá tu clave según tu rol: <strong>Administrador Maestro (1118)</strong> para control total o <strong>Rol de Comunidad / Colaborador (0000)</strong> para gestionar actividades y grupos parroquiales.</p>
+    <p class="modal-sub">Ingresá tu clave de <strong>Administrador</strong> (control total) o de <strong>Colaborador de Comunidad</strong> (actividades y grupos parroquiales).</p>
     <form id="admin-login-form" autocomplete="off">
       <div class="form-field">
-        <label for="admin-pass">Clave numérica de acceso (1118 o 0000)</label>
+        <label for="admin-pass">Clave numérica de acceso</label>
         <input id="admin-pass" type="password" inputmode="numeric" pattern="[0-9]*" maxlength="8" placeholder="••••" required>
       </div>
-      <p class="modal-error" id="admin-login-error" role="alert" hidden>Clave incorrecta. Ingresá 1118 (Admin Maestro) o 0000 (Colaborador de Actividades).</p>
+      <p class="modal-error" id="admin-login-error" role="alert" hidden>Clave incorrecta. Verificá el código e intentá de nuevo.</p>
       <div class="form-actions">
         <button type="button" class="btn-sm cancel" id="btn-cancel-login">Cancelar</button>
         <button type="submit" class="btn-sm submit">Desbloquear</button>
       </div>
+      <button type="button" class="btn-guest-wide" id="btn-login-guest">Ingresar como Invitado</button>
     </form>
   </div>
 </div>
@@ -550,7 +566,10 @@
       <input type="hidden" id="act-idx" value="-1">
       <div class="form-field">
         <label for="act-parish-select">Templo / Parroquia</label>
-        <select id="act-parish-select" required></select>
+        <button type="button" class="parish-picker-trigger-btn" id="btn-act-parish-picker" aria-haspopup="dialog">
+          <span id="act-parish-display">Elegir templo</span><span aria-hidden="true">▾</span>
+        </button>
+        <select id="act-parish-select" hidden aria-hidden="true"></select>
       </div>
       <div class="form-row-2">
         <div class="form-field">

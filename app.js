@@ -2179,12 +2179,16 @@ const FALLBACK_PARISHES = [
    ===================================================================== */
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
+/** Escapa texto antes de insertarlo en innerHTML. */
+const esc = (v) => String(v ?? "").replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const norm = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
 
+/** Acepta "19:00", "19.30", "8", "8 h", "20hs". Devuelve minutos desde 00:00 o NaN. */
 function toMinutes(hhmm) {
-  const m = String(hhmm || "").match(/(\d{1,2}):(\d{2})/);
+  const m = String(hhmm || "").trim().match(/^(\d{1,2})(?:[:.hH](\d{2}))?\s*(?:h|hs|hrs)?\.?$/i);
   if (!m) return NaN;
-  return Number(m[1]) * 60 + Number(m[2]);
+  const h = Number(m[1]), min = m[2] ? Number(m[2]) : 0;
+  return h > 23 || min > 59 ? NaN : h * 60 + min;
 }
 
 function getCoords(p) {
@@ -2521,18 +2525,21 @@ function parseDaysFromLabel(diaLabel) {
   if (text.includes("todos los dias") || text.includes("diario") || text.includes("lunes a domingo")) {
     return new Set([0, 1, 2, 3, 4, 5, 6]);
   }
-  if (text.includes("dias habiles") || text.includes("dias de semana") || text.includes("semana")) {
-    [1, 2, 3, 4, 5].forEach(d => days.add(d));
-  }
-  if (text.includes("fin de semana") || text.includes("fines de semana")) {
+  // "fin(es) de semana" se procesa y retira primero: la palabra "semana" no debe activar lunes a viernes
+  let rest = text;
+  if (/\bfines? de semana\b/.test(rest)) {
     days.add(6);
     days.add(0);
+    rest = rest.replace(/\bfines? de semana\b/g, " ");
+  }
+  if (/\bdias habiles\b|\bdias? de semana\b|\bentre semana\b|\bsemana\b/.test(rest)) {
+    [1, 2, 3, 4, 5].forEach(d => days.add(d));
   }
 
   const rangeRegex = /\b(dom\w*|lun\w*|mar\w*|mie\w*|jue\w*|vie\w*|sab\w*)\s*(?:a|-|al)\s*(dom\w*|lun\w*|mar\w*|mie\w*|jue\w*|vie\w*|sab\w*)\b/g;
   let match;
   let hadRange = false;
-  while ((match = rangeRegex.exec(text)) !== null) {
+  while ((match = rangeRegex.exec(rest)) !== null) {
     const start = tokenToDayIndex(match[1]);
     const end = tokenToDayIndex(match[2]);
     if (start !== null && end !== null) {
@@ -2550,7 +2557,7 @@ function parseDaysFromLabel(diaLabel) {
   }
 
   if (!hadRange) {
-    const tokens = text.split(/[\s,y/]+/);
+    const tokens = rest.split(/[\s,/]+|\by\b/);
     tokens.forEach(tok => {
       const idx = tokenToDayIndex(tok);
       if (idx !== null) days.add(idx);
@@ -3662,6 +3669,8 @@ function renderParishSquareGrid(searchQuery = "") {
   const q = norm(searchQuery);
   const currentSelectedId = activeParishPickerTarget === "streak"
     ? String(spiritualDB.lastParishId || "1")
+    : activeParishPickerTarget === "activity"
+    ? String(document.getElementById("act-parish-select")?.value || "")
     : String(document.getElementById("note-parish-select")?.value || "");
 
   const matches = PARISHES.filter(p => {
@@ -3670,7 +3679,7 @@ function renderParishSquareGrid(searchQuery = "") {
   });
 
   if (!matches.length) {
-    grid.innerHTML = `<div class="empty" style="grid-column: 1 / -1;">No se encontraron templos con "${searchQuery}"</div>`;
+    grid.innerHTML = `<div class="empty" style="grid-column: 1 / -1;">No se encontraron templos con "${esc(searchQuery)}"</div>`;
     return;
   }
 
@@ -4218,7 +4227,7 @@ function openDetail(id) {
       </div>
       <p class="note" style="margin-top:0;margin-bottom:8px">
         ${state.canEditActivities
-          ? "Modo Gestión Activo (" + (state.isAdmin ? "Admin 1118" : "Colaborador 0000") + "): Podés sumar, editar o quitar actividades de este templo."
+          ? "Modo Gestión Activo (" + (state.isAdmin ? "Administrador" : "Colaborador") + "): Podés sumar, editar o quitar actividades de este templo."
           : "Sumate a los espacios de oración, coro, catequesis y misión de esta comunidad:"}
       </p>
       <div class="activities-grid" id="d-activities-grid">
@@ -4427,8 +4436,8 @@ function syncAdminUI() {
   }
   if (badgeText) {
     badgeText.textContent = state.isAdmin
-      ? "Modo Administrador Maestro (1118)"
-      : "Rol Comunidad / Colaborador (0000)";
+      ? "Modo Administrador Maestro"
+      : "Rol Comunidad / Colaborador";
   }
   if (roleDesc) {
     roleDesc.textContent = state.isAdmin
@@ -4441,9 +4450,9 @@ function syncAdminUI() {
   if (dEdit) dEdit.hidden = !state.isAdmin || !state.current;
   if (footerLabel) {
     footerLabel.textContent = state.isAdmin
-      ? "Modo Admin Maestro (1118) activo"
+      ? "Modo Admin Maestro activo"
       : state.adminRole === "collab"
-      ? "Modo Colaborador (0000) activo"
+      ? "Modo Colaborador activo"
       : "Acceso administrador / colaborador";
   }
 }
@@ -4451,7 +4460,7 @@ function syncAdminUI() {
 function openAdminLoginModal() {
   if (state.canEditActivities) {
     $("#admin-panel")?.scrollIntoView({ behavior: "smooth", block: "start" });
-    toast(state.isAdmin ? "El Modo Administrador Maestro (1118) ya está activo" : "El Rol Colaborador (0000) ya está activo");
+    toast(state.isAdmin ? "El Modo Administrador Maestro ya está activo" : "El Rol Colaborador ya está activo");
     return;
   }
   const modal = $("#admin-login-modal");
@@ -4469,11 +4478,20 @@ function closeAdminLoginModal() {
   if (modal) modal.hidden = true;
 }
 
+let loginAttempts = 0;
+let loginLockedUntil = 0;
+
 function handleAdminLoginSubmit(e) {
   e.preventDefault();
   const input = $("#admin-pass");
   const err = $("#admin-login-error");
   const pin = input.value.trim();
+
+  if (Date.now() < loginLockedUntil) {
+    err.textContent = `Demasiados intentos. Esperá ${Math.ceil((loginLockedUntil - Date.now()) / 1000)} s.`;
+    err.hidden = false;
+    return;
+  }
 
   if (pin === ADMIN_MASTER_PIN) {
     state.adminRole = "master";
@@ -4481,23 +4499,32 @@ function handleAdminLoginSubmit(e) {
     state.canEditActivities = true;
     Store.set("admin_role_v1", "master");
     Store.set("admin_unlocked", true);
+    loginAttempts = 0;
     closeAdminLoginModal();
+    dismissSplashScreen();
     syncAdminUI();
     renderList();
     if (state.current) openDetail(state.current.id);
-    toast("🔓 Modo Administrador Maestro (1118) desbloqueado");
+    toast("🔓 Modo Administrador Maestro desbloqueado");
   } else if (pin === ADMIN_COLLAB_PIN) {
     state.adminRole = "collab";
     state.isAdmin = false;
     state.canEditActivities = true;
     Store.set("admin_role_v1", "collab");
     Store.set("admin_unlocked", false);
+    loginAttempts = 0;
     closeAdminLoginModal();
+    dismissSplashScreen();
     syncAdminUI();
     renderList();
     if (state.current) openDetail(state.current.id);
-    toast("🙌 Rol de Comunidad / Colaborador (0000) activado para gestionar actividades");
+    toast("🙌 Rol de Comunidad / Colaborador activado para gestionar actividades");
   } else {
+    loginAttempts++;
+    err.textContent = loginAttempts >= 5
+      ? "Demasiados intentos. Esperá 30 s."
+      : "Clave incorrecta. Verificá el código e intentá de nuevo.";
+    if (loginAttempts >= 5) { loginLockedUntil = Date.now() + 30000; loginAttempts = 0; }
     err.hidden = false;
     input.select();
   }
@@ -4837,6 +4864,13 @@ function setParishActivitiesList(parishId, newList) {
   }
 }
 
+function syncActParishDisplay() {
+  const sel = $("#act-parish-select"), out = $("#act-parish-display");
+  if (!sel || !out) return;
+  const p = PARISHES.find(x => String(x.id) === String(sel.value));
+  out.textContent = p ? `📍 ${p.nombre}` : "Elegir templo";
+}
+
 function openActivityEditor(parishId = null, actIndex = -1) {
   if (!state.canEditActivities) {
     openAdminLoginModal();
@@ -4851,8 +4885,9 @@ function openActivityEditor(parishId = null, actIndex = -1) {
   selectEl.innerHTML = PARISHES
     .slice()
     .sort((a, b) => a.nombre.localeCompare(b.nombre, "es-AR"))
-    .map(p => `<option value="${p.id}" ${String(p.id) === targetPid ? "selected" : ""}>${p.nombre} (${p.barrio})</option>`)
+    .map(p => `<option value="${esc(p.id)}" ${String(p.id) === targetPid ? "selected" : ""}>${esc(p.nombre)} (${esc(p.barrio)})</option>`)
     .join("");
+  syncActParishDisplay();
 
   const pObj = PARISHES.find(x => String(x.id) === targetPid) || PARISHES[0];
   const acts = getParishActivities(pObj);
@@ -9411,7 +9446,11 @@ function bindAppEvents() {
     if (parishCard) {
       const pid = String(parishCard.dataset.pickParishId);
       const pObj = getParishById(pid);
-      if (activeParishPickerTarget === "note") {
+      if (activeParishPickerTarget === "activity") {
+        const actSel = document.getElementById("act-parish-select");
+        if (actSel) actSel.value = pid;
+        syncActParishDisplay();
+      } else if (activeParishPickerTarget === "note") {
         const noteSel = document.getElementById("note-parish-select");
         if (noteSel) noteSel.value = pid;
         const noteDisplay = document.getElementById("note-parish-display-name");
@@ -9515,6 +9554,17 @@ function bindAppEvents() {
 /* =====================================================================
    NAVEGACIÓN GESTUAL LATERAL ("SWIPE" DE PÁGINAS DE LIBRO)
    ===================================================================== */
+/** true si el elemento (o un ancestro) tiene scroll horizontal propio (chips, pestañas, carruseles). */
+function isInHorizontalScroller(el) {
+  for (let n = el; n && n !== document.body; n = n.parentElement) {
+    if (n.scrollWidth > n.clientWidth + 4) {
+      const ox = getComputedStyle(n).overflowX;
+      if (ox === "auto" || ox === "scroll") return true;
+    }
+  }
+  return false;
+}
+
 function initSwipeGestures() {
   let touchStartX = 0;
   let touchStartY = 0;
@@ -9542,7 +9592,11 @@ function initSwipeGestures() {
       target.closest(".modal-backdrop:not([hidden])") ||
       target.closest("input") ||
       target.closest("textarea") ||
-      target.closest("select")
+      target.closest("select") ||
+      target.closest(".floating-audio-widget") ||
+      document.body.classList.contains("splash-open") ||
+      document.body.classList.contains("open") ||
+      isInHorizontalScroller(target)
     ) {
       return;
     }
@@ -9576,6 +9630,8 @@ let splashDismissed = false;
 function dismissSplashScreen() {
   if (splashDismissed) return;
   splashDismissed = true;
+  try { sessionStorage.setItem("welcome_seen_v1", "1"); } catch (e) { /* modo privado */ }
+  document.body.classList.remove("splash-open");
   const splash = document.getElementById("app-splash-screen");
   if (splash) {
     splash.classList.add("is-hidden");
@@ -9585,10 +9641,32 @@ function dismissSplashScreen() {
   }
 }
 
-// Bloque de seguridad estricto: tiempo de gracia máximo de 1.5 segundos para forzar el ocultamiento de la pantalla de bienvenida
-setTimeout(() => {
+/** Entrada por roles: Invitado (libre) o Administrador / Colaborador (PIN). Se enlaza al cargar el script,
+ *  de modo que los botones respondan aunque algún módulo posterior falle. */
+function enterAsGuest(view) {
   dismissSplashScreen();
-}, 1500);
+  if (view && view !== "list") { try { switchView(view); } catch (e) { console.warn(e); } }
+}
+document.getElementById("btn-splash-list")?.addEventListener("click", () => enterAsGuest("list"));
+document.getElementById("btn-splash-map")?.addEventListener("click", () => enterAsGuest("map"));
+document.getElementById("btn-splash-guest")?.addEventListener("click", () => enterAsGuest("list"));
+document.getElementById("btn-splash-staff")?.addEventListener("click", () => openAdminLoginModal());
+document.getElementById("btn-login-guest")?.addEventListener("click", () => { closeAdminLoginModal(); enterAsGuest("list"); });
+document.getElementById("btn-act-parish-picker")?.addEventListener("click", () => openParishPickerModal("activity"));
+
+/** Se llama al terminar el arranque: con sesión de gestión activa o ya visitada en esta sesión, no pide elegir de nuevo. */
+function initWelcomeGate() {
+  const splash = document.getElementById("app-splash-screen");
+  if (splash) splash.classList.add("is-ready");
+  let seen = false;
+  try { seen = sessionStorage.getItem("welcome_seen_v1") === "1"; } catch (e) { /* ignorar */ }
+  if (state.canEditActivities) {
+    toast(state.isAdmin ? "Sesión de Administrador activa" : "Sesión de Colaborador activa");
+    setTimeout(dismissSplashScreen, 600);
+  } else if (seen) {
+    dismissSplashScreen();
+  }
+}
 
 function bootstrapApp() {
   if (appInitialized) return;
@@ -9631,8 +9709,7 @@ function bootstrapApp() {
     console.warn("[Bootstrap Guard] Error al invocar loadParishes:", err);
   }
 
-  // Desactivación inmediata del splash screen una vez montados los componentes
-  dismissSplashScreen();
+  initWelcomeGate();
 }
 
 async function loadParishes() {
