@@ -1,5 +1,5 @@
-const APP_CACHE = "parroquias-app-v22";
-const DATA_CACHE = "parroquias-data-v22";
+const APP_CACHE = "parroquias-app-v23";
+const DATA_CACHE = "parroquias-data-v23";
 
 const APP_SHELL = [
   "./",

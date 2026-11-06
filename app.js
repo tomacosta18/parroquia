@@ -2893,11 +2893,19 @@ const CATHOLIC_RADIO_PLAYLIST = [
 
 let radioAudio = null;
 let radioUserUnlocked = false;
+let audioPanelTimer = null;
+let isAudioTimelineUserDragging = false;
+
+function formatAudioTime(seconds) {
+  if (isNaN(seconds) || seconds < 0) return "0:00";
+  const m = Math.floor(seconds / 60);
+  const s = Math.floor(seconds % 60);
+  return `${m}:${s < 10 ? "0" : ""}${s}`;
+}
 
 function getRadioAudio() {
   if (!radioAudio) {
     try {
-      // 1. Priorizar el elemento <audio> existente en el DOM
       radioAudio = document.getElementById("global-radio-audio");
       if (!radioAudio) {
         radioAudio = new Audio();
@@ -2910,7 +2918,6 @@ function getRadioAudio() {
       radioAudio.preload = "auto";
       radioAudio.loop = false;
 
-      // 2. Volumen inicial garantizado mayor a 0 (ej. 0.5)
       const savedVol = Store.get("radio_volume_v1", 0.5);
       const parsedVol = parseFloat(savedVol);
       const safeVol = (!isNaN(parsedVol) && parsedVol > 0) ? Math.min(1, parsedVol) : 0.5;
@@ -2928,9 +2935,16 @@ function getRadioAudio() {
       });
 
       radioAudio.addEventListener("ended", () => {
-        // Rotación automática continua de la lista
         state.radioIndex = (state.radioIndex + 1) % CATHOLIC_RADIO_PLAYLIST.length;
         playRadioTrack(state.radioIndex);
+      });
+
+      radioAudio.addEventListener("timeupdate", () => {
+        updateAudioTimeline();
+      });
+
+      radioAudio.addEventListener("loadedmetadata", () => {
+        updateAudioTimeline();
       });
 
       radioAudio.addEventListener("error", (e) => {
@@ -2953,6 +2967,11 @@ function initGlobalRadio() {
   const currentVol = (!isNaN(audio.volume) && audio.volume > 0) ? audio.volume : 0.5;
   audio.volume = currentVol;
 
+  const panelVol = document.getElementById("audio-panel-vol-slider");
+  const panelVolPct = document.getElementById("audio-panel-vol-pct");
+  if (panelVol) panelVol.value = String(currentVol);
+  if (panelVolPct) panelVolPct.textContent = Math.round(currentVol * 100) + "%";
+
   const volSlider = document.getElementById("radio-volume-slider");
   const volLabel = document.getElementById("radio-volume-label");
   if (volSlider) volSlider.value = String(currentVol);
@@ -2961,37 +2980,58 @@ function initGlobalRadio() {
   updateRadioUI();
 }
 
+function updateAudioTimeline() {
+  const audio = getRadioAudio();
+  if (!audio) return;
+
+  const curTimeEl = document.getElementById("audio-time-current");
+  const durTimeEl = document.getElementById("audio-time-duration");
+  const slider = document.getElementById("audio-timeline-slider");
+
+  const cur = audio.currentTime || 0;
+  const dur = audio.duration || 0;
+
+  if (curTimeEl) curTimeEl.textContent = formatAudioTime(cur);
+  if (durTimeEl && dur > 0) durTimeEl.textContent = formatAudioTime(dur);
+
+  if (slider && !isAudioTimelineUserDragging && dur > 0) {
+    slider.max = dur;
+    slider.value = cur;
+  }
+}
+
 function updateRadioUI(overrideMessage = null) {
   const track = CATHOLIC_RADIO_PLAYLIST[state.radioIndex] || CATHOLIC_RADIO_PLAYLIST[0];
-  const pill = document.getElementById("radio-pill");
-  const nameEl = document.getElementById("radio-track-name");
-  const playIco = document.getElementById("radio-icon-play");
-  const pauseIco = document.getElementById("radio-icon-pause");
-  const headerAudioBtn = document.getElementById("btn-header-audio");
+  const widget = document.getElementById("floating-audio-widget");
+  const bubbleText = document.getElementById("audio-bubble-text");
+  const panelTitle = document.getElementById("audio-panel-title");
+  const panelArtist = document.getElementById("audio-panel-artist");
+  const playIco = document.getElementById("panel-icon-play");
+  const pauseIco = document.getElementById("panel-icon-pause");
+
   const settingsBtn = document.getElementById("btn-settings-radio-play");
   const settingsIco = document.getElementById("btn-settings-radio-icon");
   const settingsTxt = document.getElementById("btn-settings-radio-text");
 
-  if (nameEl) {
+  // Actualizar textos dinámicos
+  if (bubbleText) {
     if (overrideMessage) {
-      nameEl.textContent = overrideMessage;
+      bubbleText.textContent = `🎵 ${overrideMessage}`;
     } else if (state.radioPlaying) {
-      nameEl.textContent = `${track.title} · ${track.artist}`;
+      bubbleText.textContent = `🎵 ${track.title}`;
     } else {
-      nameEl.textContent = "Toca para reproducir música";
+      bubbleText.textContent = `🎵 Toca para reproducir música`;
     }
   }
 
-  if (pill) {
-    pill.classList.toggle("is-playing", !!state.radioPlaying);
+  if (panelTitle) panelTitle.textContent = track.title;
+  if (panelArtist) panelArtist.textContent = track.artist;
+
+  if (widget) {
+    widget.classList.toggle("is-playing", !!state.radioPlaying);
   }
   if (playIco) playIco.hidden = !!state.radioPlaying;
   if (pauseIco) pauseIco.hidden = !state.radioPlaying;
-
-  if (headerAudioBtn) {
-    headerAudioBtn.classList.toggle("is-playing", !!state.radioPlaying);
-    headerAudioBtn.title = state.radioPlaying ? "Pausar Radio Católica" : "Reproducir Radio Católica";
-  }
 
   if (settingsBtn) {
     settingsBtn.classList.toggle("is-playing", !!state.radioPlaying);
@@ -3004,7 +3044,46 @@ function updateRadioUI(overrideMessage = null) {
   }
 }
 
-// Botón de activación forzosa vinculado al gesto del usuario
+// Control del Panel Retráctil con Auto-Cierre de 3 Segundos
+function openAudioPanel() {
+  const panel = document.getElementById("audio-expanded-panel");
+  const widget = document.getElementById("floating-audio-widget");
+  const trigger = document.getElementById("audio-bubble-trigger");
+  if (!panel || !widget) return;
+
+  panel.hidden = false;
+  widget.classList.add("is-expanded");
+  if (trigger) trigger.setAttribute("aria-expanded", "true");
+
+  resetAudioPanelTimer();
+}
+
+function closeAudioPanel() {
+  const panel = document.getElementById("audio-expanded-panel");
+  const widget = document.getElementById("floating-audio-widget");
+  const trigger = document.getElementById("audio-bubble-trigger");
+  if (!panel || !widget) return;
+
+  panel.hidden = true;
+  widget.classList.remove("is-expanded");
+  if (trigger) trigger.setAttribute("aria-expanded", "false");
+
+  if (audioPanelTimer) {
+    clearTimeout(audioPanelTimer);
+    audioPanelTimer = null;
+  }
+}
+
+function resetAudioPanelTimer() {
+  if (audioPanelTimer) clearTimeout(audioPanelTimer);
+  audioPanelTimer = setTimeout(() => {
+    // Si el usuario no está arrastrando la barra de timeline, contraer
+    if (!isAudioTimelineUserDragging) {
+      closeAudioPanel();
+    }
+  }, 3000);
+}
+
 function unlockAndPlayRadio() {
   radioUserUnlocked = true;
   const audio = getRadioAudio();
@@ -3013,7 +3092,6 @@ function unlockAndPlayRadio() {
   const track = CATHOLIC_RADIO_PLAYLIST[state.radioIndex] || CATHOLIC_RADIO_PLAYLIST[0];
   console.log("Ruta exacta del archivo de audio:", track.src);
 
-  // Asegurar que el elemento apunte a la fuente correcta
   if (!audio.src || !audio.src.includes(track.src)) {
     audio.src = track.src;
   }
@@ -3089,6 +3167,11 @@ function toggleRadioPlayback() {
   }
 }
 
+function nextRadioTrack() {
+  state.radioIndex = (state.radioIndex + 1) % CATHOLIC_RADIO_PLAYLIST.length;
+  playRadioTrack(state.radioIndex);
+}
+
 function setRadioVolume(vol) {
   const val = Math.min(1, Math.max(0, parseFloat(vol) || 0.5));
   const audio = getRadioAudio();
@@ -3096,6 +3179,11 @@ function setRadioVolume(vol) {
     audio.volume = val;
   }
   Store.set("radio_volume_v1", val);
+
+  const panelVol = document.getElementById("audio-panel-vol-slider");
+  const panelVolPct = document.getElementById("audio-panel-vol-pct");
+  if (panelVol && Math.abs(parseFloat(panelVol.value) - val) > 0.01) panelVol.value = String(val);
+  if (panelVolPct) panelVolPct.textContent = Math.round(val * 100) + "%";
 
   const volSlider = document.getElementById("radio-volume-slider");
   const volLabel = document.getElementById("radio-volume-label");
@@ -8818,18 +8906,94 @@ function bindAppEvents() {
     if (e.target && e.target.id === "activity-edit-modal") closeActivityEditor();
   });
 
-  // Radio Católica Global en segundo plano (Acceso unificado y persistente)
-  $("#btn-radio-toggle")?.addEventListener("click", (e) => {
+  // Widget Retráctil de Audio (Burbuja Flotante y Panel Expandido)
+  $("#audio-bubble-trigger")?.addEventListener("click", (e) => {
     e.stopPropagation();
-    toggleRadioPlayback();
+    openAudioPanel();
   });
-  $("#radio-pill")?.addEventListener("click", () => {
-    toggleRadioPlayback();
-  });
-  $("#btn-header-audio")?.addEventListener("click", (e) => {
+
+  $("#btn-close-audio-panel")?.addEventListener("click", (e) => {
     e.stopPropagation();
+    closeAudioPanel();
+  });
+
+  $("#btn-audio-panel-play")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    resetAudioPanelTimer();
     toggleRadioPlayback();
   });
+
+  $("#btn-audio-panel-next")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    resetAudioPanelTimer();
+    nextRadioTrack();
+  });
+
+  // Barra de progreso interactiva (Timeline)
+  const timelineSlider = $("#audio-timeline-slider");
+  if (timelineSlider) {
+    timelineSlider.addEventListener("mousedown", () => {
+      isAudioTimelineUserDragging = true;
+      resetAudioPanelTimer();
+    });
+    timelineSlider.addEventListener("touchstart", () => {
+      isAudioTimelineUserDragging = true;
+      resetAudioPanelTimer();
+    }, { passive: true });
+
+    timelineSlider.addEventListener("input", (e) => {
+      resetAudioPanelTimer();
+      const val = parseFloat(e.target.value);
+      const curTimeEl = document.getElementById("audio-time-current");
+      if (curTimeEl) curTimeEl.textContent = formatAudioTime(val);
+    });
+
+    timelineSlider.addEventListener("change", (e) => {
+      isAudioTimelineUserDragging = false;
+      const audio = getRadioAudio();
+      if (audio) {
+        audio.currentTime = parseFloat(e.target.value);
+      }
+      resetAudioPanelTimer();
+    });
+
+    timelineSlider.addEventListener("mouseup", () => {
+      isAudioTimelineUserDragging = false;
+      resetAudioPanelTimer();
+    });
+    timelineSlider.addEventListener("touchend", () => {
+      isAudioTimelineUserDragging = false;
+      resetAudioPanelTimer();
+    });
+  }
+
+  // Slider de volumen en el panel expandido
+  $("#audio-panel-vol-slider")?.addEventListener("input", (e) => {
+    resetAudioPanelTimer();
+    setRadioVolume(parseFloat(e.target.value));
+  });
+
+  // Reiniciar temporizador de 3s con cualquier interacción dentro del panel
+  const expandedPanel = $("#audio-expanded-panel");
+  if (expandedPanel) {
+    ["touchstart", "mousemove", "click", "keydown"].forEach((evtName) => {
+      expandedPanel.addEventListener(evtName, () => {
+        resetAudioPanelTimer();
+      }, { passive: true });
+    });
+  }
+
+  // Cerrar panel expandido al hacer clic fuera
+  document.addEventListener("click", (e) => {
+    const widget = document.getElementById("floating-audio-widget");
+    if (widget && widget.classList.contains("is-expanded")) {
+      if (!widget.contains(e.target)) {
+        closeAudioPanel();
+      }
+    }
+  });
+
+  // Botón de audio en ajustes
   $("#btn-settings-radio-play")?.addEventListener("click", (e) => {
     e.stopPropagation();
     toggleRadioPlayback();

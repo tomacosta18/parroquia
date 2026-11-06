@@ -36,9 +36,6 @@
       </div>
 
       <div class="topbar-actions">
-        <button type="button" class="header-audio-btn" id="btn-header-audio" aria-label="Reproducir o pausar música sacra en vivo" title="Radio Católica (▶/⏸)">
-          <span class="header-audio-icon" id="header-audio-icon">📻</span>
-        </button>
         <button type="button" class="header-user-pill" id="header-user-btn" aria-label="Abrir mi perfil o cuenta">
           <span class="header-user-avatar" id="header-user-avatar">👤</span>
           <span id="header-user-label" data-i18n="account_btn">Cuenta</span>
@@ -51,25 +48,10 @@
         </button>
       </div>
     </div>
-
-    <!-- Nivel 2: Fila de la Burbuja Flotante de Radio Católica "Estás escuchando..." -->
-    <div class="topbar-row-radio">
-      <div class="radio-floating-pill" id="radio-pill" role="region" aria-label="Radio Católica en vivo">
-        <button type="button" class="radio-play-btn" id="btn-radio-toggle" aria-label="Reproducir o pausar música católica">
-          <span class="radio-waves" id="radio-waves" aria-hidden="true">
-            <i></i><i></i><i></i><i></i>
-          </span>
-          <svg class="radio-icon-play" id="radio-icon-play" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>
-          <svg class="radio-icon-pause" id="radio-icon-pause" viewBox="0 0 24 24" fill="currentColor" hidden><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-        </button>
-        <div class="radio-info" id="radio-info" title="Música católica en segundo plano">
-          <span class="radio-kicker">Estás escuchando:</span>
-          <span class="radio-track-name" id="radio-track-name">Cara a Cara · Pascua Joven (▶ Iniciar)</span>
-        </div>
-      </div>
-    </div>
-    <audio id="global-radio-audio" preload="auto"></audio>
   </div>
+
+  <!-- Audio Player nativo persistente -->
+  <audio id="global-radio-audio" preload="auto"></audio>
 
   <!-- Barra de Navegación Superior con Scroll Horizontal Suave y Pestañas de Libro -->
   <nav class="top-nav" id="top-nav" role="tablist" aria-label="Navegación principal">
@@ -644,6 +626,61 @@
     <div class="square-grid square-grid-parishes" id="parish-square-grid"></div>
   </div>
 </div>
+
+<!-- ==================== WIDGET RETRÁCTIL DE AUDIO FLOTANTE (BURBUJA / PANEL EXPANDIDO) ==================== -->
+<aside class="floating-audio-widget" id="floating-audio-widget" aria-label="Reproductor de música sacra">
+  <!-- Estado Compacto: Burbuja Flotante Minimalista -->
+  <button type="button" class="audio-bubble-btn" id="audio-bubble-trigger" aria-label="Abrir reproductor de música" aria-expanded="false">
+    <span class="audio-bubble-icon-wrap">
+      <span class="audio-bubble-waves" id="audio-bubble-waves" aria-hidden="true">
+        <i></i><i></i><i></i>
+      </span>
+      <span class="audio-bubble-note" id="audio-bubble-note">🎵</span>
+    </span>
+    <span class="audio-bubble-text" id="audio-bubble-text">🎵 Toca para reproducir música</span>
+  </button>
+
+  <!-- Estado Expandido: Panel de Control Flotante -->
+  <div class="audio-expanded-panel" id="audio-expanded-panel" role="region" aria-label="Controles del reproductor" hidden>
+    <div class="audio-panel-header">
+      <div class="audio-panel-info">
+        <span class="audio-panel-kicker">Música Católica</span>
+        <strong class="audio-panel-title" id="audio-panel-title">Cara a Cara</strong>
+        <span class="audio-panel-artist" id="audio-panel-artist">Pascua Joven</span>
+      </div>
+      <button type="button" class="audio-panel-close-btn" id="btn-close-audio-panel" aria-label="Minimizar reproductor">
+        <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.2" fill="none"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <!-- Barra de Progreso Interactiva (Timeline) -->
+    <div class="audio-progress-row">
+      <span class="audio-time-label" id="audio-time-current">0:00</span>
+      <input type="range" class="audio-timeline-slider" id="audio-timeline-slider" min="0" max="100" value="0" step="0.5" aria-label="Posición de la canción">
+      <span class="audio-time-label" id="audio-time-duration">0:00</span>
+    </div>
+
+    <!-- Controles Principales: Play/Pausa, Siguiente, Volumen -->
+    <div class="audio-panel-bottom-row">
+      <div class="audio-panel-playback-btns">
+        <button type="button" class="audio-ctrl-btn audio-btn-play" id="btn-audio-panel-play" aria-label="Reproducir o pausar">
+          <svg class="audio-icon-play" id="panel-icon-play" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+          <svg class="audio-icon-pause" id="panel-icon-pause" viewBox="0 0 24 24" fill="currentColor" hidden><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+        </button>
+        <button type="button" class="audio-ctrl-btn audio-btn-next" id="btn-audio-panel-next" aria-label="Siguiente canción" title="Siguiente canción">
+          <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+
+      <!-- Control de Volumen Compacto -->
+      <div class="audio-panel-volume-group">
+        <span class="audio-vol-icon" id="audio-panel-vol-icon" aria-hidden="true">🔈</span>
+        <input type="range" class="audio-vol-slider" id="audio-panel-vol-slider" min="0" max="1" step="0.05" value="0.5" aria-label="Volumen">
+        <span class="audio-vol-pct" id="audio-panel-vol-pct">50%</span>
+      </div>
+    </div>
+  </div>
+</aside>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
