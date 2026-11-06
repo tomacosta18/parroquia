@@ -25,42 +25,50 @@
 <!-- ==================== CABECERA SUPERIOR GLOBAL + NAVEGACIÓN DE PESTAÑAS (ESTILO LIBRO) ==================== -->
 <header class="top-app-shell" id="top-app-shell">
   <div class="global-topbar">
-    <div class="brand-lockup">
-      <img src="icons/logo.png" alt="No apartes tu rostro del pobre" class="brand-logo-img">
-      <div class="brand-titles">
-        <span class="brand-name" data-i18n="app_title">Guía Católica</span>
-        <span class="brand-sub" data-i18n="app_subtitle">CABA y GBA · Parroquias y Liturgia</span>
+    <!-- Nivel 1: Fila Superior (Logo institucional y títulos a la izquierda, Acciones / Configuración / Botón de Audio a la derecha) -->
+    <div class="topbar-row-brand">
+      <div class="brand-lockup">
+        <img src="icons/logo.png" alt="No apartes tu rostro del pobre" class="brand-logo-img">
+        <div class="brand-titles">
+          <span class="brand-name" data-i18n="app_title">Guía Católica</span>
+          <span class="brand-sub" data-i18n="app_subtitle">CABA y GBA · Parroquias y Liturgia</span>
+        </div>
+      </div>
+
+      <div class="topbar-actions">
+        <button type="button" class="header-audio-btn" id="btn-header-audio" aria-label="Reproducir o pausar música sacra en vivo" title="Radio Católica (▶/⏸)">
+          <span class="header-audio-icon" id="header-audio-icon">📻</span>
+        </button>
+        <button type="button" class="header-user-pill" id="header-user-btn" aria-label="Abrir mi perfil o cuenta">
+          <span class="header-user-avatar" id="header-user-avatar">👤</span>
+          <span id="header-user-label" data-i18n="account_btn">Cuenta</span>
+        </button>
+        <button type="button" class="settings-gear-btn" id="btn-open-settings" aria-label="Abrir configuración de modo noche e idioma" title="Configuración (⚙️)">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="3"/>
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
+          </svg>
+        </button>
       </div>
     </div>
 
-    <!-- Widget Flotante Sutil: Radio Católica Global "Estás escuchando..." -->
-    <div class="radio-floating-pill" id="radio-pill" role="region" aria-label="Radio Católica en vivo">
-      <button type="button" class="radio-play-btn" id="btn-radio-toggle" aria-label="Reproducir o pausar música católica">
-        <span class="radio-waves" id="radio-waves" aria-hidden="true">
-          <i></i><i></i><i></i><i></i>
-        </span>
-        <svg class="radio-icon-play" id="radio-icon-play" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>
-        <svg class="radio-icon-pause" id="radio-icon-pause" viewBox="0 0 24 24" fill="currentColor" hidden><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
-      </button>
-      <div class="radio-info" id="radio-info" title="Música católica en segundo plano">
-        <span class="radio-kicker">Estás escuchando:</span>
-        <span class="radio-track-name" id="radio-track-name">Cara A Cara · Pascua Joven</span>
+    <!-- Nivel 2: Fila de la Burbuja Flotante de Radio Católica "Estás escuchando..." -->
+    <div class="topbar-row-radio">
+      <div class="radio-floating-pill" id="radio-pill" role="region" aria-label="Radio Católica en vivo">
+        <button type="button" class="radio-play-btn" id="btn-radio-toggle" aria-label="Reproducir o pausar música católica">
+          <span class="radio-waves" id="radio-waves" aria-hidden="true">
+            <i></i><i></i><i></i><i></i>
+          </span>
+          <svg class="radio-icon-play" id="radio-icon-play" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+          <svg class="radio-icon-pause" id="radio-icon-pause" viewBox="0 0 24 24" fill="currentColor" hidden><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+        </button>
+        <div class="radio-info" id="radio-info" title="Música católica en segundo plano">
+          <span class="radio-kicker">Estás escuchando:</span>
+          <span class="radio-track-name" id="radio-track-name">Cara a Cara · Pascua Joven (▶ Iniciar)</span>
+        </div>
       </div>
     </div>
-    <audio id="global-radio-audio" preload="metadata"></audio>
-
-    <div class="topbar-actions">
-      <button type="button" class="header-user-pill" id="header-user-btn" aria-label="Abrir mi perfil o cuenta">
-        <span class="header-user-avatar" id="header-user-avatar">👤</span>
-        <span id="header-user-label" data-i18n="account_btn">Cuenta</span>
-      </button>
-      <button type="button" class="settings-gear-btn" id="btn-open-settings" aria-label="Abrir configuración de modo noche e idioma" title="Configuración (⚙️)">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-          <circle cx="12" cy="12" r="3"/>
-          <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/>
-        </svg>
-      </button>
-    </div>
+    <audio id="global-radio-audio" preload="auto"></audio>
   </div>
 
   <!-- Barra de Navegación Superior con Scroll Horizontal Suave y Pestañas de Libro -->
@@ -381,11 +389,17 @@
         </select>
       </div>
 
-      <!-- Control Deslizante de Volumen para la Radio Católica -->
+      <!-- Control y Reproducción de la Radio Católica -->
       <div class="settings-item settings-item-col">
         <div class="settings-item-info">
-          <strong>📻 Volumen de la Radio Católica</strong>
-          <span>Regulá el volumen de la música sacra continua en segundo plano.</span>
+          <strong>📻 Radio Católica en Vivo (Fondo)</strong>
+          <span>Música sacra continua. Tocá para iniciar o pausar y regulá el volumen.</span>
+        </div>
+        <div class="settings-radio-action-row" style="margin-bottom: 8px;">
+          <button type="button" class="btn-sm settings-radio-toggle-btn" id="btn-settings-radio-play" style="width: 100%; display: inline-flex; align-items: center; justify-content: center; gap: 8px;">
+            <span id="btn-settings-radio-icon">▶</span>
+            <span id="btn-settings-radio-text">Iniciar Radio</span>
+          </button>
         </div>
         <div class="volume-slider-row">
           <span class="vol-icon" aria-hidden="true">🔈</span>

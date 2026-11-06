@@ -2886,108 +2886,225 @@ const SVG_PIN_CATEDRAL = `
    RADIO CATÓLICA GLOBAL EN SEGUNDO PLANO Y PLAYLIST SACRA
    ===================================================================== */
 const CATHOLIC_RADIO_PLAYLIST = [
-  { title: "Cara A Cara", artist: "Pascua Joven", src: "./audio/cara-a-cara.mp3" },
-  { title: "Haciéndote Pan", artist: "Pascua Joven", src: "./audio/haciendote-pan.mp3" },
-  { title: "A tanto amor", artist: "Coro Pascua Joven San Isidro", src: "./audio/a-tanto-amor.mp3" }
+  { title: "Cara a Cara", artist: "Pascua Joven", src: "audio/cara-a-cara.mp3" },
+  { title: "Haciéndote Pan", artist: "Pascua Joven", src: "audio/haciendote-pan.mp3" },
+  { title: "A Tanto Amor", artist: "Pascua Joven", src: "audio/a-tanto-amor.mp3" }
 ];
 
-let globalRadioAudio = null;
+let radioAudio = null;
+let radioUserUnlocked = false;
+
+function getRadioAudio() {
+  if (!radioAudio) {
+    try {
+      // 1. Priorizar el elemento <audio> existente en el DOM
+      radioAudio = document.getElementById("global-radio-audio");
+      if (!radioAudio) {
+        radioAudio = new Audio();
+        radioAudio.id = "global-radio-audio";
+        document.body.appendChild(radioAudio);
+      }
+
+      const initialTrack = CATHOLIC_RADIO_PLAYLIST[state.radioIndex] || CATHOLIC_RADIO_PLAYLIST[0];
+      radioAudio.src = initialTrack.src;
+      radioAudio.preload = "auto";
+      radioAudio.loop = false;
+
+      // 2. Volumen inicial garantizado mayor a 0 (ej. 0.5)
+      const savedVol = Store.get("radio_volume_v1", 0.5);
+      const parsedVol = parseFloat(savedVol);
+      const safeVol = (!isNaN(parsedVol) && parsedVol > 0) ? Math.min(1, parsedVol) : 0.5;
+      radioAudio.volume = safeVol;
+
+      // Eventos nativos del elemento de audio
+      radioAudio.addEventListener("play", () => {
+        state.radioPlaying = true;
+        updateRadioUI();
+      });
+
+      radioAudio.addEventListener("pause", () => {
+        state.radioPlaying = false;
+        updateRadioUI();
+      });
+
+      radioAudio.addEventListener("ended", () => {
+        // Rotación automática continua de la lista
+        state.radioIndex = (state.radioIndex + 1) % CATHOLIC_RADIO_PLAYLIST.length;
+        playRadioTrack(state.radioIndex);
+      });
+
+      radioAudio.addEventListener("error", (e) => {
+        const errDetail = radioAudio.error ? `Código: ${radioAudio.error.code} - ${radioAudio.error.message}` : e;
+        console.error("Error al reproducir audio:", errDetail, "Ruta:", radioAudio.currentSrc || radioAudio.src);
+        state.radioPlaying = false;
+        updateRadioUI("Toca para reproducir música");
+      });
+    } catch (err) {
+      console.error("Error crítico al inicializar Audio:", err);
+    }
+  }
+  return radioAudio;
+}
 
 function initGlobalRadio() {
-  globalRadioAudio = document.getElementById("global-radio-audio");
-  if (!globalRadioAudio) return;
+  const audio = getRadioAudio();
+  if (!audio) return;
 
-  const savedVol = Store.get("radio_volume_v1", 0.75);
-  globalRadioAudio.volume = Math.min(1, Math.max(0, savedVol));
+  const currentVol = (!isNaN(audio.volume) && audio.volume > 0) ? audio.volume : 0.5;
+  audio.volume = currentVol;
 
   const volSlider = document.getElementById("radio-volume-slider");
   const volLabel = document.getElementById("radio-volume-label");
-  if (volSlider) volSlider.value = String(globalRadioAudio.volume);
-  if (volLabel) volLabel.textContent = Math.round(globalRadioAudio.volume * 100) + "%";
+  if (volSlider) volSlider.value = String(currentVol);
+  if (volLabel) volLabel.textContent = Math.round(currentVol * 100) + "%";
 
-  globalRadioAudio.src = CATHOLIC_RADIO_PLAYLIST[state.radioIndex].src;
   updateRadioUI();
-
-  globalRadioAudio.addEventListener("play", () => {
-    state.radioPlaying = true;
-    updateRadioUI();
-  });
-
-  globalRadioAudio.addEventListener("pause", () => {
-    state.radioPlaying = false;
-    updateRadioUI();
-  });
-
-  globalRadioAudio.addEventListener("ended", () => {
-    // Modo radio continua: pasa automáticamente a la siguiente pista en bucle
-    state.radioIndex = (state.radioIndex + 1) % CATHOLIC_RADIO_PLAYLIST.length;
-    playRadioTrack(state.radioIndex);
-  });
-
-  globalRadioAudio.addEventListener("error", (e) => {
-    console.warn("Aviso de audio en radio:", e);
-    state.radioPlaying = false;
-    updateRadioUI();
-  });
 }
 
-function updateRadioUI() {
+function updateRadioUI(overrideMessage = null) {
   const track = CATHOLIC_RADIO_PLAYLIST[state.radioIndex] || CATHOLIC_RADIO_PLAYLIST[0];
   const pill = document.getElementById("radio-pill");
   const nameEl = document.getElementById("radio-track-name");
   const playIco = document.getElementById("radio-icon-play");
   const pauseIco = document.getElementById("radio-icon-pause");
+  const headerAudioBtn = document.getElementById("btn-header-audio");
+  const settingsBtn = document.getElementById("btn-settings-radio-play");
+  const settingsIco = document.getElementById("btn-settings-radio-icon");
+  const settingsTxt = document.getElementById("btn-settings-radio-text");
 
-  if (nameEl) nameEl.textContent = `${track.title} · ${track.artist}`;
-  if (pill) pill.classList.toggle("is-playing", state.radioPlaying);
-  if (playIco) playIco.hidden = state.radioPlaying;
+  if (nameEl) {
+    if (overrideMessage) {
+      nameEl.textContent = overrideMessage;
+    } else if (state.radioPlaying) {
+      nameEl.textContent = `${track.title} · ${track.artist}`;
+    } else {
+      nameEl.textContent = "Toca para reproducir música";
+    }
+  }
+
+  if (pill) {
+    pill.classList.toggle("is-playing", !!state.radioPlaying);
+  }
+  if (playIco) playIco.hidden = !!state.radioPlaying;
   if (pauseIco) pauseIco.hidden = !state.radioPlaying;
+
+  if (headerAudioBtn) {
+    headerAudioBtn.classList.toggle("is-playing", !!state.radioPlaying);
+    headerAudioBtn.title = state.radioPlaying ? "Pausar Radio Católica" : "Reproducir Radio Católica";
+  }
+
+  if (settingsBtn) {
+    settingsBtn.classList.toggle("is-playing", !!state.radioPlaying);
+  }
+  if (settingsIco) {
+    settingsIco.textContent = state.radioPlaying ? "⏸" : "▶";
+  }
+  if (settingsTxt) {
+    settingsTxt.textContent = state.radioPlaying ? "Pausar Radio" : "Iniciar Radio";
+  }
+}
+
+// Botón de activación forzosa vinculado al gesto del usuario
+function unlockAndPlayRadio() {
+  radioUserUnlocked = true;
+  const audio = getRadioAudio();
+  if (!audio) return;
+
+  const track = CATHOLIC_RADIO_PLAYLIST[state.radioIndex] || CATHOLIC_RADIO_PLAYLIST[0];
+  console.log("Ruta exacta del archivo de audio:", track.src);
+
+  // Asegurar que el elemento apunte a la fuente correcta
+  if (!audio.src || !audio.src.includes(track.src)) {
+    audio.src = track.src;
+  }
+  audio.load();
+
+  try {
+    const playPromise = audio.play();
+    if (playPromise !== undefined) {
+      playPromise
+        .then(() => {
+          state.radioPlaying = true;
+          updateRadioUI();
+          toast(`📻 Reproduciendo: ${track.title}`);
+        })
+        .catch((error) => {
+          console.error("Error al reproducir audio:", error);
+          state.radioPlaying = false;
+          updateRadioUI("Toca para reproducir música");
+          toast("Toca el botón ▶ para permitir el audio");
+        });
+    }
+  } catch (syncError) {
+    console.error("Error sincrónico al invocar play():", syncError);
+    state.radioPlaying = false;
+    updateRadioUI("Toca para reproducir música");
+  }
 }
 
 function playRadioTrack(index) {
-  if (!globalRadioAudio) return;
+  const audio = getRadioAudio();
+  if (!audio) return;
+
   state.radioIndex = (index + CATHOLIC_RADIO_PLAYLIST.length) % CATHOLIC_RADIO_PLAYLIST.length;
   const track = CATHOLIC_RADIO_PLAYLIST[state.radioIndex];
-  globalRadioAudio.src = track.src;
-  globalRadioAudio.play().then(() => {
-    state.radioPlaying = true;
-    updateRadioUI();
-    toast(`📻 Reproduciendo: ${track.title}`);
-  }).catch(err => {
-    console.log("Autoplay en espera de interacción táctil:", err);
-    updateRadioUI();
-  });
+
+  console.log("Cambiando y verificando ruta de audio:", track.src);
+  audio.src = track.src;
+  audio.load();
+
+  try {
+    const playPromise = audio.play();
+    if (playPromise !== undefined) {
+      playPromise
+        .then(() => {
+          state.radioPlaying = true;
+          updateRadioUI();
+          toast(`📻 En vivo: ${track.title}`);
+        })
+        .catch((error) => {
+          console.error("Error al reproducir audio:", error);
+          state.radioPlaying = false;
+          updateRadioUI("Toca para reproducir música");
+        });
+    }
+  } catch (err) {
+    console.error("Error sincrónico al reproducir pista:", err);
+    state.radioPlaying = false;
+    updateRadioUI("Toca para reproducir música");
+  }
 }
 
 function toggleRadioPlayback() {
-  if (!globalRadioAudio) return;
-  if (globalRadioAudio.paused) {
-    if (!globalRadioAudio.src || globalRadioAudio.src.endsWith("/")) {
-      globalRadioAudio.src = CATHOLIC_RADIO_PLAYLIST[state.radioIndex].src;
-    }
-    globalRadioAudio.play().then(() => {
-      state.radioPlaying = true;
-      updateRadioUI();
-      const track = CATHOLIC_RADIO_PLAYLIST[state.radioIndex];
-      toast(`📻 Radio Católica: ${track.title}`);
-    }).catch(err => {
-      console.warn("Reproducción bloqueada por el navegador:", err);
-    });
+  const audio = getRadioAudio();
+  if (!audio) return;
+
+  if (audio.paused) {
+    unlockAndPlayRadio();
   } else {
-    globalRadioAudio.pause();
+    audio.pause();
     state.radioPlaying = false;
-    updateRadioUI();
-    toast("📻 Radio pausada");
+    updateRadioUI("Toca para reproducir música");
+    toast("⏸ Radio en pausa");
   }
 }
 
 function setRadioVolume(vol) {
-  if (!globalRadioAudio) return;
-  const clamped = Math.min(1, Math.max(0, vol));
-  globalRadioAudio.volume = clamped;
-  Store.set("radio_volume_v1", clamped);
+  const val = Math.min(1, Math.max(0, parseFloat(vol) || 0.5));
+  const audio = getRadioAudio();
+  if (audio) {
+    audio.volume = val;
+  }
+  Store.set("radio_volume_v1", val);
+
+  const volSlider = document.getElementById("radio-volume-slider");
   const volLabel = document.getElementById("radio-volume-label");
-  if (volLabel) volLabel.textContent = Math.round(clamped * 100) + "%";
+  if (volSlider && Math.abs(parseFloat(volSlider.value) - val) > 0.01) {
+    volSlider.value = String(val);
+  }
+  if (volLabel) {
+    volLabel.textContent = Math.round(val * 100) + "%";
+  }
 }
 
 function initMap() {
@@ -8701,12 +8818,20 @@ function bindAppEvents() {
     if (e.target && e.target.id === "activity-edit-modal") closeActivityEditor();
   });
 
-  // Radio Católica Global en segundo plano
+  // Radio Católica Global en segundo plano (Acceso unificado y persistente)
   $("#btn-radio-toggle")?.addEventListener("click", (e) => {
     e.stopPropagation();
     toggleRadioPlayback();
   });
   $("#radio-pill")?.addEventListener("click", () => {
+    toggleRadioPlayback();
+  });
+  $("#btn-header-audio")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleRadioPlayback();
+  });
+  $("#btn-settings-radio-play")?.addEventListener("click", (e) => {
+    e.stopPropagation();
     toggleRadioPlayback();
   });
   $("#radio-volume-slider")?.addEventListener("input", (e) => {
