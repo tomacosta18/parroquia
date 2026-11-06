@@ -2382,11 +2382,11 @@ const initialAdminRole = (function resolveInitialRole() {
   return null;
 })();
 
-const VALID_APP_VIEWS = ["list", "map", "spiritual", "liturgy", "saints", "community", "profile"];
+const VALID_APP_VIEWS = ["home", "list", "map", "spiritual", "liturgy", "saints", "community", "profile"];
 const savedActiveView = Store.get("ui_active_view_v1", "list");
 
 const state = {
-  view: VALID_APP_VIEWS.includes(savedActiveView) ? savedActiveView : "list",
+  view: "home", // la app siempre abre en el Inicio (bloques); la vista previa ya no se restaura
   commTab: Store.get("ui_comm_tab_v1", "all"), // 'all' | 'following' | 'ranking' | 'people'
   spirTab: Store.get("ui_spir_tab_v1", "streak"), // 'streak' | 'notes' | 'stats'
   checkinSlot: "Mañana", // 'Mañana' | 'Tarde' | 'Noche'
@@ -2433,6 +2433,7 @@ function switchView(targetView, skipScroll = false) {
   document.body.setAttribute("data-active-view", targetView);
 
   const panels = {
+    home: $("#view-home"),
     list: $("#view-list"),
     map: $("#view-map"),
     spiritual: $("#view-spiritual"),
@@ -2443,6 +2444,7 @@ function switchView(targetView, skipScroll = false) {
     profile: $("#view-profile")
   };
   const tabs = {
+    home: $("#tab-home"),
     list: $("#tab-list"),
     map: $("#tab-map"),
     spiritual: $("#tab-spiritual"),
@@ -2905,14 +2907,17 @@ const playlist = [
   { title: "Haciéndote Pan", artist: "Pascua Joven", category: "Biblioteca", url: "audio/haciendote-pan.mp3" },
   { title: "A Tanto Amor", artist: "Pascua Joven", category: "Biblioteca", url: "audio/a-tanto-amor.mp3" },
 
-  // Pistas externas (CDN). Si una URL no responde, se marca como no disponible
-  // y la radio salta a la siguiente sin quedarse muda. Reemplazalas por URLs propias verificadas.
-  { title: "Salve Regina (Gregoriano)", artist: "Schola Gregoriana", category: "Pacífica", url: "https://archive.org/download/SalveReginaSimpleTone/SalveRegina.mp3" },
-  { title: "Kyrie Eleison", artist: "Coro Sacro Litúrgico", category: "Pacífica", url: "https://archive.org/download/gregorian-chants/01%20Kyrie%20Eleison.mp3" },
-  { title: "Adoro Te Devote", artist: "Coro Monástico", category: "Reflexión", url: "https://archive.org/download/AdoroTeDevote/AdoroTeDevote.mp3" },
-  { title: "Tantum Ergo", artist: "Capilla Mariana", category: "Reflexión", url: "https://archive.org/download/CatholicGregorianChant/TantumErgo.mp3" },
-  { title: "Tocata para Órgano", artist: "Órgano Catedralicio", category: "Órgano", url: "https://archive.org/download/PipeOrganBach/BachToccataOrgan.mp3" },
-  { title: "Coral de Catedral", artist: "Maestro de Capilla", category: "Órgano", url: "https://archive.org/download/PipeOrganHymns/CathedralChorale.mp3" }
+  // Pistas externas: grabaciones de órgano de J. S. Bach en dominio público (Musopen / Baroque Music Club),
+  // servidas por Wikimedia Commons (enlace estable por nombre de archivo). Si una no responde, la radio
+  // la omite en silencio (consola) y pasa a la siguiente válida; la Biblioteca local nunca depende de la red.
+  { title: "Preludio en La menor, BWV 543", artist: "J. S. Bach · R. Köbler, órgano Silbermann", category: "Órgano", url: "https://commons.wikimedia.org/wiki/Special:FilePath/Johann_Sebastian_Bach_Prelude_in_A_minor_BWV_543_Robert_K%C3%B6bler_Silbermann-Organ.mp3" },
+  { title: "Sonata en Sol mayor, BWV 530 · I", artist: "J. S. Bach · E. Piasetzki, órgano Silbermann", category: "Órgano", url: "https://commons.wikimedia.org/wiki/Special:FilePath/Johann_Sebastian_Bach_first_movement_Organ_Sonata_in_G_major_BWV_530_Erich_Piasetzki_Silbermann-Organ.mp3" },
+  { title: "Sonata en Mi bemol mayor, BWV 525 · I", artist: "J. S. Bach · J.-E. Köhler, órgano Silbermann", category: "Órgano", url: "https://commons.wikimedia.org/wiki/Special:FilePath/Johann_Sebastian_Bach_first_movement_Organ_Sonata_in_E-flat_major_BWV_525_Johannes-Ernst_K%C3%B6hler_Silbermann-Organ.mp3" },
+  { title: "Sonata en Mi menor, BWV 528 · I", artist: "J. S. Bach · C. Albrecht, órgano Silbermann", category: "Órgano", url: "https://commons.wikimedia.org/wiki/Special:FilePath/Johann_Sebastian_Bach_first_movement_Organ_Sonata_in_E_minor_BWV_528_Christoph_Albrecht_Silbermann-Organ.mp3" },
+  { title: "Sonata en Do mayor, BWV 529 · II", artist: "J. S. Bach · H. Otto, órgano Silbermann", category: "Pacífica", url: "https://commons.wikimedia.org/wiki/Special:FilePath/Johann_Sebastian_Bach_second_movement_Organ_Sonata_in_C_major_BWV_529_Hans_Otto_Silbermann-Organ.mp3" },
+  { title: "Sonata en Sol mayor, BWV 530 · II", artist: "J. S. Bach · E. Piasetzki, órgano Silbermann", category: "Pacífica", url: "https://commons.wikimedia.org/wiki/Special:FilePath/Johann_Sebastian_Bach_second_movement_Organ_Sonata_in_G_major_BWV_530_Erich_Piasetzki_Silbermann-Organ.mp3" },
+  { title: "Preludio y Fuga en Mi menor, BWV 555", artist: "Atribuida a Bach · R. Köbler, órgano Silbermann", category: "Reflexión", url: "https://commons.wikimedia.org/wiki/Special:FilePath/Prelude_and_Fugue_in_E_minor_BWV_555_Robert_K%C3%B6bler_Silbermann-Organ.mp3" },
+  { title: "Fuga en La menor, BWV 543", artist: "J. S. Bach · R. Köbler, órgano Silbermann", category: "Reflexión", url: "https://commons.wikimedia.org/wiki/Special:FilePath/Johann_Sebastian_Bach_Fugue_in_A_minor_BWV_543_Robert_K%C3%B6bler_Silbermann-Organ.mp3" }
 ];
 
 // Instancia única y global del reproductor
@@ -2927,6 +2932,9 @@ let radioFailedToken = -1;             // evita procesar dos veces el mismo fall
 let radioConsecutiveFailures = 0;
 let radioHasStarted = false;
 let isAudioBuffering = false;
+let radioLoadingTrack = null;          // pista que se está cargando (para atribuir bien un error)
+let radioWatchdog = null;              // temporizador anti-congelamiento de carga
+const RADIO_LOAD_TIMEOUT_MS = 20000;
 let isAudioTimelineUserDragging = false;
 let audioPanelTimer = null;
 const radioUnavailableUrls = new Set(); // URLs que fallaron en esta sesión
@@ -2936,10 +2944,14 @@ function getActiveRadioPlaylist() {
   const base = currentRadioCategory === "TODAS"
     ? playlist
     : playlist.filter(t => t.category === currentRadioCategory);
-  const playable = base.filter(t => !radioUnavailableUrls.has(t.url));
-  // Si la categoría quedó sin pistas disponibles, se vuelve a la Biblioteca local
-  if (playable.length) return playable;
-  return playlist.filter(t => t.category === "Biblioteca");
+  return base.filter(t => !radioUnavailableUrls.has(t.url));
+}
+
+/** Lista reproducible; si todo quedó marcado como caído, se vuelve a intentar desde cero (acción del usuario). */
+function getPlayableOrRetry() {
+  let list = getActiveRadioPlaylist();
+  if (!list.length) { radioUnavailableUrls.clear(); list = getActiveRadioPlaylist(); }
+  return list;
 }
 
 function getCurrentRadioTrack() {
@@ -3052,14 +3064,20 @@ function updateAudioTimeline() {
 }
 
 /* ---------- Núcleo de reproducción ---------- */
+function clearRadioWatchdog() {
+  if (radioWatchdog) { clearTimeout(radioWatchdog); radioWatchdog = null; }
+}
+
 async function playTrack(index) {
-  const list = getActiveRadioPlaylist();
+  const list = getPlayableOrRetry();
   if (!list.length) return;
 
   currentTrackIndex = ((index % list.length) + list.length) % list.length;
   const track = list[currentTrackIndex];
   const token = ++radioPlayToken;
   radioHasStarted = true;
+  radioLoadingTrack = track;
+  clearRadioWatchdog();
 
   // 1. Detener lo que esté sonando
   globalAudio.pause();
@@ -3073,6 +3091,14 @@ async function playTrack(index) {
   globalAudio.load();
   updateAudioTimeline();
 
+  // Si la fuente no responde ni da error (red colgada), se descarta y se avanza sin congelar la interfaz
+  radioWatchdog = setTimeout(() => {
+    if (token === radioPlayToken && !globalAudio.paused && globalAudio.readyState < 3) {
+      console.warn("[Radio] Tiempo de carga agotado:", track.url);
+      handleTrackFailure(token, track);
+    }
+  }, RADIO_LOAD_TIMEOUT_MS);
+
   // 4. play() con await seguro
   try {
     await globalAudio.play();
@@ -3083,7 +3109,7 @@ async function playTrack(index) {
     updateMediaSession(track);
   } catch (err) {
     if (token !== radioPlayToken) return;
-    console.error("Error de reproducción:", err);
+    console.warn("[Radio] Error de reproducción:", err && err.name, track.url);
 
     if (err && err.name === "AbortError") return; // interrumpido por un cambio de pista: normal
 
@@ -3100,27 +3126,30 @@ async function playTrack(index) {
 function handleTrackFailure(token, track) {
   if (token !== radioPlayToken || radioFailedToken === token) return; // ya procesado
   radioFailedToken = token;
-  radioConsecutiveFailures++;
+  clearRadioWatchdog();
+  if (track) radioUnavailableUrls.add(track.url); // se omite durante esta sesión (local o externa)
+  console.warn("[Radio] Pista omitida por error de carga/CORS:", track ? track.url : "(desconocida)");
 
-  if (track && /^https?:/i.test(track.url)) radioUnavailableUrls.add(track.url);
-
-  const remaining = getActiveRadioPlaylist().length;
-  if (radioConsecutiveFailures >= Math.max(remaining, 1) + 1) {
-    radioConsecutiveFailures = 0;
+  let list = getActiveRadioPlaylist();
+  if (!list.length && currentRadioCategory !== "TODAS") {
+    currentRadioCategory = "TODAS"; // categoría agotada: continuar con toda la biblioteca
+    list = getActiveRadioPlaylist();
+  }
+  if (!list.length) {
     setAudioBufferingState(false);
     updateRadioUI("Sin conexión de audio");
-    toast("No se pudo reproducir la Radio. Revisá tu conexión.");
+    toast("No se pudo reproducir la Radio. Tocá play para reintentar.");
     return;
   }
-  toast(`"${track ? track.title : "Pista"}" no disponible. Pasando a la siguiente...`);
-  // Tras marcar la URL como no disponible, la lista se reindexa: se reproduce el mismo índice
+  // Al marcar la pista caída la lista se reindexa: el mismo índice apunta a la siguiente válida
   setTimeout(() => {
     if (token === radioPlayToken) playTrack(currentTrackIndex);
-  }, 400);
+  }, 250);
 }
 
 function nextRadioTrack() {
-  const list = getActiveRadioPlaylist();
+  const list = getPlayableOrRetry();
+  if (!list.length) return;
   currentTrackIndex = (currentTrackIndex + 1) % list.length;
   playTrack(currentTrackIndex);
 }
@@ -3131,7 +3160,8 @@ function prevRadioTrack() {
     globalAudio.currentTime = 0;
     return;
   }
-  const list = getActiveRadioPlaylist();
+  const list = getPlayableOrRetry();
+  if (!list.length) return;
   currentTrackIndex = (currentTrackIndex - 1 + list.length) % list.length;
   playTrack(currentTrackIndex);
 }
@@ -3146,9 +3176,9 @@ async function toggleRadioPlayback() {
     try {
       await globalAudio.play();
     } catch (err) {
-      console.error("Error de reproducción:", err);
+      console.warn("[Radio] Error de reproducción:", err && err.name);
       if (err && err.name === "NotAllowedError") updateRadioUI("Toca para reproducir");
-      else if (err && err.name !== "AbortError") handleTrackFailure(token, getCurrentRadioTrack());
+      else if (err && err.name !== "AbortError") handleTrackFailure(token, radioLoadingTrack || getCurrentRadioTrack());
     }
   } else {
     globalAudio.pause();
@@ -3231,7 +3261,7 @@ function attachGlobalAudioEvents() {
     const statusText = document.getElementById("audio-status-text");
     if (statusText) statusText.textContent = `Cargando ${pct}%`;
   });
-  globalAudio.addEventListener("playing", () => { setAudioBufferingState(false); updateRadioUI(); });
+  globalAudio.addEventListener("playing", () => { clearRadioWatchdog(); setAudioBufferingState(false); updateRadioUI(); });
   globalAudio.addEventListener("canplay", () => { if (isAudioBuffering && !globalAudio.paused) setAudioBufferingState(false); });
   globalAudio.addEventListener("play", () => updateRadioUI());
   globalAudio.addEventListener("pause", () => { if (!isAudioBuffering) updateRadioUI(); });
@@ -3242,9 +3272,8 @@ function attachGlobalAudioEvents() {
   globalAudio.addEventListener("error", () => {
     // Sólo errores reales de la fuente actual (no los de un src vacío o reemplazado)
     if (!globalAudio.src || !globalAudio.error) return;
-    console.error("Error de reproducción (media):", globalAudio.error.code, globalAudio.error.message || "");
-    setAudioBufferingState(false);
-    handleTrackFailure(radioPlayToken, getCurrentRadioTrack());
+    console.warn("[Radio] Error de media:", globalAudio.error.code, globalAudio.error.message || "");
+    handleTrackFailure(radioPlayToken, radioLoadingTrack || getCurrentRadioTrack());
   });
 }
 
@@ -4036,6 +4065,7 @@ function renderList() {
   }
 
   renderMapMarkers(items);
+  try { renderHome(); } catch (e) { /* inicio aún no montado */ }
 }
 
 function renderSuggest() {
@@ -8807,7 +8837,7 @@ function bindAppEvents() {
   });
 
   // Botón superior de cuenta/perfil
-  $("#header-user-btn")?.addEventListener("click", () => switchView("profile"));
+  $("#header-user-btn")?.addEventListener("click", openProfileQuickModal);
 
   // Sub-pestañas de la vista Comunidad (Muro, Siguiendo, Ranking, Personas)
   $("#community-subtabs")?.addEventListener("click", e => {
@@ -9541,6 +9571,7 @@ function bindAppEvents() {
     if (e.key === "Escape") {
       if ($("#zone-picker-modal") && !$("#zone-picker-modal").hidden) return closeZonePickerModal();
       if ($("#parish-picker-modal") && !$("#parish-picker-modal").hidden) return closeParishPickerModal();
+      if ($("#profile-quick-modal") && !$("#profile-quick-modal").hidden) return closeProfileQuickModal();
       if ($("#settings-modal") && !$("#settings-modal").hidden) return closeSettingsModal();
       if ($("#public-profile-modal") && !$("#public-profile-modal").hidden) return closePublicProfileModal();
       if ($("#admin-edit-modal") && !$("#admin-edit-modal").hidden) return closeParishEditor();
@@ -9641,17 +9672,127 @@ function dismissSplashScreen() {
   }
 }
 
+
+/* =====================================================================
+   INICIO EN BLOQUES (BENTO), LOGO → INICIO Y MODAL RÁPIDO DE PERFIL
+   ===================================================================== */
+function renderHome() {
+  const set = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
+  set("bento-meta-list", `${PARISHES.length} templos · CABA y GBA`);
+  set("bento-meta-map", "Pines por jerarquía");
+  let streakTxt = "Registrá tu misa";
+  try {
+    const s = evaluateSpiritualStreak(spiritualDB.checkins);
+    if (s && s.consecutiveWeekends > 0) streakTxt = `🔥 ${s.consecutiveWeekends} ${s.consecutiveWeekends === 1 ? "fin de semana" : "fines de semana"}`;
+  } catch (e) { /* sin datos de racha */ }
+  set("bento-meta-spiritual", streakTxt);
+  try {
+    set("bento-meta-liturgy", new Date().toLocaleDateString(appSettings.lang || "es-AR", { weekday: "long", day: "numeric", month: "long" }));
+  } catch (e) { set("bento-meta-liturgy", "Lecturas de hoy"); }
+  set("bento-meta-saints", "Santoral de hoy");
+  set("bento-meta-settings", appSettings.darkMode ? "Modo noche activado" : "Modo claro · Idioma · Radio");
+}
+
+/** Logo → pantalla principal: cierra paneles abiertos y vuelve al Inicio arriba del todo. */
+function goHome() {
+  try { closeDetail(); } catch (e) { /* sin detalle abierto */ }
+  ["#settings-modal", "#profile-quick-modal", "#zone-picker-modal", "#parish-picker-modal", "#public-profile-modal"].forEach(sel => {
+    const m = document.querySelector(sel); if (m) m.hidden = true;
+  });
+  try { closeAudioPanel(); } catch (e) { /* radio no montada */ }
+  switchView("home");
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
+function closeProfileQuickModal() {
+  const m = document.getElementById("profile-quick-modal");
+  if (m) m.hidden = true;
+}
+
+function renderProfileQuick() {
+  const body = document.getElementById("pq-body");
+  if (!body) return;
+  const user = getCurrentUserObj();
+  const role = state.isAdmin ? "Administrador" : state.adminRole === "collab" ? "Colaborador" : "Invitado";
+  let streakN = 0;
+  try { streakN = evaluateSpiritualStreak(spiritualDB.checkins).consecutiveWeekends || 0; } catch (e) { /* sin racha */ }
+  const radioOn = !globalAudio.paused && !globalAudio.ended;
+  body.innerHTML = `
+    <div class="pq-hero">
+      <div class="pq-avatar">${user ? renderAvatarContent(user) : "👤"}</div>
+      <div class="pq-id">
+        <strong>${esc(user ? user.apodo : "Invitado")}</strong>
+        <span>${user ? "@" + esc(user.username || "") : "Sin cuenta iniciada"}</span>
+        <span class="pq-role">${esc(role)}</span>
+      </div>
+    </div>
+    ${user && user.bio ? `<p class="pq-bio">${esc(user.bio)}</p>` : ""}
+    <div class="pq-stats">
+      <div class="pq-stat"><strong>${state.favs.size}</strong><span>Favoritos</span></div>
+      <div class="pq-stat"><strong>${streakN}</strong><span>Racha</span></div>
+      <div class="pq-stat"><strong>${PARISHES.length}</strong><span>Templos</span></div>
+    </div>
+    <div class="pq-actions">
+      <button type="button" class="pq-btn primary" data-pq="profile">${user ? "Ver perfil completo" : "Iniciar sesión / crear cuenta"}</button>
+      <button type="button" class="pq-btn" data-pq="dark">${appSettings.darkMode ? "☀️ Cambiar a modo claro" : "🌙 Activar modo noche"}</button>
+      <button type="button" class="pq-btn" data-pq="radio">${radioOn ? "⏸ Pausar Radio" : "▶ Iniciar Radio"}</button>
+      <button type="button" class="pq-btn" data-pq="settings">⚙️ Configuración e idioma</button>
+      <button type="button" class="pq-btn subtle" data-pq="staff">${state.canEditActivities ? "Cerrar sesión de gestión" : "Ingreso como Administrador / Colaborador"}</button>
+    </div>`;
+}
+
+function openProfileQuickModal() {
+  const m = document.getElementById("profile-quick-modal");
+  if (!m) return switchView("profile");
+  renderProfileQuick();
+  m.hidden = false;
+  setTimeout(() => m.querySelector(".pq-btn")?.focus(), 40);
+}
+
+function initHomeAndHeader() {
+  document.getElementById("btn-brand-home")?.addEventListener("click", goHome);
+
+  document.getElementById("bento-grid")?.addEventListener("click", (e) => {
+    const card = e.target.closest("[data-go], [data-open]");
+    if (!card) return;
+    if (card.dataset.open === "settings") return openSettingsModal();
+    if (card.dataset.go) switchView(card.dataset.go);
+  });
+
+  const modal = document.getElementById("profile-quick-modal");
+  document.getElementById("btn-close-profile-quick")?.addEventListener("click", closeProfileQuickModal);
+  modal?.addEventListener("click", (e) => {
+    if (e.target === modal) return closeProfileQuickModal();
+    const btn = e.target.closest("[data-pq]");
+    if (!btn) return;
+    const act = btn.dataset.pq;
+    if (act === "profile") { closeProfileQuickModal(); switchView("profile"); }
+    else if (act === "settings") { closeProfileQuickModal(); openSettingsModal(); }
+    else if (act === "dark") {
+      appSettings.darkMode = !appSettings.darkMode;
+      saveAppSettings(); applyAppSettings(); renderProfileQuick(); renderHome();
+    } else if (act === "radio") {
+      document.getElementById("btn-settings-radio-play")?.click();
+      setTimeout(renderProfileQuick, 250);
+    } else if (act === "staff") {
+      closeProfileQuickModal();
+      state.canEditActivities ? logoutAdmin() : openAdminLoginModal();
+    }
+  });
+  renderHome();
+}
+
 /** Entrada por roles: Invitado (libre) o Administrador / Colaborador (PIN). Se enlaza al cargar el script,
  *  de modo que los botones respondan aunque algún módulo posterior falle. */
 function enterAsGuest(view) {
   dismissSplashScreen();
-  if (view && view !== "list") { try { switchView(view); } catch (e) { console.warn(e); } }
+  if (view && view !== state.view) { try { switchView(view); } catch (e) { console.warn(e); } }
 }
 document.getElementById("btn-splash-list")?.addEventListener("click", () => enterAsGuest("list"));
 document.getElementById("btn-splash-map")?.addEventListener("click", () => enterAsGuest("map"));
-document.getElementById("btn-splash-guest")?.addEventListener("click", () => enterAsGuest("list"));
+document.getElementById("btn-splash-guest")?.addEventListener("click", () => enterAsGuest("home"));
 document.getElementById("btn-splash-staff")?.addEventListener("click", () => openAdminLoginModal());
-document.getElementById("btn-login-guest")?.addEventListener("click", () => { closeAdminLoginModal(); enterAsGuest("list"); });
+document.getElementById("btn-login-guest")?.addEventListener("click", () => { closeAdminLoginModal(); enterAsGuest("home"); });
 document.getElementById("btn-act-parish-picker")?.addEventListener("click", () => openParishPickerModal("activity"));
 
 /** Se llama al terminar el arranque: con sesión de gestión activa o ya visitada en esta sesión, no pide elegir de nuevo. */
@@ -9685,6 +9826,7 @@ function bootstrapApp() {
     ["renderSaintsView", renderSaintsView],
     ["initGlobalRadio", initGlobalRadio],
     ["initSwipeGestures", initSwipeGestures],
+    ["initHomeAndHeader", initHomeAndHeader],
     ["renderCommunityView", renderCommunityView],
     ["renderProfileView", renderProfileView]
   ];
@@ -9698,7 +9840,7 @@ function bootstrapApp() {
   });
 
   try {
-    if (state.view !== "list") switchView(state.view, true);
+    switchView(state.view, true);
   } catch (err) {
     console.warn("[Bootstrap Guard] Error al restaurar vista activa:", err);
   }

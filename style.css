@@ -22,7 +22,10 @@
   --r-lg: 20px;
   --r-md: 14px;
   --r-pill: 999px;
-  --top-shell-h: 108px;
+  --top-shell-h: 118px;
+  --shadow-1: 0 1px 2px rgba(20, 24, 31, .05), 0 2px 8px rgba(20, 24, 31, .05);
+  --shadow-2: 0 2px 4px rgba(20, 24, 31, .05), 0 10px 24px rgba(20, 24, 31, .09);
+  --shadow-3: 0 4px 8px rgba(20, 24, 31, .08), 0 18px 40px rgba(20, 24, 31, .14);
   --serif: 'Newsreader', Georgia, 'Times New Roman', serif;
   --sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   --ease: cubic-bezier(.32, .72, 0, 1);
@@ -3701,3 +3704,104 @@ body.splash-open .modal-backdrop { z-index: 100020; }
 body.splash-open .floating-audio-widget { display: none; }
 body.dark-mode .splash-guest-btn { background: #f1c40f; color: #1a1a1a; }
 @media (prefers-reduced-motion: reduce) { .splash-opt, .app-splash-screen { transition: none; } }
+
+
+/* =====================================================================
+   BLOQUES CON PROFUNDIDAD (BENTO) · Inicio, navegación, tarjetas y modales
+   ===================================================================== */
+body[data-active-view="home"] .fab-near { display: none; }
+
+/* Logo como botón de Inicio */
+.brand-home-btn { background: none; border: 0; padding: 0; margin: 0; color: inherit; font: inherit; text-align: left; cursor: pointer; border-radius: 14px; }
+.brand-home-btn:active { transform: scale(.97); }
+.brand-home-btn .brand-titles { display: flex; flex-direction: column; }
+
+/* Pestañas como bloques táctiles */
+.top-nav { padding: 6px 12px 10px; gap: 8px; }
+.nav-tab {
+  min-height: 42px; padding: 8px 15px; border-radius: 14px; background: var(--surface);
+  border: 1px solid var(--line); box-shadow: var(--shadow-1);
+}
+.nav-tab:active { transform: scale(.96); }
+.nav-tab.is-active { background: var(--brand); border-color: var(--brand); color: #fff; box-shadow: var(--shadow-2); }
+body.dark-mode .nav-tab.is-active { background: #f1c40f; border-color: #f1c40f; color: #14181F; }
+
+/* Inicio: Bento Grid */
+.home-hero { padding: 20px 4px 14px; }
+.home-hero h1 { font-family: var(--serif); font-size: 1.9rem; letter-spacing: -.02em; line-height: 1.1; color: var(--ink); }
+.home-hero p { color: var(--muted); margin-top: 6px; font-size: .95rem; }
+.bento-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 14px; padding-bottom: 24px; }
+.bento-card {
+  position: relative; display: flex; flex-direction: column; justify-content: space-between; gap: 14px;
+  min-height: 148px; padding: 18px; text-align: left; color: var(--ink); font: inherit; cursor: pointer;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 24px; box-shadow: var(--shadow-2);
+  overflow: hidden; transition: transform .18s var(--ease), box-shadow .18s var(--ease);
+  animation: bentoIn .45s var(--ease) both;
+}
+.bento-card:nth-child(2) { animation-delay: .05s; } .bento-card:nth-child(3) { animation-delay: .1s; }
+.bento-card:nth-child(4) { animation-delay: .15s; } .bento-card:nth-child(5) { animation-delay: .2s; }
+.bento-card:nth-child(6) { animation-delay: .25s; }
+.bento-card:hover { box-shadow: var(--shadow-3); transform: translateY(-2px); }
+.bento-card:active { transform: scale(.97); box-shadow: var(--shadow-1); }
+.bento-card:focus-visible { outline: 3px solid var(--brand); outline-offset: 2px; }
+.bento-wide { grid-column: 1 / -1; }
+.bento-ico {
+  width: 46px; height: 46px; border-radius: 15px; display: grid; place-items: center;
+  background: var(--brand-soft); color: var(--brand); box-shadow: inset 0 0 0 1px rgba(20, 24, 31, .04);
+}
+.bento-ico svg { width: 24px; height: 24px; }
+.bento-text { display: flex; flex-direction: column; gap: 3px; }
+.bento-title { font-family: var(--serif); font-size: 1.2rem; font-weight: 700; letter-spacing: -.01em; }
+.bento-desc { color: var(--muted); font-size: .82rem; line-height: 1.3; }
+.bento-meta { font-size: .76rem; font-weight: 600; color: var(--brand); text-transform: capitalize; }
+.bento-chevron { position: absolute; top: 16px; right: 18px; font-size: 1.5rem; line-height: 1; color: var(--muted); opacity: .6; }
+.bento-map .bento-ico { background: #E0ECFF; color: #1D4ED8; }
+.bento-spiritual .bento-ico { background: #FFEBD5; color: #C2410C; }
+.bento-liturgy .bento-ico { background: #EFE3FA; color: #7E22CE; }
+.bento-saints .bento-ico { background: #DDF5E6; color: #15803D; }
+.bento-settings { min-height: 96px; flex-direction: row; align-items: center; }
+.bento-settings .bento-ico { background: #E8EAEE; color: #475569; }
+.bento-settings .bento-meta { margin-left: auto; padding-right: 22px; text-align: right; max-width: 40%; }
+/* Templos: bloque protagonista */
+.bento-temples { min-height: 176px; color: #FAF3E0; border-color: transparent;
+  background: radial-gradient(120% 90% at 100% 0%, rgba(241, 196, 15, .22) 0%, transparent 55%), linear-gradient(145deg, #8B1E2B 0%, #6E1420 55%, #4A0C14 100%); }
+.bento-temples::after { content: "✝"; position: absolute; right: 14px; bottom: -22px; font-size: 7rem; line-height: 1; color: rgba(250, 243, 224, .1); pointer-events: none; }
+.bento-temples .bento-ico { background: rgba(250, 243, 224, .16); color: #FAF3E0; }
+.bento-temples .bento-title { font-size: 1.5rem; }
+.bento-temples .bento-desc, .bento-temples .bento-chevron { color: rgba(250, 243, 224, .82); }
+.bento-temples .bento-meta { color: #F7DC6F; }
+body.dark-mode .bento-map .bento-ico, body.dark-mode .bento-spiritual .bento-ico, body.dark-mode .bento-liturgy .bento-ico,
+body.dark-mode .bento-saints .bento-ico, body.dark-mode .bento-settings .bento-ico { background: rgba(255, 255, 255, .08); }
+@keyframes bentoIn { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; transform: none; } }
+
+/* Profundidad en el resto de bloques existentes */
+.card, .block, .settings-item, .square-card, .admin-panel, .composer-card, .modal-card {
+  border-radius: 20px; box-shadow: var(--shadow-1);
+}
+.card, .square-card { transition: transform .18s var(--ease), box-shadow .18s var(--ease); }
+.card:hover, .square-card:hover { box-shadow: var(--shadow-2); }
+.card:active, .square-card:active { transform: scale(.985); }
+.modal-card { box-shadow: var(--shadow-3); }
+.settings-item { padding: 16px; }
+
+/* Modal rápido de perfil */
+.profile-quick-card { padding: 22px; }
+.pq-hero { display: flex; align-items: center; gap: 14px; }
+.pq-avatar { width: 64px; height: 64px; border-radius: 50%; overflow: hidden; display: grid; place-items: center; font-size: 2rem; background: var(--brand-soft); box-shadow: var(--shadow-2); flex: none; }
+.pq-avatar img { width: 100%; height: 100%; object-fit: cover; }
+.pq-id { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.pq-id strong { font-family: var(--serif); font-size: 1.2rem; }
+.pq-id span { color: var(--muted); font-size: .84rem; }
+.pq-role { align-self: flex-start; margin-top: 4px; padding: 2px 10px; border-radius: 999px; background: var(--gold-soft); color: var(--gold) !important; font-weight: 600; font-size: .74rem !important; }
+.pq-bio { margin-top: 12px; color: var(--muted); font-size: .88rem; line-height: 1.4; }
+.pq-stats { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin: 16px 0; }
+.pq-stat { display: flex; flex-direction: column; align-items: center; padding: 12px 6px; border-radius: 16px; background: var(--surface-2); border: 1px solid var(--line); }
+.pq-stat strong { font-family: var(--serif); font-size: 1.35rem; }
+.pq-stat span { color: var(--muted); font-size: .72rem; }
+.pq-actions { display: grid; gap: 8px; }
+.pq-btn { min-height: 46px; padding: 0 14px; border-radius: 14px; border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: inherit; font-weight: 600; font-size: .9rem; cursor: pointer; box-shadow: var(--shadow-1); text-align: left; }
+.pq-btn:active { transform: scale(.98); }
+.pq-btn.primary { background: var(--brand); border-color: var(--brand); color: #fff; text-align: center; }
+body.dark-mode .pq-btn.primary { background: #f1c40f; border-color: #f1c40f; color: #14181F; }
+.pq-btn.subtle { box-shadow: none; background: transparent; border-style: dashed; color: var(--muted); font-weight: 500; }
+@media (prefers-reduced-motion: reduce) { .bento-card { animation: none; } .bento-card, .nav-tab, .card, .square-card { transition: none; } }
