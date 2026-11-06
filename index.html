@@ -26,12 +26,28 @@
 <header class="top-app-shell" id="top-app-shell">
   <div class="global-topbar">
     <div class="brand-lockup">
-      <span class="brand-cross-badge" aria-hidden="true">✝</span>
+      <img src="icons/logo.png" alt="No apartes tu rostro del pobre" class="brand-logo-img">
       <div class="brand-titles">
-        <span class="brand-name" data-i18n="app_title">Parroquias BA</span>
-        <span class="brand-sub" data-i18n="app_subtitle">CABA y GBA · Comunidad y Liturgia</span>
+        <span class="brand-name" data-i18n="app_title">Guía Católica</span>
+        <span class="brand-sub" data-i18n="app_subtitle">CABA y GBA · Parroquias y Liturgia</span>
       </div>
     </div>
+
+    <!-- Widget Flotante Sutil: Radio Católica Global "Estás escuchando..." -->
+    <div class="radio-floating-pill" id="radio-pill" role="region" aria-label="Radio Católica en vivo">
+      <button type="button" class="radio-play-btn" id="btn-radio-toggle" aria-label="Reproducir o pausar música católica">
+        <span class="radio-waves" id="radio-waves" aria-hidden="true">
+          <i></i><i></i><i></i><i></i>
+        </span>
+        <svg class="radio-icon-play" id="radio-icon-play" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>
+        <svg class="radio-icon-pause" id="radio-icon-pause" viewBox="0 0 24 24" fill="currentColor" hidden><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+      </button>
+      <div class="radio-info" id="radio-info" title="Música católica en segundo plano">
+        <span class="radio-kicker">Estás escuchando:</span>
+        <span class="radio-track-name" id="radio-track-name">Cara A Cara · Pascua Joven</span>
+      </div>
+    </div>
+    <audio id="global-radio-audio" preload="metadata"></audio>
 
     <div class="topbar-actions">
       <button type="button" class="header-user-pill" id="header-user-btn" aria-label="Abrir mi perfil o cuenta">
@@ -68,14 +84,6 @@
         <path d="M12 2c.5 3.5 3.5 5.5 3.5 9a5.5 5.5 0 1 1-11 0c0-2.5 1.5-4.5 3-6 .5 2 2 3 2 3s1-2.5 2.5-6z"/>
       </svg>
       <span data-i18n="nav_spiritual">Racha / Notas</span>
-    </button>
-    <button type="button" class="nav-tab" id="tab-miparro" role="tab" aria-selected="false" aria-controls="view-miparro" data-target-view="miparro">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
-        <path d="M12 2v4M10 4h4"/>
-        <path d="M5 21V12l7-5 7 5v9z"/>
-        <path d="M10 21v-5a2 2 0 0 1 4 0v5"/>
-      </svg>
-      <span data-i18n="nav_miparro">Mi Parro</span>
     </button>
     <button type="button" class="nav-tab" id="tab-liturgy" role="tab" aria-selected="false" aria-controls="view-liturgy" data-target-view="liturgy">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -155,18 +163,22 @@
       </div>
 
       <div class="loc-bar" aria-label="Ubicación de referencia">
-        <div class="loc-select-wrap">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
-            <path d="M12 21s-6-5.2-6-10a6 6 0 1 1 12 0c0 4.8-6 10-6 10z"/>
-            <circle cx="12" cy="11" r="2.2"/>
+        <button type="button" class="loc-grid-trigger-btn" id="btn-open-zone-modal" aria-haspopup="dialog" aria-expanded="false" aria-label="Abrir selector de zona o barrio en cuadrícula">
+          <svg class="loc-trigger-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" aria-hidden="true">
+            <rect x="3" y="3" width="7" height="7" rx="2"/>
+            <rect x="14" y="3" width="7" height="7" rx="2"/>
+            <rect x="14" y="14" width="7" height="7" rx="2"/>
+            <rect x="3" y="14" width="7" height="7" rx="2"/>
           </svg>
-          <select id="manual-zone" aria-label="Elegir zona o barrio de referencia para calcular distancias">
-            <option value="">Ubicación: Orden alfabético (general)</option>
-          </select>
-        </div>
+          <span class="loc-trigger-text" id="loc-trigger-text">Zona: Todas (CABA y GBA)</span>
+          <span class="loc-trigger-badge">Elegir ▾</span>
+        </button>
         <button type="button" class="btn-gps-inline" id="btn-gps-inline" aria-label="Usar mi ubicación GPS">
           Usar GPS
         </button>
+        <select id="manual-zone" hidden aria-hidden="true">
+          <option value="">Ubicación: Orden alfabético (general)</option>
+        </select>
       </div>
 
       <div class="loc-banner" id="loc-banner" role="status" aria-live="polite" hidden>
@@ -246,16 +258,6 @@
     </div>
 
     <div id="spiritual-content" class="spiritual-body"></div>
-  </section>
-
-  <!-- ==================== VISTA: MI PARRO (SIMULADOR DE PARROQUIA VIRTUAL) ==================== -->
-  <section class="app view-panel" id="view-miparro" role="tabpanel" aria-labelledby="tab-miparro" aria-hidden="true">
-    <div class="page-intro">
-      <h1 data-i18n="miparro_heading">Mi Parro</h1>
-      <p class="sub" data-i18n="miparro_subheading">Construí y decorá tu parroquia virtual con las Monedas de Gracia que ganás con tu Racha.</p>
-    </div>
-
-    <div id="miparro-content" class="miparro-body"></div>
   </section>
 
   <!-- ==================== VISTA 4: LITURGIA (EVANGELIO, SALMO, PRIMERA LECTURA Y EXPLICACIÓN PASTORAL) ==================== -->
@@ -379,11 +381,24 @@
         </select>
       </div>
 
+      <!-- Control Deslizante de Volumen para la Radio Católica -->
+      <div class="settings-item settings-item-col">
+        <div class="settings-item-info">
+          <strong>📻 Volumen de la Radio Católica</strong>
+          <span>Regulá el volumen de la música sacra continua en segundo plano.</span>
+        </div>
+        <div class="volume-slider-row">
+          <span class="vol-icon" aria-hidden="true">🔈</span>
+          <input type="range" id="radio-volume-slider" min="0" max="1" step="0.05" value="0.75" class="volume-range" aria-label="Volumen de la música">
+          <span id="radio-volume-label" class="vol-label">75%</span>
+        </div>
+      </div>
+
       <!-- Acceso Rápido a Secciones -->
       <div class="settings-item settings-item-col">
         <div class="settings-item-info">
-          <strong>📖 Navegación estilo Libro</strong>
-          <span>Barra superior deslizable libre del borde inferior para evitar superposiciones en móviles.</span>
+          <strong>📖 Navegación Gestual y estilo Libro</strong>
+          <span>Deslizá con el dedo (swipe) hacia los lados o tocá las pestañas para pasar de página.</span>
         </div>
       </div>
     </div>
@@ -568,6 +583,51 @@
       </button>
     </div>
     <div id="public-profile-body"></div>
+  </div>
+</div>
+
+<!-- ==================== MODAL 5: SELECTOR DE ZONA / BARRIO EN CUADRÍCULA (GRID CUADRADO MINIMALISTA) ==================== -->
+<div class="modal-backdrop" id="zone-picker-modal" role="dialog" aria-modal="true" aria-labelledby="zone-picker-title" hidden>
+  <div class="modal-card modal-grid-sheet">
+    <div class="modal-head">
+      <div>
+        <h2 id="zone-picker-title">🗺️ Elegir Zona o Barrio</h2>
+        <span class="modal-sub-inline">Seleccioná un punto de referencia para calcular distancias en CABA y GBA</span>
+      </div>
+      <button type="button" class="icon-btn modal-close" id="btn-close-zone-modal" aria-label="Cerrar selector de zona">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
+
+    <div class="zone-grid-filter-bar">
+      <button type="button" class="zone-tab is-active" data-zone-filter="ALL">Todas</button>
+      <button type="button" class="zone-tab" data-zone-filter="CABA">CABA</button>
+      <button type="button" class="zone-tab" data-zone-filter="Zona Norte">Norte</button>
+      <button type="button" class="zone-tab" data-zone-filter="Zona Oeste">Oeste</button>
+      <button type="button" class="zone-tab" data-zone-filter="Zona Sur">Sur</button>
+    </div>
+
+    <div class="square-grid" id="zone-square-grid"></div>
+  </div>
+</div>
+
+<!-- ==================== MODAL 6: SELECTOR DE TEMPLOS EN CUADRÍCULA TÁCTIL (GRID MINIMALISTA) ==================== -->
+<div class="modal-backdrop" id="parish-picker-modal" role="dialog" aria-modal="true" aria-labelledby="parish-picker-title" hidden>
+  <div class="modal-card modal-grid-sheet">
+    <div class="modal-head">
+      <div>
+        <h2 id="parish-picker-title">⛪ Seleccionar Parroquia</h2>
+        <span class="modal-sub-inline">Elegí tu templo para el registro de racha o reflexión</span>
+      </div>
+      <button type="button" class="icon-btn modal-close" id="btn-close-parish-picker" aria-label="Cerrar selector de templo">
+        <svg viewBox="0 0 24 24"><path d="M6 6l12 12M18 6 6 18"/></svg>
+      </button>
+    </div>
+    <div class="picker-search-field">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="m20 20-3.5-3.5"/></svg>
+      <input type="search" id="parish-picker-search" placeholder="Buscá por nombre, barrio o zona..." autocomplete="off">
+    </div>
+    <div class="square-grid square-grid-parishes" id="parish-square-grid"></div>
   </div>
 </div>
 

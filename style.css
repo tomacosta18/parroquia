@@ -128,6 +128,21 @@ body.dark-mode .top-app-shell {
   min-width: 0;
 }
 
+.brand-logo-img {
+  width: 42px;
+  height: 42px;
+  border-radius: 9px;
+  object-fit: contain;
+  background: #FAF3E0;
+  border: 1.5px solid rgba(107, 20, 38, 0.22);
+  box-shadow: 0 3px 10px rgba(0, 0, 0, 0.12);
+  flex: none;
+  transition: transform .15s ease;
+}
+.brand-logo-img:hover {
+  transform: scale(1.05);
+}
+
 .brand-cross-badge {
   width: 34px;
   height: 34px;
@@ -2119,375 +2134,632 @@ body.open .sheet { transform: none; visibility: visible; }
 
 
 /* =====================================================================
-   Mi Parro: Simulador de Parroquia Virtual (paleta calida, tierna y tactil)
+   RADIO CATÓLICA GLOBAL Y BURBUJA FLOTANTE "ESTÁS ESCUCHANDO..."
    ===================================================================== */
-body[data-active-view="miparro"] .fab-near {
-  opacity: 0;
-  pointer-events: none;
-}
-
-.miparro-body {
-  --parro-cream: #FFF6E8;
-  --parro-peach: #FBE3C6;
-  --parro-terracotta: #C8693E;
-  --parro-honey: #E3B341;
-  --parro-ink: #4A3626;
-  display: grid;
-  gap: 12px;
-}
-
-body.dark-mode .miparro-body {
-  --parro-cream: #2A2118;
-  --parro-peach: #3A2D20;
-  --parro-terracotta: #E08A5E;
-  --parro-honey: #F0C45A;
-  --parro-ink: #F4E6D3;
-}
-
-/* --- Panel superior de recursos --- */
-.parro-hud {
-  display: grid;
-  grid-template-columns: 1fr 1.25fr;
-  gap: 10px;
-}
-
-.parro-stat {
-  display: flex;
+.radio-floating-pill {
+  position: relative;
+  display: inline-flex;
   align-items: center;
-  gap: 10px;
-  min-width: 0;
-  padding: 10px 12px;
-  border-radius: 18px;
-  background: var(--parro-cream);
-  border: 1px solid rgba(200, 105, 62, .22);
-  box-shadow: 0 4px 14px rgba(200, 105, 62, .10);
+  gap: 9px;
+  padding: 4px 12px 4px 5px;
+  border-radius: var(--r-pill);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08);
+  max-width: 260px;
+  min-width: 170px;
+  height: 38px;
+  transition: all 0.2s ease;
+  user-select: none;
 }
 
-.parro-stat-ico {
-  flex: none;
-  width: 40px;
-  height: 40px;
+body.dark-mode .radio-floating-pill {
+  background: var(--surface-2);
+  border-color: var(--line);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.35);
+}
+
+.radio-play-btn {
+  position: relative;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  border: none;
+  background: linear-gradient(135deg, #6b1426 0%, #8e44ad 100%);
+  color: #fff;
   display: grid;
   place-items: center;
-  font-size: 1.35rem;
-  border-radius: 14px;
-  background: var(--parro-peach);
+  cursor: pointer;
+  flex: none;
+  box-shadow: 0 2px 8px rgba(107, 20, 38, 0.35);
+  transition: transform 0.15s ease, box-shadow 0.15s ease;
 }
 
-.parro-stat-body {
+.radio-play-btn:active {
+  transform: scale(0.92);
+}
+
+.radio-play-btn svg {
+  width: 13px;
+  height: 13px;
+  position: relative;
+  z-index: 2;
+}
+
+/* Animación sutil de ondas de audio */
+.radio-waves {
+  position: absolute;
+  inset: -3px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.25s ease;
+}
+
+.radio-waves i {
+  display: inline-block;
+  width: 2px;
+  height: 10px;
+  background: #6b1426;
+  border-radius: 2px;
+  animation: waveBar 1.2s ease-in-out infinite alternate;
+}
+
+body.dark-mode .radio-waves i {
+  background: #f1c40f;
+}
+
+.radio-waves i:nth-child(1) { animation-delay: 0.1s; height: 6px; }
+.radio-waves i:nth-child(2) { animation-delay: 0.3s; height: 12px; }
+.radio-waves i:nth-child(3) { animation-delay: 0.2s; height: 14px; }
+.radio-waves i:nth-child(4) { animation-delay: 0.4s; height: 8px; }
+
+@keyframes waveBar {
+  0% { transform: scaleY(0.4); }
+  100% { transform: scaleY(1.4); }
+}
+
+.radio-floating-pill.is-playing .radio-waves {
+  opacity: 1;
+}
+
+.radio-info {
+  display: flex;
+  flex-direction: column;
   min-width: 0;
-  display: grid;
-  gap: 1px;
-}
-
-.parro-stat-body strong {
-  font-family: var(--serif);
-  font-size: 1.3rem;
-  line-height: 1.1;
-  color: var(--parro-ink);
-}
-
-.parro-stat-body span {
-  font-size: .74rem;
-  font-weight: 600;
-  color: var(--muted);
   overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.15;
+}
+
+.radio-kicker {
+  font-size: 0.65rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--muted);
   white-space: nowrap;
 }
 
-.parro-progress {
-  margin-top: 5px;
-  height: 7px;
-  border-radius: 99px;
-  background: rgba(200, 105, 62, .16);
+.radio-track-name {
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: var(--ink);
+  white-space: nowrap;
   overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.parro-progress i {
-  display: block;
-  height: 100%;
-  border-radius: 99px;
-  background: linear-gradient(90deg, var(--parro-honey), var(--parro-terracotta));
-  transition: width .5s var(--ease, ease);
+.radio-floating-pill.is-playing .radio-track-name {
+  color: #6b1426;
+}
+body.dark-mode .radio-floating-pill.is-playing .radio-track-name {
+  color: #f1c40f;
 }
 
-.parro-hint {
-  font-size: .8rem;
-  line-height: 1.5;
-  color: var(--muted);
-  padding: 0 4px;
+/* Control de volumen en ajustes */
+.volume-slider-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 6px;
+  width: 100%;
+}
+.volume-range {
+  flex: 1;
+  accent-color: #6b1426;
+  height: 6px;
+  cursor: pointer;
+}
+body.dark-mode .volume-range {
+  accent-color: #f1c40f;
+}
+.vol-label {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: var(--ink);
+  min-width: 36px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
 }
 
-.parro-hint b { color: var(--parro-ink); }
-
-.parro-link-btn {
-  display: inline-block;
-  margin-left: 4px;
-  padding: 6px 10px;
-  border: 0;
-  border-radius: 99px;
-  background: var(--parro-peach);
-  color: var(--parro-terracotta);
+/* =====================================================================
+   DISPARADOR Y SELECTORES EMERGENTES EN GRID DE CUADRADOS MINIMALISTAS
+   ===================================================================== */
+.loc-grid-trigger-btn {
+  flex: 1;
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  color: var(--ink);
   font: inherit;
-  font-size: .78rem;
-  font-weight: 700;
+  font-size: 0.88rem;
+  font-weight: 500;
+  cursor: pointer;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.04);
+  transition: border-color 0.15s ease, background 0.15s ease, transform 0.12s ease;
   touch-action: manipulation;
 }
 
-/* --- Escenario de la parroquia --- */
-.parro-stage {
-  padding: 12px;
-  border-radius: 26px;
-  background: linear-gradient(180deg, var(--parro-peach), var(--parro-cream));
-  border: 1px solid rgba(200, 105, 62, .25);
-  box-shadow: 0 10px 28px rgba(200, 105, 62, .14);
-  display: grid;
-  gap: 8px;
+.loc-grid-trigger-btn:active {
+  transform: scale(0.985);
+  border-color: var(--brand);
 }
 
-.parro-name-input {
-  width: 100%;
-  height: 42px;
-  padding: 0 14px;
-  text-align: center;
-  font-family: var(--serif);
-  font-size: 1.2rem;
-  font-weight: 600;
-  color: var(--parro-ink);
-  background: rgba(255, 255, 255, .55);
-  border: 1px dashed rgba(200, 105, 62, .4);
-  border-radius: 14px;
+.loc-trigger-icon {
+  width: 18px;
+  height: 18px;
+  color: #6b1426;
+  flex: none;
+}
+body.dark-mode .loc-trigger-icon {
+  color: #f1c40f;
 }
 
-body.dark-mode .parro-name-input { background: rgba(0, 0, 0, .25); }
-
-.parro-name-input:focus {
-  outline: none;
-  border-style: solid;
-  border-color: var(--parro-terracotta);
-  box-shadow: 0 0 0 3px rgba(200, 105, 62, .18);
-}
-
-.parro-scene-wrap {
-  border-radius: 20px;
+.loc-trigger-text {
+  flex: 1;
+  white-space: nowrap;
   overflow: hidden;
-  background: #FFF8EC;
-  box-shadow: inset 0 0 0 1px rgba(200, 105, 62, .18);
+  text-overflow: ellipsis;
+  text-align: left;
 }
 
-.parro-scene-svg {
-  display: block;
-  width: 100%;
-  height: auto;
-}
-
-body.dark-mode .parro-scene-svg {
-  filter: brightness(.8) saturate(.92);
-}
-
-.parro-caption {
-  text-align: center;
-  font-size: .82rem;
-  color: var(--muted);
-  padding: 0 6px 2px;
-}
-
-.parro-caption b { color: var(--parro-ink); }
-
-.parro-stage.is-built .parro-scene-wrap {
-  animation: parroBuilt .7s var(--ease, ease);
-}
-
-@keyframes parroBuilt {
-  0% { transform: scale(.985); box-shadow: 0 0 0 0 rgba(227, 179, 65, .7); }
-  45% { transform: scale(1.012); box-shadow: 0 0 0 10px rgba(227, 179, 65, .25); }
-  100% { transform: scale(1); box-shadow: 0 0 0 0 rgba(227, 179, 65, 0); }
-}
-
-.parro-cloud { animation: parroCloud 9s ease-in-out infinite alternate; }
-.parro-cloud-b { animation-duration: 12s; animation-direction: alternate-reverse; }
-
-@keyframes parroCloud {
-  from { transform: translateX(-14px); }
-  to { transform: translateX(14px); }
-}
-
-.parro-bell {
-  transform-box: fill-box;
-  transform-origin: 50% 0;
-  animation: parroBell 3.2s ease-in-out infinite;
-}
-
-@keyframes parroBell {
-  0%, 100% { transform: rotate(0); }
-  20% { transform: rotate(9deg); }
-  40% { transform: rotate(-8deg); }
-  60% { transform: rotate(4deg); }
-  80% { transform: rotate(-2deg); }
-}
-
-.parro-drop { animation: parroDrop 1.6s ease-in infinite; }
-
-@keyframes parroDrop {
-  0% { transform: translateY(-4px); opacity: 0; }
-  30% { opacity: 1; }
-  100% { transform: translateY(16px); opacity: 0; }
-}
-
-/* --- Tienda: construccion y decoracion --- */
-.parro-shop {
-  padding: 14px 12px 12px;
-  border-radius: 24px;
-  background: var(--surface);
-  border: 1px solid var(--line);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, .05);
-}
-
-.parro-shop-head {
-  display: grid;
-  gap: 2px;
-  margin-bottom: 8px;
-  padding: 0 4px;
-}
-
-.parro-shop-head h2 {
-  font-family: var(--serif);
-  font-size: 1.12rem;
+.loc-trigger-badge {
+  font-size: 0.72rem;
   font-weight: 600;
+  color: var(--muted);
+  background: var(--bg);
+  padding: 3px 8px;
+  border-radius: var(--r-pill);
+  flex: none;
+}
+
+/* Modal Bottom-Sheet en Cuadrícula */
+.modal-grid-sheet {
+  max-width: 580px;
+  max-height: 86vh;
+  display: flex;
+  flex-direction: column;
+  padding: 18px 16px 20px;
+  border-radius: 24px;
+}
+
+.modal-sub-inline {
+  display: block;
+  font-size: 0.8rem;
+  color: var(--muted);
+  margin-top: 2px;
+}
+
+.zone-grid-filter-bar {
+  display: flex;
+  gap: 6px;
+  overflow-x: auto;
+  padding: 6px 0 12px;
+  scrollbar-width: none;
+}
+.zone-grid-filter-bar::-webkit-scrollbar { display: none; }
+
+.zone-tab {
+  flex: none;
+  height: 32px;
+  padding: 0 12px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--muted);
+  font-size: 0.8rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+
+.zone-tab.is-active {
+  background: #6b1426;
+  border-color: #6b1426;
+  color: #fff;
+}
+body.dark-mode .zone-tab.is-active {
+  background: #f1c40f;
+  border-color: #f1c40f;
+  color: #1a1a1a;
+}
+
+/* Cuadrícula de Tarjetas Cuadradas Minimalistas */
+.square-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(115px, 1fr));
+  gap: 10px;
+  overflow-y: auto;
+  padding: 4px 2px 14px;
+  max-height: 58vh;
+  -webkit-overflow-scrolling: touch;
+}
+
+.square-card {
+  aspect-ratio: 1 / 0.95;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  text-align: center;
+  padding: 10px 8px;
+  border-radius: 16px;
+  border: 1.5px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  transition: transform 0.14s ease, border-color 0.15s ease, background 0.15s ease, box-shadow 0.15s ease;
+  position: relative;
+  touch-action: manipulation;
+}
+
+.square-card:active {
+  transform: scale(0.95);
+}
+
+.square-card:hover {
+  border-color: rgba(107, 20, 38, 0.4);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
+}
+
+.square-card.is-active {
+  border-color: #6b1426;
+  background: rgba(107, 20, 38, 0.06);
+  box-shadow: 0 4px 14px rgba(107, 20, 38, 0.16);
+}
+
+body.dark-mode .square-card.is-active {
+  border-color: #f1c40f;
+  background: rgba(241, 196, 15, 0.1);
+  box-shadow: 0 4px 14px rgba(241, 196, 15, 0.2);
+}
+
+.square-card-icon {
+  font-size: 1.6rem;
+  margin-bottom: 4px;
+  line-height: 1;
+}
+
+.square-card-title {
+  font-size: 0.84rem;
+  font-weight: 600;
+  line-height: 1.15;
+  color: var(--ink);
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+
+.square-card-sub {
+  font-size: 0.68rem;
+  font-weight: 500;
+  color: var(--muted);
+  margin-top: 3px;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+
+.picker-search-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  margin-bottom: 12px;
+}
+.picker-search-field svg {
+  position: absolute;
+  left: 12px;
+  width: 16px;
+  height: 16px;
+  color: var(--muted);
+  pointer-events: none;
+}
+.picker-search-field input {
+  width: 100%;
+  height: 40px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  padding: 0 12px 0 36px;
+  font: inherit;
+  font-size: 0.88rem;
   color: var(--ink);
 }
+.picker-search-field input:focus {
+  outline: none;
+  border-color: #6b1426;
+  background: var(--surface);
+}
 
-.parro-shop-head span {
-  font-size: .78rem;
+.square-grid-parishes {
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+}
+
+.square-card-parish {
+  aspect-ratio: 1 / 1.05;
+  justify-content: flex-start;
+  padding: 12px 10px;
+  gap: 4px;
+}
+.square-card-parish .p-type-tag {
+  font-size: 0.65rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: var(--r-pill);
+  margin-bottom: 4px;
+}
+
+/* =====================================================================
+   OPTIMIZACIÓN DEL MÓDULO DE RACHAS, NOTAS Y ESTADÍSTICAS
+   ===================================================================== */
+.streak-hero-card {
+  position: relative;
+  border-radius: 24px;
+  overflow: hidden;
+  background: linear-gradient(145deg, #182238 0%, #301438 52%, #4a0d1b 100%);
+  color: #fff;
+  padding: 24px 20px;
+  box-shadow: 0 12px 32px rgba(24, 34, 56, 0.28);
+  margin-bottom: 16px;
+}
+
+.parish-scene-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+  opacity: 0.38;
+}
+
+.streak-hero-content {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 6px;
+}
+
+.streak-badge-top {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.78rem;
+  font-weight: 600;
+  color: #f1c40f;
+  background: rgba(241, 196, 15, 0.14);
+  border: 1px solid rgba(241, 196, 15, 0.3);
+  padding: 4px 14px;
+  border-radius: var(--r-pill);
+}
+
+.streak-counter-num {
+  font-family: var(--serif);
+  font-size: 3.6rem;
+  font-weight: 700;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  color: #fff;
+  text-shadow: 0 3px 18px rgba(241, 196, 15, 0.35);
+  margin: 4px 0 2px;
+}
+
+.streak-counter-label {
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: rgba(255, 255, 255, 0.82);
+  margin: 0 0 8px;
+}
+
+.streak-points-pills {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  justify-content: center;
+  margin-bottom: 8px;
+}
+
+.streak-pt-pill {
+  font-size: 0.72rem;
+  padding: 3px 10px;
+  border-radius: var(--r-pill);
+  background: rgba(255, 255, 255, 0.12);
+  border: 1px solid rgba(255, 255, 255, 0.18);
+  color: #fff;
+  backdrop-filter: blur(4px);
+}
+.streak-pt-pill strong {
+  color: #f1c40f;
+}
+
+.streak-rule-banner {
+  font-size: 0.76rem;
+  line-height: 1.35;
+  color: rgba(255, 255, 255, 0.78);
+  background: rgba(0, 0, 0, 0.22);
+  padding: 8px 14px;
+  border-radius: 12px;
+  max-width: 440px;
+}
+
+.social-stats-bar {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 10px;
+  margin-bottom: 16px;
+}
+
+.stat-box {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  padding: 12px 10px;
+  text-align: center;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.03);
+}
+
+.stat-box strong {
+  display: block;
+  font-family: var(--serif);
+  font-size: 1.15rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+.stat-box span {
+  font-size: 0.7rem;
+  font-weight: 600;
   color: var(--muted);
 }
 
-.parro-tabs .comm-tab.is-active {
-  background: var(--parro-terracotta);
-  border-color: var(--parro-terracotta);
+.checkin-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 18px 16px;
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.04);
+  margin-bottom: 16px;
 }
 
-.parro-grid {
+.checkin-card h4 {
+  font-family: var(--serif);
+  font-size: 1.15rem;
+  font-weight: 600;
+  color: var(--ink);
+  margin-bottom: 4px;
+}
+.checkin-card p {
+  font-size: 0.82rem;
+  color: var(--muted);
+  line-height: 1.4;
+  margin-bottom: 14px;
+}
+
+.slot-pills {
+  display: flex;
+  gap: 8px;
+  width: 100%;
+}
+.slot-pill {
+  flex: 1;
+  min-height: 40px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.82rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  touch-action: manipulation;
+}
+.slot-pill.is-active {
+  background: #6b1426;
+  border-color: #6b1426;
+  color: #fff;
+  box-shadow: 0 2px 8px rgba(107, 20, 38, 0.25);
+}
+body.dark-mode .slot-pill.is-active {
+  background: #f1c40f;
+  border-color: #f1c40f;
+  color: #1a1a1a;
+}
+
+.parish-picker-trigger-btn {
+  width: 100%;
+  min-height: 44px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  padding: 0 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: var(--bg);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 500;
+  cursor: pointer;
+  text-align: left;
+  transition: border-color 0.15s ease;
+}
+.parish-picker-trigger-btn:hover {
+  border-color: var(--brand);
+}
+
+.stats-kpi-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(2, 1fr);
   gap: 10px;
 }
 
-.parro-item {
-  position: relative;
-  display: grid;
-  align-content: start;
-  justify-items: center;
-  gap: 4px;
-  min-height: 150px;
-  padding: 12px 8px 10px;
-  text-align: center;
-  border-radius: 18px;
-  border: 1.5px solid rgba(200, 105, 62, .22);
-  background: var(--parro-cream);
-  color: var(--ink);
-  font: inherit;
-  touch-action: manipulation;
-  -webkit-tap-highlight-color: transparent;
-  transition: transform .12s, box-shadow .15s, border-color .15s, opacity .15s;
-}
-
-.parro-item:active { transform: scale(.96); }
-
-.parro-item-ico {
-  width: 52px;
-  height: 52px;
-  display: grid;
-  place-items: center;
-  border-radius: 16px;
-  background: var(--parro-peach);
-}
-
-.parro-item-emoji { font-size: 1.7rem; line-height: 1; }
-
-.parro-swatch {
-  width: 30px;
-  height: 30px;
-  border-radius: 50%;
-  border: 3px solid #fff;
-  box-shadow: 0 0 0 1.5px rgba(120, 86, 50, .35);
-}
-
-.parro-item-name {
-  font-size: .86rem;
-  font-weight: 700;
-  line-height: 1.2;
-  color: var(--parro-ink);
-}
-
-.parro-item-desc {
-  font-size: .72rem;
-  line-height: 1.3;
-  color: var(--muted);
-}
-
-.parro-item-tag {
-  margin-top: auto;
-  padding: 5px 10px;
-  border-radius: 99px;
-  font-size: .72rem;
-  font-weight: 700;
-  background: rgba(200, 105, 62, .12);
-  color: var(--parro-terracotta);
-}
-
-.parro-item.is-buyable {
-  border-color: var(--parro-honey);
-  box-shadow: 0 4px 14px rgba(227, 179, 65, .25);
-}
-
-.parro-item.is-buyable .parro-item-tag {
-  background: var(--parro-terracotta);
-  color: #fff;
-}
-
-.parro-item.is-locked { opacity: .62; }
-
-.parro-item.is-owned .parro-item-tag {
-  background: rgba(60, 140, 90, .14);
-  color: #2F7D4F;
-}
-
-body.dark-mode .parro-item.is-owned .parro-item-tag { color: #7FD8A3; }
-
-.parro-item.is-active {
-  border-color: #3C8C5A;
-  background: linear-gradient(180deg, rgba(60, 140, 90, .12), var(--parro-cream));
-}
-
-.parro-item.is-active .parro-item-tag {
-  background: #3C8C5A;
-  color: #fff;
-}
-
-.parro-item.is-denied { animation: parroDenied .45s ease; }
-
-@keyframes parroDenied {
-  0%, 100% { transform: translateX(0); }
-  20% { transform: translateX(-6px); }
-  40% { transform: translateX(6px); }
-  60% { transform: translateX(-4px); }
-  80% { transform: translateX(3px); }
-}
-
-.parro-footer-actions {
+.stat-kpi-box {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 12px;
   display: flex;
-  justify-content: center;
-  margin-top: 12px;
+  flex-direction: column;
+  gap: 2px;
+}
+.kpi-label {
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+.kpi-val {
+  font-family: var(--serif);
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--ink);
+  line-height: 1.2;
+}
+.kpi-sub {
+  font-size: 0.72rem;
+  color: var(--muted);
+  line-height: 1.25;
 }
 
-.parro-footer-actions .btn-sm { flex: none; font-size: .78rem; }
-
-@media (min-width: 560px) {
-  .parro-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
-}
-
-@media (max-width: 360px) {
-  .parro-hud { grid-template-columns: 1fr; }
+/* =====================================================================
+   SOPORTE GESTUAL SWIPE Y LIBRO TÁCTIL
+   ===================================================================== */
+.book-viewport {
+  touch-action: pan-y;
+  user-select: none;
 }

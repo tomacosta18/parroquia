@@ -1,5 +1,5 @@
-const APP_CACHE = "parroquias-app-v20";
-const DATA_CACHE = "parroquias-data-v20";
+const APP_CACHE = "parroquias-app-v21";
+const DATA_CACHE = "parroquias-data-v21";
 
 const APP_SHELL = [
   "./",
@@ -8,7 +8,11 @@ const APP_SHELL = [
   "./app.js",
   "./manifest.json",
   "./icons/icon-192.png",
-  "./icons/icon-512.png"
+  "./icons/icon-512.png",
+  "./icons/logo.png",
+  "./audio/cara-a-cara.mp3",
+  "./audio/haciendote-pan.mp3",
+  "./audio/a-tanto-amor.mp3"
 ];
 
 const DATA_URLS = [

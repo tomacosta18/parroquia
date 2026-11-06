@@ -97,412 +97,2080 @@ const REFERENCE_ZONES = [
 // Respaldo local sincronizado con data/parroquias.json para garantizar carga inicial 100% offline
 const FALLBACK_PARISHES = [
   {
-    id: 1,
-    nombre: "Catedral Metropolitana de Buenos Aires",
-    tipo: "Catedral",
-    region: "CABA",
-    direccion: "San Martín 27, San Nicolás, CABA",
-    barrio: "San Nicolás",
-    coordenadas: { lat: -34.6083, lng: -58.3722 },
-    horariosMisa: [
-      { dia: "Lunes a Viernes", horarios: ["08:30", "12:30", "17:30"] },
-      { dia: "Sábados y Domingos", horarios: ["10:00", "11:30", "18:30"] }
+    "id": 1,
+    "nombre": "Catedral Metropolitana de Buenos Aires",
+    "tipo": "Catedral",
+    "region": "CABA",
+    "direccion": "San Martín 27, San Nicolás, CABA",
+    "barrio": "San Nicolás",
+    "coordenadas": {
+      "lat": -34.60747,
+      "lng": -58.37328
+    },
+    "horariosMisa": [
+      {
+        "dia": "Lunes a Viernes",
+        "horarios": [
+          "08:30",
+          "12:30",
+          "17:30"
+        ]
+      },
+      {
+        "dia": "Sábados y Domingos",
+        "horarios": [
+          "10:00",
+          "11:30",
+          "18:30"
+        ]
+      }
     ],
-    horariosConfesiones: "Media hora antes de cada misa",
-    telefono: "+54 11 4331-2845",
-    webOficial: "https://arzbaires.org.ar",
-    etiquetas: ["Historica", "Centro", "Catedral"]
+    "horariosConfesiones": "Lunes a Viernes de 09:00 a 12:00 y de 16:30 a 18:00",
+    "telefono": "+54 11 4331-2845",
+    "webOficial": "https://arzbaires.org.ar",
+    "etiquetas": [
+      "Histórica",
+      "Sede Arzobispal",
+      "San Martín",
+      "Catedral"
+    ]
   },
   {
-    id: 2,
-    nombre: "Basílica Nuestra Señora del Pilar",
-    tipo: "Basílica",
-    region: "CABA",
-    direccion: "Junín 1904, Recoleta, CABA",
-    barrio: "Recoleta",
-    coordenadas: { lat: -34.5875, lng: -58.3931 },
-    horariosMisa: [
-      { dia: "Lunes a Viernes", horarios: ["08:00", "19:00"] },
-      { dia: "Domingos", horarios: ["10:00", "11:30", "12:30", "20:00"] }
+    "id": 2,
+    "nombre": "Catedral San Isidro Labrador",
+    "tipo": "Catedral",
+    "region": "Zona Norte",
+    "direccion": "Avenida del Libertador 16200, San Isidro",
+    "barrio": "San Isidro",
+    "coordenadas": {
+      "lat": -34.46748,
+      "lng": -58.50907
+    },
+    "horariosMisa": [
+      {
+        "dia": "Lunes a Viernes",
+        "horarios": [
+          "08:00",
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Sábados",
+        "horarios": [
+          "18:00",
+          "19:30"
+        ]
+      },
+      {
+        "dia": "Domingos",
+        "horarios": [
+          "09:30",
+          "11:30",
+          "19:00",
+          "20:30"
+        ]
+      }
     ],
-    horariosConfesiones: "Sábados de 17:00 a 18:30",
-    telefono: "+54 11 4803-6798",
-    webOficial: "",
-    etiquetas: ["Historica", "Adoracion Perpetua", "Basilica"]
+    "horariosConfesiones": "Martes a Sábados media hora antes de cada misa",
+    "telefono": "+54 11 4743-0291",
+    "webOficial": "https://catedralsanisidro.org",
+    "etiquetas": [
+      "Neogótica",
+      "Casco Histórico",
+      "Zona Norte",
+      "Catedral"
+    ]
   },
   {
-    id: 3,
-    nombre: "Basílica San Antonio de Padua",
-    tipo: "Basílica",
-    region: "CABA",
-    direccion: "Agüero 2030, Recoleta, CABA",
-    barrio: "Recoleta",
-    coordenadas: { lat: -34.5902, lng: -58.3985 },
-    horariosMisa: [
-      { dia: "Lunes a Sábados", horarios: ["09:00", "19:30"] },
-      { dia: "Domingos", horarios: ["10:30", "12:00", "19:30"] }
+    "id": 3,
+    "nombre": "Catedral Nuestra Señora del Buen Viaje",
+    "tipo": "Catedral",
+    "region": "Zona Oeste",
+    "direccion": "Belgrano 327, Morón",
+    "barrio": "Morón",
+    "coordenadas": {
+      "lat": -34.65215,
+      "lng": -58.62142
+    },
+    "horariosMisa": [
+      {
+        "dia": "Lunes a Viernes",
+        "horarios": [
+          "08:30",
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Sábados",
+        "horarios": [
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Domingos",
+        "horarios": [
+          "09:00",
+          "11:00",
+          "19:00",
+          "20:30"
+        ]
+      }
     ],
-    horariosConfesiones: "15 minutos antes de cada misa",
-    telefono: "+54 11 4822-4512",
-    webOficial: "",
-    etiquetas: ["Basilica", "Recoleta"]
+    "horariosConfesiones": "Media hora antes de misa vespertina",
+    "telefono": "+54 11 4629-0969",
+    "webOficial": "https://diocesisdemoron.org.ar",
+    "etiquetas": [
+      "Patrona del Oeste",
+      "Centro Morón",
+      "Catedral"
+    ]
   },
   {
-    id: 4,
-    nombre: "Catedral Nuestra Señora de la Paz",
-    tipo: "Catedral",
-    region: "Zona Sur",
-    direccion: "Sáenz 438, Lomas de Zamora, Provincia de Buenos Aires",
-    barrio: "Lomas de Zamora",
-    coordenadas: { lat: -34.7609, lng: -58.4061 },
-    horariosMisa: [
-      { dia: "Lunes a Viernes", horarios: ["08:00", "19:00"] },
-      { dia: "Domingos", horarios: ["09:00", "11:00", "20:00"] }
+    "id": 4,
+    "nombre": "Catedral Nuestra Señora de la Paz",
+    "tipo": "Catedral",
+    "region": "Zona Sur",
+    "direccion": "Sáenz 438, Lomas de Zamora",
+    "barrio": "Lomas de Zamora",
+    "coordenadas": {
+      "lat": -34.75821,
+      "lng": -58.40254
+    },
+    "horariosMisa": [
+      {
+        "dia": "Lunes a Viernes",
+        "horarios": [
+          "08:00",
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Sábados",
+        "horarios": [
+          "18:30"
+        ]
+      },
+      {
+        "dia": "Domingos",
+        "horarios": [
+          "09:00",
+          "11:00",
+          "19:00",
+          "20:30"
+        ]
+      }
     ],
-    horariosConfesiones: "Sábados de 10:00 a 12:00",
-    telefono: "+54 11 4243-2311",
-    webOficial: "",
-    etiquetas: ["Catedral", "Historica", "Zona Sur"]
+    "horariosConfesiones": "Jueves y Viernes de 17:00 a 19:00",
+    "telefono": "+54 11 4243-2311",
+    "webOficial": "https://ilomas.org.ar",
+    "etiquetas": [
+      "Diocesana",
+      "Plaza Grigera",
+      "Zona Sur",
+      "Catedral"
+    ]
   },
   {
-    id: 5,
-    nombre: "Parroquia San Nicolás de Bari",
-    tipo: "Parroquia",
-    region: "CABA",
-    direccion: "Av. Santa Fe 1352, Recoleta, CABA",
-    barrio: "Recoleta",
-    coordenadas: { lat: -34.5982, lng: -58.3871 },
-    horariosMisa: [
-      { dia: "Lunes a Viernes", horarios: ["08:00", "12:30", "19:00"] },
-      { dia: "Domingos", horarios: ["11:00", "20:00"] }
+    "id": 5,
+    "nombre": "Catedral Inmaculada Concepción de Quilmes",
+    "tipo": "Catedral",
+    "region": "Zona Sur",
+    "direccion": "Rivadavia 355, Quilmes",
+    "barrio": "Quilmes",
+    "coordenadas": {
+      "lat": -34.72091,
+      "lng": -58.25413
+    },
+    "horariosMisa": [
+      {
+        "dia": "Lunes a Viernes",
+        "horarios": [
+          "08:00",
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Sábados",
+        "horarios": [
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Domingos",
+        "horarios": [
+          "09:00",
+          "11:00",
+          "19:00"
+        ]
+      }
     ],
-    horariosConfesiones: "Durante las horas de misa",
-    telefono: "+54 11 4812-4022",
-    webOficial: "",
-    etiquetas: ["Parroquia", "Centro"]
+    "horariosConfesiones": "Sábados de 10:00 a 12:00 y 17:30 a 19:00",
+    "telefono": "+54 11 4253-0668",
+    "webOficial": "https://obispadodequilmes.org.ar",
+    "etiquetas": [
+      "Catedral",
+      "Casco Histórico",
+      "Quilmes"
+    ]
   },
   {
-    id: 6,
-    nombre: "Parroquia San Tarsicio",
-    tipo: "Parroquia",
-    region: "CABA",
-    direccion: "Zapiola 4541, Coghlan, CABA",
-    barrio: "Coghlan",
-    coordenadas: { lat: -34.5642, lng: -58.4751 },
-    horariosMisa: [
-      { dia: "Martes a Sábados", horarios: ["19:00"] },
-      { dia: "Domingos", horarios: ["10:30", "19:00"] }
+    "id": 6,
+    "nombre": "Catedral San Justo Mártir",
+    "tipo": "Catedral",
+    "region": "Zona Oeste",
+    "direccion": "Doctor Ignacio Arieta 3056, San Justo",
+    "barrio": "San Justo",
+    "coordenadas": {
+      "lat": -34.67821,
+      "lng": -58.56165
+    },
+    "horariosMisa": [
+      {
+        "dia": "Lunes a Viernes",
+        "horarios": [
+          "08:30",
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Sábados",
+        "horarios": [
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Domingos",
+        "horarios": [
+          "09:00",
+          "11:00",
+          "19:00"
+        ]
+      }
     ],
-    horariosConfesiones: "Sábados previo a misa",
-    telefono: "+54 11 4542-1100",
-    webOficial: "",
-    etiquetas: ["Parroquia", "Barrio"]
+    "horariosConfesiones": "Lunes a Viernes de 18:00 a 19:00",
+    "telefono": "+54 11 4651-0177",
+    "webOficial": "https://diocesisdesanjusto.org.ar",
+    "etiquetas": [
+      "La Matanza",
+      "Plaza San Justo",
+      "Catedral"
+    ]
   },
   {
-    id: 7,
-    nombre: "Capilla del Hospital de Clínicas",
-    tipo: "Capilla",
-    region: "CABA",
-    direccion: "Av. Córdoba 2351, Recoleta, CABA",
-    barrio: "Recoleta",
-    coordenadas: { lat: -34.5972, lng: -58.3992 },
-    horariosMisa: [
-      { dia: "Lunes a Viernes", horarios: ["11:00"] },
-      { dia: "Domingos", horarios: ["10:00"] }
+    "id": 7,
+    "nombre": "Catedral San Miguel Arcángel",
+    "tipo": "Catedral",
+    "region": "Zona Norte",
+    "direccion": "Belgrano 1257, San Miguel",
+    "barrio": "San Miguel",
+    "coordenadas": {
+      "lat": -34.54345,
+      "lng": -58.71106
+    },
+    "horariosMisa": [
+      {
+        "dia": "Lunes a Viernes",
+        "horarios": [
+          "08:00",
+          "19:30"
+        ]
+      },
+      {
+        "dia": "Sábados",
+        "horarios": [
+          "19:30"
+        ]
+      },
+      {
+        "dia": "Domingos",
+        "horarios": [
+          "09:00",
+          "11:00",
+          "19:30"
+        ]
+      }
     ],
-    horariosConfesiones: "Consultar en secretaría",
-    telefono: "+54 11 5950-8000",
-    webOficial: "https://www.fmed.uba.ar",
-    etiquetas: ["Capilla", "Hospitalario"]
+    "horariosConfesiones": "Martes a Sábados de 18:00 a 19:30",
+    "telefono": "+54 11 4664-2122",
+    "webOficial": "https://diocesis-sanmiguel.org.ar",
+    "etiquetas": [
+      "San Miguel",
+      "Arcángel",
+      "Catedral"
+    ]
   },
   {
-    id: 8,
-    nombre: "Capilla Nuestra Señora del Carmen",
-    tipo: "Capilla",
-    region: "CABA",
-    direccion: "Rodríguez Peña 840, Recoleta, CABA",
-    barrio: "Recoleta",
-    coordenadas: { lat: -34.5961, lng: -58.3902 },
-    horariosMisa: [
-      { dia: "Lunes a Viernes", horarios: ["18:00"] },
-      { dia: "Domingos", horarios: ["11:00"] }
+    "id": 8,
+    "nombre": "Catedral Nuestra Señora de la Asunción (Avellaneda)",
+    "tipo": "Catedral",
+    "region": "Zona Sur",
+    "direccion": "General San Martín 705, Avellaneda",
+    "barrio": "Avellaneda",
+    "coordenadas": {
+      "lat": -34.66299,
+      "lng": -58.36585
+    },
+    "horariosMisa": [
+      {
+        "dia": "Lunes a Viernes",
+        "horarios": [
+          "08:00",
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Sábados",
+        "horarios": [
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Domingos",
+        "horarios": [
+          "09:30",
+          "11:30",
+          "19:00"
+        ]
+      }
     ],
-    horariosConfesiones: "Media hora antes",
-    telefono: "+54 11 4811-9000",
-    webOficial: "",
-    etiquetas: ["Capilla"]
+    "horariosConfesiones": "Miércoles a Viernes de 17:30 a 19:00",
+    "telefono": "+54 11 4222-1327",
+    "webOficial": "https://diocesisavellanedalanus.org.ar",
+    "etiquetas": [
+      "Avellaneda",
+      "Plaza Alsina",
+      "Catedral"
+    ]
   },
   {
-    id: 9,
-    nombre: "Basílica del Santísimo Sacramento",
-    tipo: "Basílica",
-    region: "CABA",
-    direccion: "San Martín 1039, Retiro, CABA",
-    barrio: "Retiro",
-    coordenadas: { lat: -34.5955, lng: -58.3756 },
-    horariosMisa: [
-      { dia: "Lunes a Viernes", horarios: ["08:00", "12:00", "19:00"] },
-      { dia: "Sábados y Domingos", horarios: ["10:00", "12:00", "19:00"] }
+    "id": 9,
+    "nombre": "Basílica Nuestra Señora del Pilar",
+    "tipo": "Basílica",
+    "region": "CABA",
+    "direccion": "Junín 1904, Recoleta, CABA",
+    "barrio": "Recoleta",
+    "coordenadas": {
+      "lat": -34.58752,
+      "lng": -58.39314
+    },
+    "horariosMisa": [
+      {
+        "dia": "Lunes a Viernes",
+        "horarios": [
+          "08:00",
+          "12:15",
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Sábados",
+        "horarios": [
+          "12:15",
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Domingos",
+        "horarios": [
+          "10:00",
+          "11:30",
+          "12:30",
+          "19:00",
+          "20:00"
+        ]
+      }
     ],
-    horariosConfesiones: "Lunes a viernes de 11:00 a 12:00 y 18:00 a 19:00",
-    telefono: "+54 11 4311-5790",
-    webOficial: "",
-    etiquetas: ["Basilica", "Adoracion", "Retiro"]
+    "horariosConfesiones": "Durante todas las misas de fin de semana",
+    "telefono": "+54 11 4803-6798",
+    "webOficial": "https://basilicadelpilar.org.ar",
+    "etiquetas": [
+      "Colonial",
+      "Histórica",
+      "Recoleta",
+      "Basílica"
+    ]
   },
   {
-    id: 10,
-    nombre: "Basílica San José de Flores",
-    tipo: "Basílica",
-    region: "CABA",
-    direccion: "Av. Rivadavia 6950, Flores, CABA",
-    barrio: "Flores",
-    coordenadas: { lat: -34.6286, lng: -58.4641 },
-    horariosMisa: [
-      { dia: "Lunes a Sábados", horarios: ["08:00", "12:00", "19:30"] },
-      { dia: "Domingos", horarios: ["09:00", "11:00", "19:30"] }
+    "id": 10,
+    "nombre": "Basílica del Santísimo Sacramento",
+    "tipo": "Basílica",
+    "region": "CABA",
+    "direccion": "San Martín 1039, Retiro, CABA",
+    "barrio": "Retiro",
+    "coordenadas": {
+      "lat": -34.59573,
+      "lng": -58.37401
+    },
+    "horariosMisa": [
+      {
+        "dia": "Lunes a Viernes",
+        "horarios": [
+          "08:00",
+          "12:00",
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Sábados y Domingos",
+        "horarios": [
+          "10:30",
+          "12:00",
+          "19:00"
+        ]
+      }
     ],
-    horariosConfesiones: "Todos los días de 17:30 a 19:15",
-    telefono: "+54 11 4611-1896",
-    webOficial: "",
-    etiquetas: ["Basilica", "Historica", "Flores"]
+    "horariosConfesiones": "Lunes a Viernes de 10:00 a 12:00 y 17:00 a 19:00",
+    "telefono": "+54 11 4312-3958",
+    "webOficial": "https://arzbaires.org.ar",
+    "etiquetas": [
+      "Adoración Perpetua",
+      "Arquitectura Francesa",
+      "Basílica"
+    ]
   },
   {
-    id: 11,
-    nombre: "Parroquia Nuestra Señora de las Victorias",
-    tipo: "Parroquia",
-    region: "CABA",
-    direccion: "Paraguay 1204, Retiro, CABA",
-    barrio: "Retiro",
-    coordenadas: { lat: -34.5987, lng: -58.3845 },
-    horariosMisa: [
-      { dia: "Lunes a Viernes", horarios: ["07:30", "12:00", "18:30"] },
-      { dia: "Domingos", horarios: ["11:00", "19:30"] }
+    "id": 11,
+    "nombre": "Basílica Nuestra Señora de la Merced",
+    "tipo": "Basílica",
+    "region": "CABA",
+    "direccion": "Reconquista 207, San Nicolás, CABA",
+    "barrio": "San Nicolás",
+    "coordenadas": {
+      "lat": -34.60531,
+      "lng": -58.3718
+    },
+    "horariosMisa": [
+      {
+        "dia": "Lunes a Viernes",
+        "horarios": [
+          "08:30",
+          "12:30",
+          "18:00"
+        ]
+      },
+      {
+        "dia": "Sábados",
+        "horarios": [
+          "12:30",
+          "18:00"
+        ]
+      },
+      {
+        "dia": "Domingos",
+        "horarios": [
+          "11:00",
+          "13:00",
+          "18:00"
+        ]
+      }
     ],
-    horariosConfesiones: "Durante las horas de misa",
-    telefono: "+54 11 4812-3490",
-    webOficial: "",
-    etiquetas: ["Centro", "Parroquia"]
+    "horariosConfesiones": "Media hora antes de cada celebración",
+    "telefono": "+54 11 4343-4013",
+    "webOficial": "https://arzbaires.org.ar",
+    "etiquetas": [
+      "Casco Histórico",
+      "Mercedarios",
+      "Basílica"
+    ]
   },
   {
-    id: 12,
-    nombre: "Parroquia Inmaculada Concepción (La Redonda)",
-    tipo: "Parroquia",
-    region: "CABA",
-    direccion: "Vuelta de Obligado 2042, Belgrano, CABA",
-    barrio: "Belgrano",
-    coordenadas: { lat: -34.5614, lng: -58.4563 },
-    horariosMisa: [
-      { dia: "Lunes a Sábados", horarios: ["08:30", "12:00", "19:30"] },
-      { dia: "Domingos", horarios: ["09:00", "11:00", "12:30", "19:30", "21:00"] }
+    "id": 12,
+    "nombre": "Basílica Santo Domingo (Nuestra Señora del Rosario)",
+    "tipo": "Basílica",
+    "region": "CABA",
+    "direccion": "Defensa 422, Monserrat, CABA",
+    "barrio": "Monserrat",
+    "coordenadas": {
+      "lat": -34.61286,
+      "lng": -58.37168
+    },
+    "horariosMisa": [
+      {
+        "dia": "Lunes a Sábados",
+        "horarios": [
+          "08:00",
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Domingos",
+        "horarios": [
+          "09:00",
+          "11:30",
+          "19:00"
+        ]
+      }
     ],
-    horariosConfesiones: "Media hora antes de cada misa",
-    telefono: "+54 11 4783-8008",
-    webOficial: "",
-    etiquetas: ["Historica", "Parroquia", "Belgrano"]
+    "horariosConfesiones": "Durante las misas vespertinas",
+    "telefono": "+54 11 4331-1668",
+    "webOficial": "https://arzbaires.org.ar",
+    "etiquetas": [
+      "Mausoleo de Belgrano",
+      "Dominicos",
+      "Basílica"
+    ]
   },
   {
-    id: 13,
-    nombre: "Basílica María Auxiliadora y San Carlos",
-    tipo: "Basílica",
-    region: "CABA",
-    direccion: "Hipólito Yrigoyen 3999, Almagro, CABA",
-    barrio: "Almagro",
-    coordenadas: { lat: -34.6143, lng: -58.4227 },
-    horariosMisa: [
-      { dia: "Lunes a Sábados", horarios: ["08:00", "19:00"] },
-      { dia: "Domingos", horarios: ["09:00", "11:00", "12:15", "19:00"] }
+    "id": 13,
+    "nombre": "Basílica San José de Flores",
+    "tipo": "Basílica",
+    "region": "CABA",
+    "direccion": "Avenida Rivadavia 6950, Flores, CABA",
+    "barrio": "Flores",
+    "coordenadas": {
+      "lat": -34.62971,
+      "lng": -58.46311
+    },
+    "horariosMisa": [
+      {
+        "dia": "Lunes a Viernes",
+        "horarios": [
+          "08:00",
+          "10:00",
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Sábados",
+        "horarios": [
+          "10:00",
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Domingos",
+        "horarios": [
+          "08:30",
+          "10:00",
+          "11:30",
+          "18:00",
+          "19:30"
+        ]
+      }
     ],
-    horariosConfesiones: "Sábados y domingos durante las misas",
-    telefono: "+54 11 4981-6767",
-    webOficial: "",
-    etiquetas: ["Basilica", "Salesianos", "Almagro"]
+    "horariosConfesiones": "Lunes a Sábados de 09:30 a 11:30 y 17:30 a 19:00",
+    "telefono": "+54 11 4631-1053",
+    "webOficial": "https://arzbaires.org.ar",
+    "etiquetas": [
+      "Papa Francisco",
+      "San José",
+      "Flores",
+      "Basílica"
+    ]
   },
   {
-    id: 14,
-    nombre: "Basílica del Espíritu Santo (Ntra. Sra. de Guadalupe)",
-    tipo: "Basílica",
-    region: "CABA",
-    direccion: "Mansilla 3865, Palermo, CABA",
-    barrio: "Palermo",
-    coordenadas: { lat: -34.5891, lng: -58.4184 },
-    horariosMisa: [
-      { dia: "Lunes a Sábados", horarios: ["08:00", "19:30"] },
-      { dia: "Domingos", horarios: ["09:30", "11:00", "12:30", "19:30"] }
+    "id": 14,
+    "nombre": "Basílica Santa Felicitas",
+    "tipo": "Basílica",
+    "region": "CABA",
+    "direccion": "Isabel La Católica 520, Barracas, CABA",
+    "barrio": "Barracas",
+    "coordenadas": {
+      "lat": -34.63842,
+      "lng": -58.37521
+    },
+    "horariosMisa": [
+      {
+        "dia": "Martes a Sábados",
+        "horarios": [
+          "18:00"
+        ]
+      },
+      {
+        "dia": "Domingos",
+        "horarios": [
+          "11:00",
+          "18:30"
+        ]
+      }
     ],
-    horariosConfesiones: "Media hora antes de cada celebración",
-    telefono: "+54 11 4822-9100",
-    webOficial: "",
-    etiquetas: ["Basilica", "Palermo"]
+    "horariosConfesiones": "Domingos de 10:30 a 11:30",
+    "telefono": "+54 11 4301-0814",
+    "webOficial": "https://arzbaires.org.ar",
+    "etiquetas": [
+      "Neogótica",
+      "Patrimonio",
+      "Barracas",
+      "Basílica"
+    ]
   },
   {
-    id: 15,
-    nombre: "Parroquia Nuestra Señora de Caacupé",
-    tipo: "Parroquia",
-    region: "CABA",
-    direccion: "Av. Rivadavia 4879, Caballito, CABA",
-    barrio: "Caballito",
-    coordenadas: { lat: -34.6177, lng: -58.4352 },
-    horariosMisa: [
-      { dia: "Lunes a Sábados", horarios: ["09:00", "19:00"] },
-      { dia: "Domingos", horarios: ["09:30", "11:00", "19:00", "20:15"] }
+    "id": 15,
+    "nombre": "Basílica Inmaculada Concepción (La Redonda de Belgrano)",
+    "tipo": "Basílica",
+    "region": "CABA",
+    "direccion": "Vuelta de Obligado 2042, Belgrano, CABA",
+    "barrio": "Belgrano",
+    "coordenadas": {
+      "lat": -34.56142,
+      "lng": -58.45631
+    },
+    "horariosMisa": [
+      {
+        "dia": "Lunes a Viernes",
+        "horarios": [
+          "08:00",
+          "12:00",
+          "19:30"
+        ]
+      },
+      {
+        "dia": "Sábados",
+        "horarios": [
+          "12:00",
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Domingos",
+        "horarios": [
+          "09:00",
+          "10:30",
+          "12:00",
+          "18:00",
+          "19:30",
+          "20:30"
+        ]
+      }
     ],
-    horariosConfesiones: "20 minutos antes de cada misa",
-    telefono: "+54 11 4901-1916",
-    webOficial: "",
-    etiquetas: ["Parroquia", "Caballito"]
+    "horariosConfesiones": "Martes a Domingos 30 min antes de misa",
+    "telefono": "+54 11 4783-8008",
+    "webOficial": "https://arzbaires.org.ar",
+    "etiquetas": [
+      "Plaza Manuel Belgrano",
+      "Panteón Circular",
+      "Basílica"
+    ]
   },
   {
-    id: 16,
-    nombre: "Parroquia San Pedro González Telmo",
-    tipo: "Parroquia",
-    region: "CABA",
-    direccion: "Humberto 1º 340, San Telmo, CABA",
-    barrio: "San Telmo",
-    coordenadas: { lat: -34.6212, lng: -58.3716 },
-    horariosMisa: [
-      { dia: "Martes a Sábados", horarios: ["18:30"] },
-      { dia: "Domingos", horarios: ["10:00", "11:30", "19:00"] }
+    "id": 16,
+    "nombre": "Basílica San Antonio de Padua",
+    "tipo": "Basílica",
+    "region": "CABA",
+    "direccion": "Agüero 2030, Recoleta, CABA",
+    "barrio": "Recoleta",
+    "coordenadas": {
+      "lat": -34.59021,
+      "lng": -58.39852
+    },
+    "horariosMisa": [
+      {
+        "dia": "Lunes a Sábados",
+        "horarios": [
+          "09:00",
+          "19:30"
+        ]
+      },
+      {
+        "dia": "Domingos",
+        "horarios": [
+          "10:30",
+          "12:00",
+          "19:30"
+        ]
+      }
     ],
-    horariosConfesiones: "Domingos media hora antes de misa",
-    telefono: "+54 11 4361-1168",
-    webOficial: "",
-    etiquetas: ["Historica", "Parroquia", "San Telmo"]
+    "horariosConfesiones": "Lunes a Sábados de 18:30 a 19:30",
+    "telefono": "+54 11 4822-4512",
+    "webOficial": "https://arzbaires.org.ar",
+    "etiquetas": [
+      "Franciscanos",
+      "Recoleta",
+      "Basílica"
+    ]
   },
   {
-    id: 17,
-    nombre: "Catedral San Isidro Labrador",
-    tipo: "Catedral",
-    region: "Zona Norte",
-    direccion: "Av. del Libertador 16200, San Isidro, GBA Norte",
-    barrio: "San Isidro",
-    coordenadas: { lat: -34.4675, lng: -58.5091 },
-    horariosMisa: [
-      { dia: "Lunes a Sábados", horarios: ["09:00", "19:00"] },
-      { dia: "Domingos", horarios: ["09:30", "11:00", "12:30", "19:00", "20:15"] }
+    "id": 17,
+    "nombre": "Basílica San Carlos Borromeo y María Auxiliadora",
+    "tipo": "Basílica",
+    "region": "CABA",
+    "direccion": "Hipólito Yrigoyen 3999, Almagro, CABA",
+    "barrio": "Almagro",
+    "coordenadas": {
+      "lat": -34.61448,
+      "lng": -58.42084
+    },
+    "horariosMisa": [
+      {
+        "dia": "Lunes a Sábados",
+        "horarios": [
+          "08:00",
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Domingos",
+        "horarios": [
+          "09:00",
+          "11:00",
+          "12:00",
+          "19:00",
+          "20:30"
+        ]
+      }
     ],
-    horariosConfesiones: "Media hora antes de cada misa",
-    telefono: "+54 11 4743-0285",
-    webOficial: "",
-    etiquetas: ["Catedral", "Historica", "Zona Norte"]
+    "horariosConfesiones": "Lunes a Viernes de 18:00 a 19:00",
+    "telefono": "+54 11 4981-0814",
+    "webOficial": "https://arzbaires.org.ar",
+    "etiquetas": [
+      "Salesianos",
+      "Bautismo de Bergoglio",
+      "Almagro",
+      "Basílica"
+    ]
   },
   {
-    id: 18,
-    nombre: "Parroquia Inmaculada Concepción de Tigre",
-    tipo: "Parroquia",
-    region: "Zona Norte",
-    direccion: "Av. Liniers 1560, Tigre, GBA Norte",
-    barrio: "Tigre",
-    coordenadas: { lat: -34.4265, lng: -58.5796 },
-    horariosMisa: [
-      { dia: "Martes a Sábados", horarios: ["19:00"] },
-      { dia: "Domingos", horarios: ["10:00", "11:30", "19:00"] }
+    "id": 18,
+    "nombre": "Basílica Nuestra Señora de la Piedad",
+    "tipo": "Basílica",
+    "region": "CABA",
+    "direccion": "Bartolomé Mitre 1524, Balvanera, CABA",
+    "barrio": "Balvanera",
+    "coordenadas": {
+      "lat": -34.60782,
+      "lng": -58.38882
+    },
+    "horariosMisa": [
+      {
+        "dia": "Lunes a Viernes",
+        "horarios": [
+          "08:00",
+          "12:00",
+          "18:30"
+        ]
+      },
+      {
+        "dia": "Sábados y Domingos",
+        "horarios": [
+          "11:00",
+          "18:30"
+        ]
+      }
     ],
-    horariosConfesiones: "Sábados y domingos 30 minutos antes de misa",
-    telefono: "+54 11 4749-0630",
-    webOficial: "",
-    etiquetas: ["Parroquia", "Historica", "Zona Norte"]
+    "horariosConfesiones": "Lunes a Viernes 17:30 a 18:30",
+    "telefono": "+54 11 4371-3814",
+    "webOficial": "https://arzbaires.org.ar",
+    "etiquetas": [
+      "Mama Antula",
+      "Balvanera",
+      "Histórica",
+      "Basílica"
+    ]
   },
   {
-    id: 19,
-    nombre: "Parroquia San Gabriel de la Dolorosa",
-    tipo: "Parroquia",
-    region: "Zona Norte",
-    direccion: "Gaspar Campos 859, Vicente López, GBA Norte",
-    barrio: "Vicente López",
-    coordenadas: { lat: -34.5256, lng: -58.4774 },
-    horariosMisa: [
-      { dia: "Lunes a Sábados", horarios: ["08:30", "19:00"] },
-      { dia: "Domingos", horarios: ["09:30", "11:00", "19:30"] }
+    "id": 19,
+    "nombre": "Basílica Nuestra Señora de Buenos Aires",
+    "tipo": "Basílica",
+    "region": "CABA",
+    "direccion": "Avenida Gaona 1730, Caballito, CABA",
+    "barrio": "Caballito",
+    "coordenadas": {
+      "lat": -34.60951,
+      "lng": -58.44781
+    },
+    "horariosMisa": [
+      {
+        "dia": "Lunes a Viernes",
+        "horarios": [
+          "08:30",
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Sábados",
+        "horarios": [
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Domingos",
+        "horarios": [
+          "10:30",
+          "12:00",
+          "19:00",
+          "20:30"
+        ]
+      }
     ],
-    horariosConfesiones: "20 minutos antes de cada misa",
-    telefono: "+54 11 4791-3342",
-    webOficial: "",
-    etiquetas: ["Parroquia", "Zona Norte"]
+    "horariosConfesiones": "Viernes y Sábados 18:00 a 19:00",
+    "telefono": "+54 11 4581-2287",
+    "webOficial": "https://arzbaires.org.ar",
+    "etiquetas": [
+      "Mercedarios",
+      "Plaza Irlanda",
+      "Basílica"
+    ]
   },
   {
-    id: 20,
-    nombre: "Basílica Nacional Nuestra Señora de Luján",
-    tipo: "Basílica",
-    region: "Zona Oeste",
-    direccion: "San Martín 51, Luján, Provincia de Buenos Aires",
-    barrio: "Luján",
-    coordenadas: { lat: -34.5642, lng: -59.1213 },
-    horariosMisa: [
-      { dia: "Lunes a Viernes", horarios: ["08:00", "10:00", "11:30", "17:00", "19:00"] },
-      { dia: "Sábados y Domingos", horarios: ["07:00", "08:00", "09:30", "11:00", "13:00", "15:00", "17:00", "19:00"] }
+    "id": 20,
+    "nombre": "Basílica del Espíritu Santo (Guadalupe)",
+    "tipo": "Basílica",
+    "region": "CABA",
+    "direccion": "Mansilla 3844, Palermo, CABA",
+    "barrio": "Palermo",
+    "coordenadas": {
+      "lat": -34.59012,
+      "lng": -58.41621
+    },
+    "horariosMisa": [
+      {
+        "dia": "Lunes a Viernes",
+        "horarios": [
+          "08:00",
+          "12:00",
+          "19:30"
+        ]
+      },
+      {
+        "dia": "Sábados",
+        "horarios": [
+          "12:00",
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Domingos",
+        "horarios": [
+          "09:00",
+          "10:30",
+          "12:00",
+          "18:00",
+          "19:30"
+        ]
+      }
     ],
-    horariosConfesiones: "Todos los días de 08:30 a 18:30",
-    telefono: "+54 2323 42-0058",
-    webOficial: "https://santuariodelujan.org.ar",
-    etiquetas: ["Basilica", "Santuario Nacional", "Zona Oeste"]
+    "horariosConfesiones": "Lunes a Sábados 18:30 a 19:30",
+    "telefono": "+54 11 4824-3450",
+    "webOficial": "https://arzbaires.org.ar",
+    "etiquetas": [
+      "Verbitas",
+      "Plaza Güemes",
+      "Palermo",
+      "Basílica"
+    ]
   },
   {
-    id: 21,
-    nombre: "Catedral Inmaculada Concepción del Buen Viaje",
-    tipo: "Catedral",
-    region: "Zona Oeste",
-    direccion: "Belgrano 327, Morón, GBA Oeste",
-    barrio: "Morón",
-    coordenadas: { lat: -34.6512, lng: -58.6219 },
-    horariosMisa: [
-      { dia: "Lunes a Sábados", horarios: ["08:00", "11:00", "19:00"] },
-      { dia: "Domingos", horarios: ["08:30", "10:00", "11:30", "19:00", "20:00"] }
+    "id": 21,
+    "nombre": "Santuario San Cayetano de Liniers",
+    "tipo": "Parroquia",
+    "region": "CABA",
+    "direccion": "Cuzco 150, Liniers, CABA",
+    "barrio": "Liniers",
+    "coordenadas": {
+      "lat": -34.64052,
+      "lng": -58.52731
+    },
+    "horariosMisa": [
+      {
+        "dia": "Lunes a Sábados",
+        "horarios": [
+          "07:00",
+          "09:00",
+          "11:00",
+          "17:00",
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Domingos",
+        "horarios": [
+          "08:00",
+          "10:00",
+          "12:00",
+          "16:00",
+          "18:00",
+          "20:00"
+        ]
+      }
     ],
-    horariosConfesiones: "Lunes a sábados de 10:00 a 12:00 y 17:30 a 19:00",
-    telefono: "+54 11 4629-8912",
-    webOficial: "",
-    etiquetas: ["Catedral", "Zona Oeste"]
+    "horariosConfesiones": "Todos los días de 08:00 a 19:00 (Sacerdote permanente)",
+    "telefono": "+54 11 4641-1584",
+    "webOficial": "https://sancayetano.org.ar",
+    "etiquetas": [
+      "Pan y Trabajo",
+      "Peregrinación Masiva",
+      "Liniers",
+      "Santuario"
+    ]
   },
   {
-    id: 22,
-    nombre: "Parroquia Nuestra Señora del Carmen",
-    tipo: "Parroquia",
-    region: "Zona Oeste",
-    direccion: "Álvarez Jonte 77, Ramos Mejía, GBA Oeste",
-    barrio: "Ramos Mejía",
-    coordenadas: { lat: -34.6424, lng: -58.5648 },
-    horariosMisa: [
-      { dia: "Lunes a Sábados", horarios: ["08:00", "19:00"] },
-      { dia: "Domingos", horarios: ["09:00", "11:00", "19:00"] }
+    "id": 22,
+    "nombre": "Parroquia San Ignacio de Loyola",
+    "tipo": "Parroquia",
+    "region": "CABA",
+    "direccion": "Bolívar 225, Monserrat, CABA",
+    "barrio": "Monserrat",
+    "coordenadas": {
+      "lat": -34.61058,
+      "lng": -58.37345
+    },
+    "horariosMisa": [
+      {
+        "dia": "Lunes a Viernes",
+        "horarios": [
+          "13:00",
+          "18:30"
+        ]
+      },
+      {
+        "dia": "Sábados y Domingos",
+        "horarios": [
+          "11:30",
+          "18:30"
+        ]
+      }
     ],
-    horariosConfesiones: "Media hora antes de cada misa",
-    telefono: "+54 11 4658-0432",
-    webOficial: "",
-    etiquetas: ["Parroquia", "Zona Oeste"]
+    "horariosConfesiones": "Lunes a Viernes de 12:00 a 13:00",
+    "telefono": "+54 11 4331-2458",
+    "webOficial": "https://sanignaciodeloyola.org.ar",
+    "etiquetas": [
+      "Manzana de las Luces",
+      "Templo Más Antiguo",
+      "Jesuitas"
+    ]
   },
   {
-    id: 23,
-    nombre: "Catedral de la Inmaculada Concepción de Quilmes",
-    tipo: "Catedral",
-    region: "Zona Sur",
-    direccion: "Rivadavia 355, Quilmes, GBA Sur",
-    barrio: "Quilmes",
-    coordenadas: { lat: -34.7206, lng: -58.2546 },
-    horariosMisa: [
-      { dia: "Lunes a Sábados", horarios: ["08:30", "19:00"] },
-      { dia: "Domingos", horarios: ["09:00", "11:00", "19:00"] }
+    "id": 23,
+    "nombre": "Parroquia San Pedro González Telmo",
+    "tipo": "Parroquia",
+    "region": "CABA",
+    "direccion": "Humberto 1º 340, San Telmo, CABA",
+    "barrio": "San Telmo",
+    "coordenadas": {
+      "lat": -34.62124,
+      "lng": -58.37315
+    },
+    "horariosMisa": [
+      {
+        "dia": "Martes a Sábados",
+        "horarios": [
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Domingos",
+        "horarios": [
+          "10:30",
+          "12:00",
+          "19:00"
+        ]
+      }
     ],
-    horariosConfesiones: "Durante las celebraciones",
-    telefono: "+54 11 4253-2241",
-    webOficial: "",
-    etiquetas: ["Catedral", "Zona Sur"]
+    "horariosConfesiones": "Sábados y Domingos 30 min antes de misa",
+    "telefono": "+54 11 4361-1168",
+    "webOficial": "https://arzbaires.org.ar",
+    "etiquetas": [
+      "San Telmo",
+      "Plaza Dorrego",
+      "Colonial"
+    ]
   },
   {
-    id: 24,
-    nombre: "Catedral Nuestra Señora de la Asunción",
-    tipo: "Catedral",
-    region: "Zona Sur",
-    direccion: "San Martín 745, Avellaneda, GBA Sur",
-    barrio: "Avellaneda",
-    coordenadas: { lat: -34.6627, lng: -58.3647 },
-    horariosMisa: [
-      { dia: "Martes a Sábados", horarios: ["18:30"] },
-      { dia: "Domingos", horarios: ["09:30", "11:00", "19:00"] }
+    "id": 24,
+    "nombre": "Parroquia San Nicolás de Bari",
+    "tipo": "Parroquia",
+    "region": "CABA",
+    "direccion": "Avenida Santa Fe 1352, Retiro, CABA",
+    "barrio": "Retiro",
+    "coordenadas": {
+      "lat": -34.59607,
+      "lng": -58.38656
+    },
+    "horariosMisa": [
+      {
+        "dia": "Lunes a Viernes",
+        "horarios": [
+          "08:00",
+          "11:00",
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Sábados",
+        "horarios": [
+          "11:00",
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Domingos",
+        "horarios": [
+          "09:00",
+          "11:00",
+          "12:00",
+          "19:00",
+          "20:30"
+        ]
+      }
     ],
-    horariosConfesiones: "30 minutos antes de cada misa",
-    telefono: "+54 11 4201-8432",
-    webOficial: "",
-    etiquetas: ["Catedral", "Zona Sur"]
+    "horariosConfesiones": "Lunes a Sábados de 10:00 a 12:00 y 17:30 a 19:00",
+    "telefono": "+54 11 4811-1490",
+    "webOficial": "https://arzbaires.org.ar",
+    "etiquetas": [
+      "Centro",
+      "Retiro",
+      "San Nicolás"
+    ]
+  },
+  {
+    "id": 25,
+    "nombre": "Parroquia Santa Catalina de Siena",
+    "tipo": "Parroquia",
+    "region": "CABA",
+    "direccion": "San Martín 705, Retiro, CABA",
+    "barrio": "Retiro",
+    "coordenadas": {
+      "lat": -34.59871,
+      "lng": -58.37424
+    },
+    "horariosMisa": [
+      {
+        "dia": "Lunes a Viernes",
+        "horarios": [
+          "13:05",
+          "18:00"
+        ]
+      },
+      {
+        "dia": "Domingos",
+        "horarios": [
+          "11:00",
+          "18:00"
+        ]
+      }
+    ],
+    "horariosConfesiones": "Lunes a Viernes de 12:00 a 13:00",
+    "telefono": "+54 11 4311-6133",
+    "webOficial": "https://arzbaires.org.ar",
+    "etiquetas": [
+      "Monasterio Colonial",
+      "Microcentro",
+      "Patrimonio"
+    ]
+  },
+  {
+    "id": 26,
+    "nombre": "Parroquia San Benito Abad",
+    "tipo": "Parroquia",
+    "region": "CABA",
+    "direccion": "Villanueva 905, Palermo, CABA",
+    "barrio": "Palermo",
+    "coordenadas": {
+      "lat": -34.56672,
+      "lng": -58.43851
+    },
+    "horariosMisa": [
+      {
+        "dia": "Lunes a Viernes",
+        "horarios": [
+          "08:00",
+          "19:30"
+        ]
+      },
+      {
+        "dia": "Sábados",
+        "horarios": [
+          "12:00",
+          "19:30"
+        ]
+      },
+      {
+        "dia": "Domingos",
+        "horarios": [
+          "09:00",
+          "11:00",
+          "12:30",
+          "19:30",
+          "20:30"
+        ]
+      }
+    ],
+    "horariosConfesiones": "Lunes a Viernes 18:30 a 19:30",
+    "telefono": "+54 11 4773-0428",
+    "webOficial": "https://arzbaires.org.ar",
+    "etiquetas": [
+      "Benedictinos",
+      "Medalla de San Benito",
+      "Palermo"
+    ]
+  },
+  {
+    "id": 27,
+    "nombre": "Parroquia Santa Rosa de Lima",
+    "tipo": "Parroquia",
+    "region": "CABA",
+    "direccion": "Avenida Belgrano 2216, Balvanera, CABA",
+    "barrio": "Balvanera",
+    "coordenadas": {
+      "lat": -34.61479,
+      "lng": -58.39736
+    },
+    "horariosMisa": [
+      {
+        "dia": "Lunes a Sábados",
+        "horarios": [
+          "08:00",
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Domingos",
+        "horarios": [
+          "10:00",
+          "12:00",
+          "19:00"
+        ]
+      }
+    ],
+    "horariosConfesiones": "Media hora antes de cada misa",
+    "telefono": "+54 11 4951-8608",
+    "webOficial": "https://arzbaires.org.ar",
+    "etiquetas": [
+      "Cúpula Monumental",
+      "Balvanera",
+      "Santa Rosa"
+    ]
+  },
+  {
+    "id": 28,
+    "nombre": "Parroquia Nuestra Señora de Caacupé",
+    "tipo": "Parroquia",
+    "region": "CABA",
+    "direccion": "Avenida Rivadavia 4879, Caballito, CABA",
+    "barrio": "Caballito",
+    "coordenadas": {
+      "lat": -34.61864,
+      "lng": -58.43612
+    },
+    "horariosMisa": [
+      {
+        "dia": "Lunes a Viernes",
+        "horarios": [
+          "08:00",
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Sábados",
+        "horarios": [
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Domingos",
+        "horarios": [
+          "09:00",
+          "11:00",
+          "19:00",
+          "20:30"
+        ]
+      }
+    ],
+    "horariosConfesiones": "Martes a Sábados 18:00 a 19:00",
+    "telefono": "+54 11 4901-1811",
+    "webOficial": "https://arzbaires.org.ar",
+    "etiquetas": [
+      "Parque Rivadavia",
+      "Caballito",
+      "Caacupé"
+    ]
+  },
+  {
+    "id": 29,
+    "nombre": "Parroquia Nuestra Señora de la Medalla Milagrosa",
+    "tipo": "Parroquia",
+    "region": "CABA",
+    "direccion": "Curapaligüe 1185, Parque Chacabuco, CABA",
+    "barrio": "Parque Chacabuco",
+    "coordenadas": {
+      "lat": -34.63641,
+      "lng": -58.44852
+    },
+    "horariosMisa": [
+      {
+        "dia": "Lunes a Viernes",
+        "horarios": [
+          "08:00",
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Sábados",
+        "horarios": [
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Domingos",
+        "horarios": [
+          "09:00",
+          "11:00",
+          "18:00",
+          "20:00"
+        ]
+      }
+    ],
+    "horariosConfesiones": "Lunes a Viernes de 17:30 a 19:00",
+    "telefono": "+54 11 4923-2287",
+    "webOficial": "https://arzbaires.org.ar",
+    "etiquetas": [
+      "Parque Chacabuco",
+      "Medalla Milagrosa",
+      "Vicencianos"
+    ]
+  },
+  {
+    "id": 30,
+    "nombre": "Santuario Nuestra Señora del Rosario de Nueva Pompeya",
+    "tipo": "Parroquia",
+    "region": "CABA",
+    "direccion": "Avenida Sáenz 1059, Nueva Pompeya, CABA",
+    "barrio": "Nueva Pompeya",
+    "coordenadas": {
+      "lat": -34.65284,
+      "lng": -58.42085
+    },
+    "horariosMisa": [
+      {
+        "dia": "Lunes a Sábados",
+        "horarios": [
+          "08:00",
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Domingos",
+        "horarios": [
+          "08:30",
+          "10:30",
+          "12:00",
+          "17:30",
+          "19:30"
+        ]
+      }
+    ],
+    "horariosConfesiones": "Lunes a Sábados de 09:00 a 12:00 y 16:00 a 19:00",
+    "telefono": "+54 11 4911-0985",
+    "webOficial": "https://arzbaires.org.ar",
+    "etiquetas": [
+      "Capuchinos",
+      "Neogótica",
+      "Sur de CABA"
+    ]
+  },
+  {
+    "id": 31,
+    "nombre": "Parroquia Santa Cruz",
+    "tipo": "Parroquia",
+    "region": "CABA",
+    "direccion": "Estados Unidos 3150, San Cristóbal, CABA",
+    "barrio": "San Cristóbal",
+    "coordenadas": {
+      "lat": -34.62415,
+      "lng": -58.40682
+    },
+    "horariosMisa": [
+      {
+        "dia": "Martes a Sábados",
+        "horarios": [
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Domingos",
+        "horarios": [
+          "11:00",
+          "19:30"
+        ]
+      }
+    ],
+    "horariosConfesiones": "Media hora antes de cada misa",
+    "telefono": "+54 11 4931-1314",
+    "webOficial": "https://arzbaires.org.ar",
+    "etiquetas": [
+      "Pasionistas",
+      "Comunidad Irlandesa",
+      "San Cristóbal"
+    ]
+  },
+  {
+    "id": 32,
+    "nombre": "Parroquia San Juan Bosco",
+    "tipo": "Parroquia",
+    "region": "CABA",
+    "direccion": "Avenida Dorrego 1450, Palermo, CABA",
+    "barrio": "Palermo",
+    "coordenadas": {
+      "lat": -34.57823,
+      "lng": -58.43986
+    },
+    "horariosMisa": [
+      {
+        "dia": "Lunes a Viernes",
+        "horarios": [
+          "08:30",
+          "19:30"
+        ]
+      },
+      {
+        "dia": "Sábados y Domingos",
+        "horarios": [
+          "11:00",
+          "19:30"
+        ]
+      }
+    ],
+    "horariosConfesiones": "Sábados de 18:00 a 19:30",
+    "telefono": "+54 11 4772-5589",
+    "webOficial": "https://arzbaires.org.ar",
+    "etiquetas": [
+      "Salesianos",
+      "Palermo Hollywood",
+      "San Juan Bosco"
+    ]
+  },
+  {
+    "id": 33,
+    "nombre": "Parroquia Inmaculada Concepción de Tigre",
+    "tipo": "Parroquia",
+    "region": "Zona Norte",
+    "direccion": "Avenida Liniers 1560, Tigre",
+    "barrio": "Tigre",
+    "coordenadas": {
+      "lat": -34.42581,
+      "lng": -58.57812
+    },
+    "horariosMisa": [
+      {
+        "dia": "Lunes a Viernes",
+        "horarios": [
+          "08:30",
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Sábados",
+        "horarios": [
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Domingos",
+        "horarios": [
+          "09:00",
+          "11:00",
+          "19:00",
+          "20:30"
+        ]
+      }
+    ],
+    "horariosConfesiones": "Media hora antes de misa vespertina",
+    "telefono": "+54 11 4749-0314",
+    "webOficial": "https://obispado-si.org.ar",
+    "etiquetas": [
+      "Paseo Victorica",
+      "Delta",
+      "Tigre"
+    ]
+  },
+  {
+    "id": 34,
+    "nombre": "Parroquia San Fernando Rey",
+    "tipo": "Parroquia",
+    "region": "Zona Norte",
+    "direccion": "Constitución 1042, San Fernando",
+    "barrio": "San Fernando",
+    "coordenadas": {
+      "lat": -34.44215,
+      "lng": -58.56214
+    },
+    "horariosMisa": [
+      {
+        "dia": "Lunes a Viernes",
+        "horarios": [
+          "08:00",
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Sábados",
+        "horarios": [
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Domingos",
+        "horarios": [
+          "09:00",
+          "11:00",
+          "19:00"
+        ]
+      }
+    ],
+    "horariosConfesiones": "Viernes de 17:30 a 19:00",
+    "telefono": "+54 11 4744-2287",
+    "webOficial": "https://obispado-si.org.ar",
+    "etiquetas": [
+      "Plaza Mitre",
+      "San Fernando",
+      "Casco Histórico"
+    ]
+  },
+  {
+    "id": 35,
+    "nombre": "Parroquia Nuestra Señora del Carmen de Martínez",
+    "tipo": "Parroquia",
+    "region": "Zona Norte",
+    "direccion": "Larrañaga 120, Martínez",
+    "barrio": "Martínez",
+    "coordenadas": {
+      "lat": -34.49841,
+      "lng": -58.49814
+    },
+    "horariosMisa": [
+      {
+        "dia": "Lunes a Viernes",
+        "horarios": [
+          "08:00",
+          "19:30"
+        ]
+      },
+      {
+        "dia": "Sábados",
+        "horarios": [
+          "19:30"
+        ]
+      },
+      {
+        "dia": "Domingos",
+        "horarios": [
+          "09:30",
+          "11:30",
+          "19:30"
+        ]
+      }
+    ],
+    "horariosConfesiones": "Sábados y Domingos 30 min antes de misa",
+    "telefono": "+54 11 4792-0545",
+    "webOficial": "https://obispado-si.org.ar",
+    "etiquetas": [
+      "Martínez",
+      "Virgen del Carmen",
+      "Zona Norte"
+    ]
+  },
+  {
+    "id": 36,
+    "nombre": "Parroquia Jesús en el Huerto de los Olivos",
+    "tipo": "Parroquia",
+    "region": "Zona Norte",
+    "direccion": "Salta 2620, Olivos",
+    "barrio": "Olivos",
+    "coordenadas": {
+      "lat": -34.50946,
+      "lng": -58.48684
+    },
+    "horariosMisa": [
+      {
+        "dia": "Lunes a Viernes",
+        "horarios": [
+          "08:00",
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Sábados",
+        "horarios": [
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Domingos",
+        "horarios": [
+          "09:30",
+          "11:30",
+          "19:00",
+          "20:30"
+        ]
+      }
+    ],
+    "horariosConfesiones": "Jueves y Sábados 17:30 a 19:00",
+    "telefono": "+54 11 4790-2384",
+    "webOficial": "https://obispado-si.org.ar",
+    "etiquetas": [
+      "Olivos",
+      "Vicente López",
+      "Residencial"
+    ]
+  },
+  {
+    "id": 37,
+    "nombre": "Parroquia Nuestra Señora de la Merced (Ballester)",
+    "tipo": "Parroquia",
+    "region": "Zona Norte",
+    "direccion": "Lacroze 4950, Villa Ballester",
+    "barrio": "Villa Ballester",
+    "coordenadas": {
+      "lat": -34.54573,
+      "lng": -58.55657
+    },
+    "horariosMisa": [
+      {
+        "dia": "Lunes a Viernes",
+        "horarios": [
+          "08:30",
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Sábados",
+        "horarios": [
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Domingos",
+        "horarios": [
+          "09:30",
+          "11:00",
+          "19:00"
+        ]
+      }
+    ],
+    "horariosConfesiones": "Viernes y Sábados de 18:00 a 19:00",
+    "telefono": "+54 11 4768-0114",
+    "webOficial": "https://diocesisdesanmartin.org.ar",
+    "etiquetas": [
+      "San Martín",
+      "Villa Ballester",
+      "Merced"
+    ]
+  },
+  {
+    "id": 38,
+    "nombre": "Parroquia San Gabriel de Vicente López",
+    "tipo": "Parroquia",
+    "region": "Zona Norte",
+    "direccion": "Gaspar Campos 759, Vicente López",
+    "barrio": "Vicente López",
+    "coordenadas": {
+      "lat": -34.52981,
+      "lng": -58.47415
+    },
+    "horariosMisa": [
+      {
+        "dia": "Lunes a Viernes",
+        "horarios": [
+          "08:00",
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Sábados",
+        "horarios": [
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Domingos",
+        "horarios": [
+          "10:00",
+          "12:00",
+          "19:00"
+        ]
+      }
+    ],
+    "horariosConfesiones": "Martes a Sábados antes de misa",
+    "telefono": "+54 11 4795-1568",
+    "webOficial": "https://obispado-si.org.ar",
+    "etiquetas": [
+      "Vicente López",
+      "Costanera",
+      "Arcángel"
+    ]
+  },
+  {
+    "id": 39,
+    "nombre": "Parroquia Sagrado Corazón de Jesús de Hurlingham",
+    "tipo": "Parroquia",
+    "region": "Zona Oeste",
+    "direccion": "Delfor Díaz 1630, Hurlingham",
+    "barrio": "Hurlingham",
+    "coordenadas": {
+      "lat": -34.58484,
+      "lng": -58.63537
+    },
+    "horariosMisa": [
+      {
+        "dia": "Lunes a Viernes",
+        "horarios": [
+          "08:00",
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Sábados",
+        "horarios": [
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Domingos",
+        "horarios": [
+          "09:30",
+          "11:00",
+          "19:00"
+        ]
+      }
+    ],
+    "horariosConfesiones": "Media hora antes de cada misa",
+    "telefono": "+54 11 4665-0158",
+    "webOficial": "https://diocesisdemoron.org.ar",
+    "etiquetas": [
+      "Hurlingham",
+      "Centro",
+      "Sagrado Corazón"
+    ]
+  },
+  {
+    "id": 40,
+    "nombre": "Parroquia María Auxiliadora de Ramos Mejía",
+    "tipo": "Parroquia",
+    "region": "Zona Oeste",
+    "direccion": "Avenida de Mayo 1902, Ramos Mejía",
+    "barrio": "Ramos Mejía",
+    "coordenadas": {
+      "lat": -34.66031,
+      "lng": -58.56039
+    },
+    "horariosMisa": [
+      {
+        "dia": "Lunes a Viernes",
+        "horarios": [
+          "08:00",
+          "19:30"
+        ]
+      },
+      {
+        "dia": "Sábados",
+        "horarios": [
+          "19:30"
+        ]
+      },
+      {
+        "dia": "Domingos",
+        "horarios": [
+          "09:00",
+          "11:00",
+          "19:30",
+          "20:30"
+        ]
+      }
+    ],
+    "horariosConfesiones": "Lunes a Viernes de 18:00 a 19:30",
+    "telefono": "+54 11 4658-2287",
+    "webOficial": "https://diocesisdesanjusto.org.ar",
+    "etiquetas": [
+      "Salesianos",
+      "Ramos Mejía",
+      "María Auxiliadora"
+    ]
+  },
+  {
+    "id": 41,
+    "nombre": "Parroquia Nuestra Señora del Carmen de Haedo",
+    "tipo": "Parroquia",
+    "region": "Zona Oeste",
+    "direccion": "Constitución 250, Haedo",
+    "barrio": "Haedo",
+    "coordenadas": {
+      "lat": -34.64684,
+      "lng": -58.59512
+    },
+    "horariosMisa": [
+      {
+        "dia": "Lunes a Viernes",
+        "horarios": [
+          "08:30",
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Sábados",
+        "horarios": [
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Domingos",
+        "horarios": [
+          "09:00",
+          "11:00",
+          "19:00"
+        ]
+      }
+    ],
+    "horariosConfesiones": "Sábados de 18:00 a 19:00",
+    "telefono": "+54 11 4659-1589",
+    "webOficial": "https://diocesisdemoron.org.ar",
+    "etiquetas": [
+      "Haedo",
+      "Plaza San Martín",
+      "Zona Oeste"
+    ]
+  },
+  {
+    "id": 42,
+    "nombre": "Parroquia San Judas Tadeo de Ituzaingó",
+    "tipo": "Parroquia",
+    "region": "Zona Oeste",
+    "direccion": "Mansilla 867, Ituzaingó",
+    "barrio": "Ituzaingó",
+    "coordenadas": {
+      "lat": -34.65842,
+      "lng": -58.67215
+    },
+    "horariosMisa": [
+      {
+        "dia": "Lunes a Viernes",
+        "horarios": [
+          "08:00",
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Sábados",
+        "horarios": [
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Domingos",
+        "horarios": [
+          "09:30",
+          "11:00",
+          "19:00",
+          "20:30"
+        ]
+      }
+    ],
+    "horariosConfesiones": "Días 28 de cada mes (jornada permanente) y sábados antes de misa",
+    "telefono": "+54 11 4624-0315",
+    "webOficial": "https://diocesisdemoron.org.ar",
+    "etiquetas": [
+      "Patrono del Trabajo",
+      "Plaza Ituzaingó",
+      "Zona Oeste"
+    ]
+  },
+  {
+    "id": 43,
+    "nombre": "Parroquia Nuestra Señora de Loreto de El Palomar",
+    "tipo": "Parroquia",
+    "region": "Zona Oeste",
+    "direccion": "Bergamini 450, El Palomar",
+    "barrio": "El Palomar",
+    "coordenadas": {
+      "lat": -34.60585,
+      "lng": -58.59514
+    },
+    "horariosMisa": [
+      {
+        "dia": "Lunes a Viernes",
+        "horarios": [
+          "08:30",
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Sábados y Domingos",
+        "horarios": [
+          "10:00",
+          "19:00"
+        ]
+      }
+    ],
+    "horariosConfesiones": "Media hora antes de cada celebración",
+    "telefono": "+54 11 4751-2487",
+    "webOficial": "https://diocesisdemoron.org.ar",
+    "etiquetas": [
+      "Patrona de la Aviación",
+      "El Palomar",
+      "Zona Oeste"
+    ]
+  },
+  {
+    "id": 44,
+    "nombre": "Santuario Santa Teresita del Niño Jesús (Banfield)",
+    "tipo": "Parroquia",
+    "region": "Zona Sur",
+    "direccion": "Laprida 1170, Banfield",
+    "barrio": "Banfield",
+    "coordenadas": {
+      "lat": -34.74338,
+      "lng": -58.38984
+    },
+    "horariosMisa": [
+      {
+        "dia": "Lunes a Sábados",
+        "horarios": [
+          "08:00",
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Domingos",
+        "horarios": [
+          "09:00",
+          "11:00",
+          "18:00",
+          "19:30"
+        ]
+      }
+    ],
+    "horariosConfesiones": "Viernes y Sábados de 17:30 a 19:00",
+    "telefono": "+54 11 4242-0214",
+    "webOficial": "https://ilomas.org.ar",
+    "etiquetas": [
+      "Banfield",
+      "Santa Teresita",
+      "Lomas"
+    ]
+  },
+  {
+    "id": 45,
+    "nombre": "Parroquia San Gabriel Arcángel de Adrogué",
+    "tipo": "Parroquia",
+    "region": "Zona Sur",
+    "direccion": "Plaza Brown 63, Adrogué",
+    "barrio": "Adrogué",
+    "coordenadas": {
+      "lat": -34.79816,
+      "lng": -58.38354
+    },
+    "horariosMisa": [
+      {
+        "dia": "Lunes a Viernes",
+        "horarios": [
+          "08:00",
+          "19:30"
+        ]
+      },
+      {
+        "dia": "Sábados",
+        "horarios": [
+          "19:30"
+        ]
+      },
+      {
+        "dia": "Domingos",
+        "horarios": [
+          "09:30",
+          "11:00",
+          "19:30",
+          "20:30"
+        ]
+      }
+    ],
+    "horariosConfesiones": "Miércoles y Viernes de 18:00 a 19:30",
+    "telefono": "+54 11 4294-0158",
+    "webOficial": "https://ilomas.org.ar",
+    "etiquetas": [
+      "Plaza Brown",
+      "Almirante Brown",
+      "Adrogué"
+    ]
+  },
+  {
+    "id": 46,
+    "nombre": "Parroquia Sagrado Corazón de Jesús de Lanús",
+    "tipo": "Parroquia",
+    "region": "Zona Sur",
+    "direccion": "Avenida 25 de Mayo 680, Lanús Oeste",
+    "barrio": "Lanús",
+    "coordenadas": {
+      "lat": -34.69754,
+      "lng": -58.40639
+    },
+    "horariosMisa": [
+      {
+        "dia": "Lunes a Viernes",
+        "horarios": [
+          "08:30",
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Sábados",
+        "horarios": [
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Domingos",
+        "horarios": [
+          "09:00",
+          "11:00",
+          "19:00"
+        ]
+      }
+    ],
+    "horariosConfesiones": "Jueves y Viernes de 17:30 a 19:00",
+    "telefono": "+54 11 4241-1189",
+    "webOficial": "https://diocesisavellanedalanus.org.ar",
+    "etiquetas": [
+      "Lanús Oeste",
+      "Centro Comercial",
+      "Sagrado Corazón"
+    ]
+  },
+  {
+    "id": 47,
+    "nombre": "Parroquia Nuestra Señora de la Piedad de Temperley",
+    "tipo": "Parroquia",
+    "region": "Zona Sur",
+    "direccion": "Espora 250, Temperley",
+    "barrio": "Temperley",
+    "coordenadas": {
+      "lat": -34.77457,
+      "lng": -58.39998
+    },
+    "horariosMisa": [
+      {
+        "dia": "Lunes a Viernes",
+        "horarios": [
+          "08:00",
+          "19:00"
+        ]
+      },
+      {
+        "dia": "Sábados y Domingos",
+        "horarios": [
+          "10:30",
+          "19:00"
+        ]
+      }
+    ],
+    "horariosConfesiones": "Sábados de 17:30 a 19:00",
+    "telefono": "+54 11 4244-1598",
+    "webOficial": "https://ilomas.org.ar",
+    "etiquetas": [
+      "Temperley",
+      "Zona Sur",
+      "Barrial"
+    ]
+  },
+  {
+    "id": 48,
+    "nombre": "Capilla Cristo Obrero y San Blas (Padre Carlos Mugica)",
+    "tipo": "Capilla",
+    "region": "CABA",
+    "direccion": "Calle 11 y Av. Antártida Argentina, Barrio 31, Retiro, CABA",
+    "barrio": "Retiro",
+    "coordenadas": {
+      "lat": -34.58412,
+      "lng": -58.37684
+    },
+    "horariosMisa": [
+      {
+        "dia": "Lunes a Viernes",
+        "horarios": [
+          "18:00"
+        ]
+      },
+      {
+        "dia": "Sábados",
+        "horarios": [
+          "17:00"
+        ]
+      },
+      {
+        "dia": "Domingos",
+        "horarios": [
+          "11:00",
+          "18:00"
+        ]
+      }
+    ],
+    "horariosConfesiones": "Domingos después de la misa matutina",
+    "telefono": "+54 11 4315-0814",
+    "webOficial": "https://arzbaires.org.ar",
+    "etiquetas": [
+      "Padre Mugica",
+      "Curas Villeros",
+      "Misión",
+      "Capilla"
+    ]
+  },
+  {
+    "id": 49,
+    "nombre": "Capilla Stella Maris de San Isidro",
+    "tipo": "Capilla",
+    "region": "Zona Norte",
+    "direccion": "España y Almirante Brown, Béccar / San Isidro",
+    "barrio": "San Isidro",
+    "coordenadas": {
+      "lat": -34.4593,
+      "lng": -58.51027
+    },
+    "horariosMisa": [
+      {
+        "dia": "Miércoles y Viernes",
+        "horarios": [
+          "18:30"
+        ]
+      },
+      {
+        "dia": "Sábados y Domingos",
+        "horarios": [
+          "11:30",
+          "18:30"
+        ]
+      }
+    ],
+    "horariosConfesiones": "Media hora antes de cada misa",
+    "telefono": "+54 11 4743-1287",
+    "webOficial": "https://catedralsanisidro.org",
+    "etiquetas": [
+      "Costanera",
+      "Stella Maris",
+      "Béccar",
+      "Capilla"
+    ]
+  },
+  {
+    "id": 50,
+    "nombre": "Capilla Nuestra Señora de Pompeya (Tigre)",
+    "tipo": "Capilla",
+    "region": "Zona Norte",
+    "direccion": "Butteler 240, Tigre",
+    "barrio": "Tigre",
+    "coordenadas": {
+      "lat": -34.42746,
+      "lng": -58.56768
+    },
+    "horariosMisa": [
+      {
+        "dia": "Jueves y Sábados",
+        "horarios": [
+          "18:00"
+        ]
+      },
+      {
+        "dia": "Domingos",
+        "horarios": [
+          "10:30"
+        ]
+      }
+    ],
+    "horariosConfesiones": "Antes de las misas dominicales",
+    "telefono": "+54 11 4749-1589",
+    "webOficial": "https://obispado-si.org.ar",
+    "etiquetas": [
+      "Delta",
+      "Tranquila",
+      "Capilla"
+    ]
   }
 ];
 
@@ -710,7 +2378,7 @@ const initialAdminRole = (function resolveInitialRole() {
   return null;
 })();
 
-const VALID_APP_VIEWS = ["list", "map", "spiritual", "miparro", "liturgy", "saints", "community", "profile"];
+const VALID_APP_VIEWS = ["list", "map", "spiritual", "liturgy", "saints", "community", "profile"];
 const savedActiveView = Store.get("ui_active_view_v1", "list");
 
 const state = {
@@ -817,8 +2485,6 @@ function switchView(targetView, skipScroll = false) {
     });
   } else if (targetView === "spiritual") {
     renderSpiritualView();
-  } else if (targetView === "miparro") {
-    renderMiParroView();
   } else if (targetView === "liturgy") {
     renderLiturgyView();
   } else if (targetView === "saints") {
@@ -1215,6 +2881,115 @@ const SVG_PIN_CATEDRAL = `
     <path d="M22.4 20.8L24.2 29.2L21.5 27.6L19.9 29.4L19.3 20.8" fill="#FAF3E0"/>
   </svg>`;
 
+
+/* =====================================================================
+   RADIO CATÓLICA GLOBAL EN SEGUNDO PLANO Y PLAYLIST SACRA
+   ===================================================================== */
+const CATHOLIC_RADIO_PLAYLIST = [
+  { title: "Cara A Cara", artist: "Pascua Joven", src: "./audio/cara-a-cara.mp3" },
+  { title: "Haciéndote Pan", artist: "Pascua Joven", src: "./audio/haciendote-pan.mp3" },
+  { title: "A tanto amor", artist: "Coro Pascua Joven San Isidro", src: "./audio/a-tanto-amor.mp3" }
+];
+
+let globalRadioAudio = null;
+
+function initGlobalRadio() {
+  globalRadioAudio = document.getElementById("global-radio-audio");
+  if (!globalRadioAudio) return;
+
+  const savedVol = Store.get("radio_volume_v1", 0.75);
+  globalRadioAudio.volume = Math.min(1, Math.max(0, savedVol));
+
+  const volSlider = document.getElementById("radio-volume-slider");
+  const volLabel = document.getElementById("radio-volume-label");
+  if (volSlider) volSlider.value = String(globalRadioAudio.volume);
+  if (volLabel) volLabel.textContent = Math.round(globalRadioAudio.volume * 100) + "%";
+
+  globalRadioAudio.src = CATHOLIC_RADIO_PLAYLIST[state.radioIndex].src;
+  updateRadioUI();
+
+  globalRadioAudio.addEventListener("play", () => {
+    state.radioPlaying = true;
+    updateRadioUI();
+  });
+
+  globalRadioAudio.addEventListener("pause", () => {
+    state.radioPlaying = false;
+    updateRadioUI();
+  });
+
+  globalRadioAudio.addEventListener("ended", () => {
+    // Modo radio continua: pasa automáticamente a la siguiente pista en bucle
+    state.radioIndex = (state.radioIndex + 1) % CATHOLIC_RADIO_PLAYLIST.length;
+    playRadioTrack(state.radioIndex);
+  });
+
+  globalRadioAudio.addEventListener("error", (e) => {
+    console.warn("Aviso de audio en radio:", e);
+    state.radioPlaying = false;
+    updateRadioUI();
+  });
+}
+
+function updateRadioUI() {
+  const track = CATHOLIC_RADIO_PLAYLIST[state.radioIndex] || CATHOLIC_RADIO_PLAYLIST[0];
+  const pill = document.getElementById("radio-pill");
+  const nameEl = document.getElementById("radio-track-name");
+  const playIco = document.getElementById("radio-icon-play");
+  const pauseIco = document.getElementById("radio-icon-pause");
+
+  if (nameEl) nameEl.textContent = `${track.title} · ${track.artist}`;
+  if (pill) pill.classList.toggle("is-playing", state.radioPlaying);
+  if (playIco) playIco.hidden = state.radioPlaying;
+  if (pauseIco) pauseIco.hidden = !state.radioPlaying;
+}
+
+function playRadioTrack(index) {
+  if (!globalRadioAudio) return;
+  state.radioIndex = (index + CATHOLIC_RADIO_PLAYLIST.length) % CATHOLIC_RADIO_PLAYLIST.length;
+  const track = CATHOLIC_RADIO_PLAYLIST[state.radioIndex];
+  globalRadioAudio.src = track.src;
+  globalRadioAudio.play().then(() => {
+    state.radioPlaying = true;
+    updateRadioUI();
+    toast(`📻 Reproduciendo: ${track.title}`);
+  }).catch(err => {
+    console.log("Autoplay en espera de interacción táctil:", err);
+    updateRadioUI();
+  });
+}
+
+function toggleRadioPlayback() {
+  if (!globalRadioAudio) return;
+  if (globalRadioAudio.paused) {
+    if (!globalRadioAudio.src || globalRadioAudio.src.endsWith("/")) {
+      globalRadioAudio.src = CATHOLIC_RADIO_PLAYLIST[state.radioIndex].src;
+    }
+    globalRadioAudio.play().then(() => {
+      state.radioPlaying = true;
+      updateRadioUI();
+      const track = CATHOLIC_RADIO_PLAYLIST[state.radioIndex];
+      toast(`📻 Radio Católica: ${track.title}`);
+    }).catch(err => {
+      console.warn("Reproducción bloqueada por el navegador:", err);
+    });
+  } else {
+    globalRadioAudio.pause();
+    state.radioPlaying = false;
+    updateRadioUI();
+    toast("📻 Radio pausada");
+  }
+}
+
+function setRadioVolume(vol) {
+  if (!globalRadioAudio) return;
+  const clamped = Math.min(1, Math.max(0, vol));
+  globalRadioAudio.volume = clamped;
+  Store.set("radio_volume_v1", clamped);
+  const volLabel = document.getElementById("radio-volume-label");
+  if (volLabel) volLabel.textContent = Math.round(clamped * 100) + "%";
+}
+
 function initMap() {
   const mapEl = $("#map");
   if (!mapEl || typeof L === "undefined" || map) return;
@@ -1373,6 +3148,116 @@ function renderMapMarkers(items) {
 /* =====================================================================
    Estrategia de Ubicación Híbrida (GPS + Selector Manual AMBA + Fallback)
    ===================================================================== */
+
+/* =====================================================================
+   SELECTORES EMERGENTES EN FORMATO GRID DE CUADRADOS MINIMALISTAS
+   ===================================================================== */
+let currentZoneFilter = "ALL";
+let activeParishPickerTarget = "streak"; // 'streak' | 'note'
+
+function openZonePickerModal() {
+  const modal = document.getElementById("zone-picker-modal");
+  if (!modal) return;
+  currentZoneFilter = "ALL";
+  renderZoneSquareGrid(currentZoneFilter);
+  modal.hidden = false;
+}
+
+function closeZonePickerModal() {
+  const modal = document.getElementById("zone-picker-modal");
+  if (modal) modal.hidden = true;
+}
+
+function renderZoneSquareGrid(regionFilter = "ALL") {
+  const grid = document.getElementById("zone-square-grid");
+  if (!grid) return;
+
+  const currentZoneId = state.userLoc ? state.userLoc.id : "";
+
+  // 1. Opciones maestras: General y GPS
+  let cardsHtml = `
+    <button type="button" class="square-card ${!state.sortByNear ? "is-active" : ""}" data-select-zone="">
+      <span class="square-card-icon">🏛️</span>
+      <span class="square-card-title">Todas las Zonas</span>
+      <span class="square-card-sub">Alfabético</span>
+    </button>
+    <button type="button" class="square-card ${state.userLoc?.source === "gps" ? "is-active" : ""}" data-select-gps="true">
+      <span class="square-card-icon">🛰️</span>
+      <span class="square-card-title">Mi GPS Actual</span>
+      <span class="square-card-sub">Tiempo real</span>
+    </button>
+  `;
+
+  const filteredZones = regionFilter === "ALL"
+    ? REFERENCE_ZONES
+    : REFERENCE_ZONES.filter(z => z.region === regionFilter);
+
+  cardsHtml += filteredZones.map(z => {
+    const isActive = state.sortByNear && state.userLoc?.id === z.id;
+    const icon = z.region === "CABA" ? "🏙️" : z.region === "Zona Norte" ? "⛵" : z.region === "Zona Oeste" ? "🌳" : "⚓";
+    return `
+      <button type="button" class="square-card ${isActive ? "is-active" : ""}" data-select-zone="${z.id}">
+        <span class="square-card-icon">${icon}</span>
+        <span class="square-card-title">${z.nombre}</span>
+        <span class="square-card-sub">${z.region}</span>
+      </button>`;
+  }).join("");
+
+  grid.innerHTML = cardsHtml;
+
+  // Actualizar tabs de filtro del modal
+  document.querySelectorAll("#zone-picker-modal [data-zone-filter]").forEach(btn => {
+    btn.classList.toggle("is-active", btn.dataset.zoneFilter === regionFilter);
+  });
+}
+
+function openParishPickerModal(target = "streak") {
+  activeParishPickerTarget = target;
+  const modal = document.getElementById("parish-picker-modal");
+  if (!modal) return;
+  const searchInput = document.getElementById("parish-picker-search");
+  if (searchInput) searchInput.value = "";
+  renderParishSquareGrid("");
+  modal.hidden = false;
+  setTimeout(() => searchInput?.focus(), 40);
+}
+
+function closeParishPickerModal() {
+  const modal = document.getElementById("parish-picker-modal");
+  if (modal) modal.hidden = true;
+}
+
+function renderParishSquareGrid(searchQuery = "") {
+  const grid = document.getElementById("parish-square-grid");
+  if (!grid) return;
+
+  const q = norm(searchQuery);
+  const currentSelectedId = activeParishPickerTarget === "streak"
+    ? String(spiritualDB.lastParishId || "1")
+    : String(document.getElementById("note-parish-select")?.value || "");
+
+  const matches = PARISHES.filter(p => {
+    if (!q) return true;
+    return (p._searchIndex || norm(`${p.nombre} ${p.barrio} ${p.region}`)).includes(q);
+  });
+
+  if (!matches.length) {
+    grid.innerHTML = `<div class="empty" style="grid-column: 1 / -1;">No se encontraron templos con "${searchQuery}"</div>`;
+    return;
+  }
+
+  grid.innerHTML = matches.map(p => {
+    const isAct = String(p.id) === currentSelectedId;
+    const badgeCls = getTypeBadgeClass(p.tipo);
+    return `
+      <button type="button" class="square-card square-card-parish ${isAct ? "is-active" : ""}" data-pick-parish-id="${p.id}">
+        <span class="type-badge ${badgeCls} p-type-tag">${p.tipo}</span>
+        <span class="square-card-title">${p.nombre}</span>
+        <span class="square-card-sub">${p.barrio} · ${p._region || inferRegion(p)}</span>
+      </button>`;
+  }).join("");
+}
+
 function renderZoneSelector() {
   const sel = $("#manual-zone");
   if (!sel) return;
@@ -1440,6 +3325,14 @@ function syncLocationUI() {
     inlineGps.textContent = isGps ? "GPS activo" : "Usar GPS";
   }
 
+  const triggerText = document.getElementById("loc-trigger-text");
+  if (triggerText) {
+    triggerText.textContent = isGps
+      ? "GPS: Tu ubicación actual"
+      : isManual
+      ? `Zona: ${state.userLoc.label}`
+      : "Zona: Todas (CABA y GBA)";
+  }
   if (sel) {
     if (isGps) {
       sel.value = "__gps__";
@@ -4765,8 +6658,12 @@ function renderStreakTabHtml() {
         </div>
 
         <div class="form-field">
-          <label for="streak-parish-select">Parroquia (seguidas precargadas arriba · recuerda tu última elección)</label>
-          <select id="streak-parish-select" required>
+          <label>Templo / Parroquia de la celebración</label>
+          <button type="button" class="parish-picker-trigger-btn" id="btn-open-parish-picker" aria-haspopup="dialog" aria-label="Elegir parroquia en cuadrícula">
+            <span id="streak-parish-display-name">📍 ${getParishById(spiritualDB.lastParishId)?.nombre || "Catedral Metropolitana de Buenos Aires"}</span>
+            <span class="loc-trigger-badge">Elegir en Grid ▾</span>
+          </button>
+          <select id="streak-parish-select" hidden>
             ${getPrioritizedParishOptions(spiritualDB.lastParishId)}
           </select>
         </div>
@@ -4831,8 +6728,12 @@ function renderNotesTabHtml() {
         </div>
 
         <div class="form-field">
-          <label for="note-parish-select">Parroquia vinculada (opcional)</label>
-          <select id="note-parish-select">
+          <label>Parroquia vinculada (opcional)</label>
+          <button type="button" class="parish-picker-trigger-btn" id="btn-open-note-parish-picker" aria-haspopup="dialog" aria-label="Elegir parroquia en cuadrícula">
+            <span id="note-parish-display-name">📍 ${getParishById(editingNote ? editingNote.parishId : spiritualDB.lastParishId)?.nombre || "— Reflexión general (toca para elegir templo) —"}</span>
+            <span class="loc-trigger-badge">Elegir en Grid ▾</span>
+          </button>
+          <select id="note-parish-select" hidden>
             <option value="">— Reflexión personal general —</option>
             ${getPrioritizedParishOptions(editingNote ? editingNote.parishId : spiritualDB.lastParishId)}
           </select>
@@ -6097,8 +7998,7 @@ function bindMiParroEvents() {
     if (tabBtn) {
       state.parroTab = tabBtn.dataset.parroTab;
       Store.set("ui_parro_tab_v1", state.parroTab);
-      renderMiParroView();
-      return;
+            return;
     }
     const itemBtn = e.target.closest("[data-parro-item]");
     if (itemBtn) {
@@ -6516,6 +8416,16 @@ function bindAppEvents() {
 
   // Delegación de eventos en el Módulo Racha, Notas y Estadísticas
   $("#spiritual-content")?.addEventListener("click", e => {
+    const pickParishBtn = e.target.closest("#btn-open-parish-picker");
+    if (pickParishBtn) {
+      openParishPickerModal("streak");
+      return;
+    }
+    const pickNoteParishBtn = e.target.closest("#btn-open-note-parish-picker");
+    if (pickNoteParishBtn) {
+      openParishPickerModal("note");
+      return;
+    }
     const slotBtn = e.target.closest("[data-checkin-slot]");
     if (slotBtn) {
       state.checkinSlot = slotBtn.dataset.checkinSlot;
@@ -6791,8 +8701,76 @@ function bindAppEvents() {
     if (e.target && e.target.id === "activity-edit-modal") closeActivityEditor();
   });
 
-  // Eventos "Mi Parro" (simulador de parroquia virtual)
-  bindMiParroEvents();
+  // Radio Católica Global en segundo plano
+  $("#btn-radio-toggle")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleRadioPlayback();
+  });
+  $("#radio-pill")?.addEventListener("click", () => {
+    toggleRadioPlayback();
+  });
+  $("#radio-volume-slider")?.addEventListener("input", (e) => {
+    setRadioVolume(parseFloat(e.target.value));
+  });
+
+  // Selector de Zona / Barrio en Cuadrícula de Cuadrados Minimalistas
+  $("#btn-open-zone-modal")?.addEventListener("click", openZonePickerModal);
+  $("#btn-close-zone-modal")?.addEventListener("click", closeZonePickerModal);
+  $("#zone-picker-modal")?.addEventListener("click", (e) => {
+    if (e.target && e.target.id === "zone-picker-modal") {
+      closeZonePickerModal();
+      return;
+    }
+    const zoneBtn = e.target.closest("[data-select-zone]");
+    if (zoneBtn) {
+      applyManualZone(zoneBtn.dataset.selectZone);
+      closeZonePickerModal();
+      return;
+    }
+    const gpsBtn = e.target.closest("[data-select-gps]");
+    if (gpsBtn) {
+      requestGpsLocation();
+      closeZonePickerModal();
+      return;
+    }
+    const tabBtn = e.target.closest("[data-zone-filter]");
+    if (tabBtn) {
+      currentZoneFilter = tabBtn.dataset.zoneFilter;
+      renderZoneSquareGrid(currentZoneFilter);
+    }
+  });
+
+  // Selector de Parroquias en Cuadrícula Minimalista (para Racha y Bloc de Notas)
+  $("#btn-close-parish-picker")?.addEventListener("click", closeParishPickerModal);
+  $("#parish-picker-modal")?.addEventListener("click", (e) => {
+    if (e.target && e.target.id === "parish-picker-modal") {
+      closeParishPickerModal();
+      return;
+    }
+    const parishCard = e.target.closest("[data-pick-parish-id]");
+    if (parishCard) {
+      const pid = String(parishCard.dataset.pickParishId);
+      const pObj = getParishById(pid);
+      if (activeParishPickerTarget === "note") {
+        const noteSel = document.getElementById("note-parish-select");
+        if (noteSel) noteSel.value = pid;
+        const noteDisplay = document.getElementById("note-parish-display-name");
+        if (noteDisplay && pObj) noteDisplay.textContent = "📍 " + pObj.nombre;
+      } else {
+        spiritualDB.lastParishId = pid;
+        saveSpiritualDB();
+        const sel = document.getElementById("streak-parish-select");
+        if (sel) sel.value = pid;
+        const displayEl = document.getElementById("streak-parish-display-name");
+        if (displayEl && pObj) displayEl.textContent = "📍 " + pObj.nombre;
+      }
+      closeParishPickerModal();
+      toast("Parroquia seleccionada: " + (pObj ? pObj.nombre : ""));
+    }
+  });
+  $("#parish-picker-search")?.addEventListener("input", (e) => {
+    renderParishSquareGrid(e.target.value);
+  });
 
   // Eventos del Panel de Configuración (⚙️ Modo Noche e Idioma)
   $("#btn-open-settings")?.addEventListener("click", openSettingsModal);
@@ -6862,6 +8840,8 @@ function bindAppEvents() {
 
   document.addEventListener("keydown", e => {
     if (e.key === "Escape") {
+      if ($("#zone-picker-modal") && !$("#zone-picker-modal").hidden) return closeZonePickerModal();
+      if ($("#parish-picker-modal") && !$("#parish-picker-modal").hidden) return closeParishPickerModal();
       if ($("#settings-modal") && !$("#settings-modal").hidden) return closeSettingsModal();
       if ($("#public-profile-modal") && !$("#public-profile-modal").hidden) return closePublicProfileModal();
       if ($("#admin-edit-modal") && !$("#admin-edit-modal").hidden) return closeParishEditor();
@@ -6869,6 +8849,67 @@ function bindAppEvents() {
       closeDetail();
     }
   });
+}
+
+
+/* =====================================================================
+   NAVEGACIÓN GESTUAL LATERAL ("SWIPE" DE PÁGINAS DE LIBRO)
+   ===================================================================== */
+function initSwipeGestures() {
+  let touchStartX = 0;
+  let touchStartY = 0;
+  let touchStartTime = 0;
+
+  const viewport = document.getElementById("book-viewport") || document.body;
+
+  viewport.addEventListener("touchstart", (e) => {
+    if (e.touches.length !== 1) return;
+    const t = e.touches[0];
+    touchStartX = t.clientX;
+    touchStartY = t.clientY;
+    touchStartTime = Date.now();
+  }, { passive: true });
+
+  viewport.addEventListener("touchend", (e) => {
+    if (e.changedTouches.length !== 1) return;
+
+    // Ignorar si el usuario estaba interactuando con mapa Leaflet, slider, modal abierto o inputs
+    const target = e.target;
+    if (
+      target.closest("#map") ||
+      target.closest(".leaflet-container") ||
+      target.closest("input[type='range']") ||
+      target.closest(".modal-backdrop:not([hidden])") ||
+      target.closest("input") ||
+      target.closest("textarea") ||
+      target.closest("select")
+    ) {
+      return;
+    }
+
+    const t = e.changedTouches[0];
+    const deltaX = t.clientX - touchStartX;
+    const deltaY = t.clientY - touchStartY;
+    const deltaTime = Date.now() - touchStartTime;
+
+    // Solo reconocer swipe horizontal claro (mínimo 52px en menos de 650ms con desplazamiento horizontal dominante)
+    if (Math.abs(deltaX) > 52 && Math.abs(deltaX) > Math.abs(deltaY) * 1.4 && deltaTime < 650) {
+      const curIdx = VALID_APP_VIEWS.indexOf(state.view);
+      if (curIdx < 0) return;
+
+      if (deltaX < 0) {
+        // Swipe hacia la izquierda -> avanzar a la siguiente página
+        if (curIdx < VALID_APP_VIEWS.length - 1) {
+          switchView(VALID_APP_VIEWS[curIdx + 1]);
+        }
+      } else {
+        // Swipe hacia la derecha -> retroceder a la página anterior
+        if (curIdx > 0) {
+          switchView(VALID_APP_VIEWS[curIdx - 1]);
+        }
+      }
+    }
+  }, { passive: true });
 }
 
 function bootstrapApp() {
@@ -6884,7 +8925,8 @@ function bootstrapApp() {
   renderSpiritualView();
   renderLiturgyView();
   renderSaintsView();
-  renderMiParroView();
+  initGlobalRadio();
+  initSwipeGestures();
   renderCommunityView();
   renderProfileView();
   if (state.view !== "list") switchView(state.view, true);
