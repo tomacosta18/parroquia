@@ -1,15 +1,17 @@
 /* ============ Tokens (Modo Claro y Modo Noche Profundo) ============ */
 :root {
-  --bg: #F2F4F7;
+  --bg: #F8F5F1;
   --surface: #FFFFFF;
-  --surface-2: #F8FAFC;
-  --ink: #14181F;
-  --muted: #586070;
-  --line: #E1E5EB;
-  --brand: #243B8F;
-  --brand-soft: #E8ECF9;
-  --accent: #243B8F;
-  --accent-soft: #E8ECF9;
+  --surface-2: #FAF6F0;
+  --ink: #1C1618;
+  --muted: #6B6266;
+  --line: #E8DFD5;
+  --brand: #6E1420;
+  --brand-hover: #5A101A;
+  --brand-soft: #F5E8EA;
+  --accent: #8B1E2B;
+  --accent-soft: #F9ECEE;
+  --cream: #FAF3E0;
   --night: #182238;
   --slate: #334155;
   --gold: #8F6417;
@@ -31,19 +33,47 @@
   --ease: cubic-bezier(.32, .72, 0, 1);
 }
 
+/* Paleta: Azul Litúrgico */
+html[data-palette="azul"],
+body[data-palette="azul"] {
+  --brand: #243B8F;
+  --brand-hover: #1A2D70;
+  --brand-soft: #E8ECF9;
+  --accent: #1D4ED8;
+  --accent-soft: #EBF2FE;
+  --bg: #F2F4F7;
+  --surface-2: #F8FAFC;
+  --line: #E1E5EB;
+}
+
+/* Paleta: Oro y Ocre Sacro */
+html[data-palette="oro"],
+body[data-palette="oro"] {
+  --brand: #B45309;
+  --brand-hover: #92400E;
+  --brand-soft: #FEF3C7;
+  --accent: #D97706;
+  --accent-soft: #FFFBEB;
+  --bg: #FDFBF7;
+  --surface-2: #FAF6ED;
+  --line: #EFE5D2;
+}
+
 /* Modo Oscuro / Noche: Colores profundos en todo el DOM */
 html[data-theme="dark"],
 body.dark-mode {
-  --bg: #0B0F19;
-  --surface: #131B2E;
-  --surface-2: #1A243B;
-  --ink: #F1F5F9;
-  --muted: #94A3B8;
-  --line: #26334D;
-  --brand: #60A5FA;
-  --brand-soft: rgba(96, 165, 250, 0.16);
-  --accent: #60A5FA;
-  --accent-soft: rgba(96, 165, 250, 0.16);
+  --bg: #0D0A0C;
+  --surface: #171215;
+  --surface-2: #21191E;
+  --ink: #F8F5F5;
+  --muted: #A89B9F;
+  --line: #33242A;
+  --brand: #E57373;
+  --brand-hover: #EF5350;
+  --brand-soft: rgba(229, 115, 115, 0.16);
+  --accent: #F48FB1;
+  --accent-soft: rgba(244, 143, 177, 0.16);
+  --cream: #FAF3E0;
   --night: #1E293B;
   --slate: #CBD5E1;
   --gold: #FBBF24;
@@ -53,6 +83,36 @@ body.dark-mode {
   --ok-soft: rgba(74, 222, 128, 0.14);
   --danger: #F87171;
   --danger-soft: rgba(248, 113, 113, 0.16);
+}
+
+html[data-theme="dark"][data-palette="azul"],
+body.dark-mode[data-palette="azul"] {
+  --bg: #0B0F19;
+  --surface: #131B2E;
+  --surface-2: #1A243B;
+  --ink: #F1F5F9;
+  --muted: #94A3B8;
+  --line: #26334D;
+  --brand: #60A5FA;
+  --brand-hover: #3B82F6;
+  --brand-soft: rgba(96, 165, 250, 0.16);
+  --accent: #93C5FD;
+  --accent-soft: rgba(147, 197, 253, 0.16);
+}
+
+html[data-theme="dark"][data-palette="oro"],
+body.dark-mode[data-palette="oro"] {
+  --bg: #120E06;
+  --surface: #1C170A;
+  --surface-2: #28200E;
+  --ink: #FAF7EE;
+  --muted: #A69C87;
+  --line: #3B3016;
+  --brand: #FBBF24;
+  --brand-hover: #F59E0B;
+  --brand-soft: rgba(251, 191, 36, 0.16);
+  --accent: #FCD34D;
+  --accent-soft: rgba(252, 211, 77, 0.16);
 }
 
 /* ============ Pantalla de Bienvenida / Splash Screen Institucional (Auto-Dismiss) ============ */
@@ -3770,12 +3830,12 @@ body.dark-mode .nav-tab.is-active { background: #f1c40f; border-color: #f1c40f; 
 .bento-desc { color: var(--muted); font-size: .82rem; line-height: 1.3; }
 .bento-meta { font-size: .76rem; font-weight: 600; color: var(--brand); text-transform: capitalize; }
 .bento-chevron { position: absolute; top: 16px; right: 18px; font-size: 1.5rem; line-height: 1; color: var(--muted); opacity: .6; }
-.bento-map .bento-ico { background: #E0ECFF; color: #1D4ED8; }
-.bento-spiritual .bento-ico { background: #FFEBD5; color: #C2410C; }
-.bento-liturgy .bento-ico { background: #EFE3FA; color: #7E22CE; }
-.bento-saints .bento-ico { background: #DDF5E6; color: #15803D; }
+.bento-map .bento-ico { background: rgba(142, 68, 173, .12); color: #8E44AD; }
+.bento-spiritual .bento-ico { background: rgba(110, 20, 32, .12); color: #6E1420; }
+.bento-liturgy .bento-ico { background: rgba(139, 30, 43, .12); color: #8B1E2B; }
+.bento-saints .bento-ico { background: rgba(200, 157, 60, .14); color: #8F6417; }
 .bento-settings { min-height: 96px; flex-direction: row; align-items: center; }
-.bento-settings .bento-ico { background: #E8EAEE; color: #475569; }
+.bento-settings .bento-ico { background: rgba(110, 20, 32, .1); color: var(--brand); }
 .bento-settings .bento-meta { margin-left: auto; padding-right: 22px; text-align: right; max-width: 40%; }
 /* Templos: bloque protagonista */
 .bento-temples { min-height: 176px; color: #FAF3E0; border-color: transparent;
@@ -3788,6 +3848,138 @@ body.dark-mode .nav-tab.is-active { background: #f1c40f; border-color: #f1c40f; 
 body.dark-mode .bento-map .bento-ico, body.dark-mode .bento-spiritual .bento-ico, body.dark-mode .bento-liturgy .bento-ico,
 body.dark-mode .bento-saints .bento-ico, body.dark-mode .bento-settings .bento-ico { background: rgba(255, 255, 255, .08); }
 @keyframes bentoIn { from { opacity: 0; transform: translateY(10px) scale(.98); } to { opacity: 1; transform: none; } }
+
+/* ============ ESTILOS DE SELECTOR DE PALETA Y GESTIÓN DE ROLES EN CONFIGURACIÓN ============ */
+.theme-palette-picker {
+  display: grid;
+  gap: 8px;
+  margin-top: 6px;
+}
+.palette-option-btn {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  width: 100%;
+  padding: 10px 14px;
+  border-radius: 12px;
+  border: 1.5px solid var(--line);
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  text-align: left;
+  transition: all .18s var(--ease);
+}
+.palette-option-btn:hover {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+}
+.palette-option-btn.is-active {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+  box-shadow: 0 0 0 2px var(--brand);
+}
+.palette-swatch {
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
+  flex: none;
+  border: 1.5px solid rgba(255, 255, 255, 0.4);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15);
+}
+.palette-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.palette-info strong {
+  font-size: .88rem;
+  font-weight: 600;
+}
+.palette-info small {
+  font-size: .75rem;
+  color: var(--muted);
+}
+
+.settings-item-roles {
+  border-top: 1px solid var(--line);
+  padding-top: 18px;
+}
+.settings-current-role-banner {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  margin-top: 6px;
+}
+.role-status-dot {
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #94A3B8;
+  margin-top: 4px;
+  flex: none;
+}
+.role-status-dot.is-admin {
+  background: #166534;
+  box-shadow: 0 0 0 3px rgba(22, 101, 52, 0.2);
+}
+.role-status-dot.is-collab {
+  background: #854D0E;
+  box-shadow: 0 0 0 3px rgba(133, 77, 14, 0.2);
+}
+.role-status-details {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+.role-status-title {
+  font-size: .86rem;
+  font-weight: 700;
+  color: var(--ink);
+}
+.role-status-sub {
+  font-size: .78rem;
+  color: var(--muted);
+  line-height: 1.35;
+}
+.settings-role-actions {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+.role-btn {
+  width: 100%;
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border-radius: 10px;
+  font-size: .84rem;
+  font-weight: 600;
+  transition: transform .15s, background-color .15s;
+}
+.role-btn:active {
+  transform: scale(0.98);
+}
+.role-btn-admin {
+  background: var(--brand);
+  color: #FAF3E0;
+  border: 1px solid rgba(110, 20, 32, 0.3);
+}
+.role-btn-collab {
+  background: var(--surface-2);
+  color: var(--ink);
+  border: 1px solid var(--line);
+}
+.role-btn-logout {
+  background: rgba(185, 28, 28, 0.08);
+  color: var(--danger);
+  border: 1px solid rgba(185, 28, 28, 0.25);
+}
 
 /* Profundidad en el resto de bloques existentes */
 .card, .block, .settings-item, .square-card, .admin-panel, .composer-card, .modal-card {
