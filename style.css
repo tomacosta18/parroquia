@@ -1660,9 +1660,10 @@ body.open .sheet { transform: none; visibility: visible; }
   width: 100%;
   min-height: 46px;
   padding: 10px 16px;
-  border-radius: 14px;
-  background: linear-gradient(135deg, #6E1420 0%, #243B8F 100%);
+  border-radius: 12px;
+  background: #6E1420;
   color: #FAF3E0;
+  border: 1px solid rgba(110, 20, 32, 0.4);
   font-size: .86rem;
   font-weight: 600;
   display: flex;
@@ -1670,27 +1671,41 @@ body.open .sheet { transform: none; visibility: visible; }
   justify-content: space-between;
   gap: 8px;
   margin-top: 16px;
-  box-shadow: 0 6px 18px rgba(110, 20, 32, .22);
-  transition: transform .15s;
+  box-shadow: 0 4px 14px rgba(110, 20, 32, .18);
+  transition: transform .15s, background-color .2s;
+}
+.btn-explain-gospel:hover {
+  background: #5A101A;
 }
 .btn-explain-gospel:active { transform: scale(.98); }
 
 .gospel-explanation-panel {
   margin-top: 14px;
-  background: var(--bg);
-  border: 1px solid var(--line);
+  background: #FFFDF9;
+  border: 1px solid rgba(110, 20, 32, 0.18);
   border-left: 4px solid #6E1420;
-  border-radius: 14px;
+  border-radius: 12px;
   padding: 16px;
   display: grid;
-  gap: 10px;
+  gap: 12px;
+}
+
+[data-theme="dark"] .gospel-explanation-panel {
+  background: #171E2D;
+  border-color: rgba(241, 196, 15, 0.25);
+  border-left-color: #F1C40F;
 }
 
 .gospel-explanation-panel h4 {
   font-size: .88rem;
   font-weight: 700;
-  color: var(--brand);
+  color: #6E1420;
   margin-top: 4px;
+  letter-spacing: .01em;
+}
+
+[data-theme="dark"] .gospel-explanation-panel h4 {
+  color: #F1C40F;
 }
 
 .gospel-explanation-panel p,

@@ -6236,30 +6236,30 @@ const SETTINGS_STORAGE_KEY = "app_settings_v1";
 
 const I18N_DICT = {
   "es-AR": {
-    app_title: "Parroquias BA",
-    app_subtitle: "CABA y GBA · Comunidad y Liturgia",
+    app_title: "Guía Católica",
+    app_subtitle: "",
     account_btn: "Cuenta",
     nav_temples: "Templos",
     nav_map: "Mapa",
-    nav_spiritual: "Racha / Notas",
+    nav_spiritual: "Racha",
     nav_liturgy: "Liturgia",
     nav_saints: "Santos del Día",
     nav_community: "Comunidad",
     nav_profile: "Perfil",
     list_heading: "Parroquias de Buenos Aires",
-    list_subheading: "Encontrá misas, confesiones, grupos y concurrencia en CABA y GBA.",
+    list_subheading: "",
     search_placeholder: "Buscá por nombre, barrio, tipo o calle",
     near_me_btn: "Cerca de mí",
     spiritual_heading: "Racha Espiritual y Notas",
-    spiritual_subheading: "Registrá tus misas y adoraciones, guardá reflexiones y medí tu tiempo de oración.",
+    spiritual_subheading: "",
     liturgy_heading: "Liturgia de la Palabra",
-    liturgy_subheading: "Primera Lectura, Salmo Responsorial y Evangelio del día con explicación pastoral y teológica.",
+    liturgy_subheading: "Primera lectura, Salmo y evangelio del día.",
     saints_heading: "Santos del Día",
-    saints_subheading: "Santoral católico diario, biografías inspiradoras, patronazgos y pensamientos espirituales.",
+    saints_subheading: "",
     community_heading: "Comunidad y Ranking",
-    community_subheading: "Mensajes comunitarios, buscador de fieles/grupos y parroquias más activas.",
+    community_subheading: "",
     profile_heading: "Perfil y Cuenta",
-    profile_subheading: "Tu identidad comunitaria, avatar Mii o foto, parroquias seguidas y grupos.",
+    profile_subheading: "Acá es para que cuentes un poco de vos",
     settings_title: "⚙️ Configuración",
     settings_subtitle: "Personalizá la apariencia visual y el idioma de la aplicación.",
     dark_mode_label: "🌙 Modo Oscuro / Noche",
@@ -6402,7 +6402,12 @@ function applyAppSettings() {
   $$("[data-i18n]").forEach(el => {
     const key = el.getAttribute("data-i18n");
     if (key === "account_btn" && getCurrentUserObj()) return; // Preservar apodo si hay sesión activa
-    if (dict[key]) el.textContent = dict[key];
+    if (dict && Object.prototype.hasOwnProperty.call(dict, key)) {
+      el.textContent = dict[key];
+      if (el.classList.contains("sub") && !dict[key]) {
+        el.hidden = true;
+      }
+    }
   });
   $$("[data-i18n-placeholder]").forEach(el => {
     const key = el.getAttribute("data-i18n-placeholder");
@@ -6645,7 +6650,7 @@ function evaluateSpiritualStreak(checkins) {
       currentWeekendDone: false,
       wasReset: false,
       lastMissedWeekend: null,
-      levelTitle: "Semilla de Oración 🌱"
+      levelTitle: "Laico"
     };
   }
 
@@ -6684,10 +6689,27 @@ function evaluateSpiritualStreak(checkins) {
   const consecutiveWeekends = activeWeekendSet.size;
   const currentWeekendDone = weekendHasFindeMass.get(currentWeekendSunday) === true;
 
-  let levelTitle = "Peregrino en Camino 🕯️";
-  if (activePoints >= 35) levelTitle = "Columna del Altar 👑";
-  else if (activePoints >= 20) levelTitle = "Centinela Eucarístico 🔥";
-  else if (activePoints >= 10) levelTitle = "Discípulo Constante ✨";
+  // Escala de niveles según semanas de racha consecutivas:
+  // 1ra semana: Laico
+  // 2da a 3era semana: Creyente
+  // 5to a 6to semana (o 4 a 6): Monaguillo
+  // 7mo a 10mo semana: Siervo de Dios
+  // 11 a 14 semanas: Beato
+  // 15 semanas en adelante: Santo
+  let levelTitle = "Laico";
+  if (consecutiveWeekends >= 15) {
+    levelTitle = "Santo";
+  } else if (consecutiveWeekends >= 11) {
+    levelTitle = "Beato";
+  } else if (consecutiveWeekends >= 7) {
+    levelTitle = "Siervo de Dios";
+  } else if (consecutiveWeekends >= 4) {
+    levelTitle = "Monaguillo";
+  } else if (consecutiveWeekends >= 2) {
+    levelTitle = "Creyente";
+  } else {
+    levelTitle = "Laico";
+  }
 
   return {
     activePoints,
@@ -7121,8 +7143,7 @@ function renderStreakTabHtml() {
 
     <!-- Formulario de Check-in de Racha -->
     <div class="checkin-card">
-      <h4>✨ Registrar Check-in de Racha</h4>
-      <p>Sumá puntos y tiempo de oración en tiempo real (Misa = 60 min · Adoración = 90 min). Tus parroquias seguidas aparecen primero y todo queda persistido en LocalStorage.</p>
+      <h4>Registrar Racha</h4>
 
       <form id="streak-checkin-form" class="admin-form">
         <div class="form-row-2">
@@ -8037,8 +8058,8 @@ function renderLiturgyView() {
     <!-- Barra de Selección de Fecha Litúrgica con Selector Estilizado Personalizado -->
     <div class="liturgy-toolbar">
       <div class="liturgy-toolbar-info">
-        <strong>📅 ${g.formattedLongDate}</strong>
-        <span>Leccionario Oficial Argentino (Libro del Pueblo de Dios) · Tocá cada lectura para desplegar su texto completo</span>
+        <strong>${g.formattedLongDate}</strong>
+        <span>Primera lectura, Salmo y evangelio del día.</span>
       </div>
       <div class="liturgy-date-controls">
         ${renderCustomDatePickerHtml("liturgy", g.isoDate)}
@@ -8103,31 +8124,31 @@ function renderLiturgyView() {
 
       <!-- Opción Interactiva: Explicación Pastoral debajo del Evangelio -->
       <button type="button" class="btn-explain-gospel" id="btn-toggle-gospel-explain" aria-expanded="${state.liturgyExplainOpen}">
-        <span>📖 Explicación pastoral (${g.citation})</span>
-        <span>${state.liturgyExplainOpen ? "▲ Ocultar explicación pastoral" : "▼ Ver por qué se elige hoy y reflexión"}</span>
+        <span>Explicación pastoral (${g.citation})</span>
+        <span>${state.liturgyExplainOpen ? "▲ Ocultar" : "▼ Ver reflexión y contexto"}</span>
       </button>
 
       ${state.liturgyExplainOpen ? `
         <div class="gospel-explanation-panel" id="gospel-explanation-panel">
           <div class="pastoral-why-box">
-            <span class="pastoral-cita-badge">📌 Cita seleccionada: ${g.citation}</span>
+            <span class="pastoral-cita-badge">Cita litúrgica: ${g.citation}</span>
             <h4>¿Por qué la Iglesia elige este pasaje para el día de hoy?</h4>
             <p>${g.whyChosenToday}</p>
           </div>
 
-          <h4>⛪ Explicación Teológica y Pastoral Sacerdotal</h4>
+          <h4>Explicación Teológica y Pastoral</h4>
           <p>${g.priestCommentary}</p>
 
-          <h4>🏛️ Iluminación del Magisterio Pontificio</h4>
+          <h4>Magisterio de la Iglesia</h4>
           <p>${g.popeQuote}</p>
 
-          <h4>🕯️ Claves Pastorales para tu Oración Hoy</h4>
+          <h4>Puntos para la Oración Personal</h4>
           <ul>
             ${g.prayerPrompts.map(pr => `<li>${pr}</li>`).join("")}
           </ul>
 
           <div style="margin-top:14px;display:flex;justify-content:flex-end">
-            <button type="button" class="btn-sm submit" id="btn-save-gospel-to-notes">📓 Anotar reflexión sobre este Evangelio</button>
+            <button type="button" class="btn-sm submit" id="btn-save-gospel-to-notes">Anotar reflexión en Notas</button>
           </div>
         </div>
       ` : ""}
@@ -8149,7 +8170,6 @@ function renderSaintsView() {
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><ellipse cx="12" cy="3.5" rx="5" ry="1.2"/><path d="M6 21v-2a6 6 0 0 1 12 0v2"/></svg>
           <strong>Santoral del ${g.formattedLongDate}</strong>
         </div>
-        <span>Testigos de la fe celebrados por la Iglesia Católica en esta fecha</span>
       </div>
       <div class="liturgy-date-controls">
         ${renderCustomDatePickerHtml("saints", g.isoDate)}
@@ -8158,9 +8178,7 @@ function renderSaintsView() {
 
     <section class="saints-section-card" aria-label="Santos del Día">
       <div class="gospel-head" style="margin-bottom:8px">
-        <span class="gospel-tag">Biografías Espirituales (${saints.length})</span>
         <h3>Santos del Día · ${g.formattedLongDate}</h3>
-        <p class="gospel-ref">Conocé la vida, misión y espiritualidad de los santos que nos acompañan hoy.</p>
       </div>
 
       ${saints.map((st, idx) => `
