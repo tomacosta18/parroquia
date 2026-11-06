@@ -187,8 +187,11 @@ body.dark-mode .splash-spinner {
 }
 
 html, body {
-  min-height: 100%;
-  height: auto;
+  height: 100%;
+  height: 100dvh;
+  margin: 0;
+  padding: 0;
+  overflow: hidden; /* Fijo: el scroll ocurre dentro del contenedor principal */
 }
 
 body {
@@ -197,10 +200,9 @@ body {
   color: var(--ink);
   font-size: 16px;
   line-height: 1.45;
-  padding-top: env(safe-area-inset-top, 0px);
+  display: flex;
+  flex-direction: column;
   -webkit-font-smoothing: antialiased;
-  overflow-x: hidden;
-  overflow-y: auto;
   transition: background-color .22s ease, color .22s ease;
 }
 
@@ -223,8 +225,7 @@ button {
 
 /* ============ Cabecera Superior Global + Barra de Navegación Deslizable (Estilo Libro) ============ */
 .top-app-shell {
-  position: sticky;
-  top: 0;
+  flex: none;
   z-index: 560;
   background: rgba(255, 255, 255, 0.95);
   backdrop-filter: blur(14px);
@@ -232,6 +233,7 @@ button {
   border-bottom: 1px solid var(--line);
   box-shadow: 0 4px 18px rgba(20, 24, 31, 0.05);
   transition: background-color .22s ease, border-color .22s ease;
+  padding-top: env(safe-area-inset-top, 0px);
 }
 
 body.dark-mode .top-app-shell {
@@ -486,12 +488,18 @@ body.dark-mode .top-app-shell {
 
 /* ============ Sistema de Vistas y Animación de Paso de Página de Libro ============ */
 .book-viewport {
-  perspective: 1400px;
+  flex: 1 1 auto;
+  height: 100%;
+  min-height: 0;
   width: 100%;
   overflow-x: hidden;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  perspective: 1400px;
+  position: relative;
 }
 
-/* Eliminación total de pantallas en blanco: las vistas inactivas no ocupan espacio en el flujo */
+/* Eliminación total de pantallas en blanco y apilamiento: las vistas inactivas jamás se muestran */
 .view-panel:not(.is-active) {
   display: none !important;
 }
@@ -751,8 +759,8 @@ h1 {
 .map-fullscreen.is-active {
   position: relative;
   width: 100%;
-  height: calc(100dvh - var(--top-shell-h));
-  min-height: 480px;
+  height: 100%;
+  min-height: 100%;
   display: flex;
   flex-direction: column;
   background: var(--bg);

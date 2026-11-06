@@ -5898,11 +5898,11 @@ const initialAdminRole = (function resolveInitialRole() {
   return null;
 })();
 
-const VALID_APP_VIEWS = ["list", "map", "spiritual", "liturgy", "saints", "community", "profile"];
-const savedActiveView = Store.get("ui_active_view_v1", "list");
+const VALID_APP_VIEWS = ["home", "list", "map", "spiritual", "liturgy", "saints", "community", "profile"];
+const savedActiveView = Store.get("ui_active_view_v1", "home");
 
 const state = {
-  view: VALID_APP_VIEWS.includes(savedActiveView) ? savedActiveView : "list",
+  view: VALID_APP_VIEWS.includes(savedActiveView) ? savedActiveView : "home",
   commTab: Store.get("ui_comm_tab_v1", "all"), // 'all' | 'following' | 'ranking' | 'people'
   spirTab: Store.get("ui_spir_tab_v1", "streak"), // 'streak' | 'notes' | 'stats'
   checkinSlot: "Mañana", // 'Mañana' | 'Tarde' | 'Noche'
@@ -5948,6 +5948,7 @@ function switchView(targetView, skipScroll = false) {
   document.body.setAttribute("data-active-view", targetView);
 
   const panels = {
+    home: $("#view-home"),
     list: $("#view-list"),
     map: $("#view-map"),
     spiritual: $("#view-spiritual"),
@@ -5957,6 +5958,7 @@ function switchView(targetView, skipScroll = false) {
     profile: $("#view-profile")
   };
   const tabs = {
+    home: $("#tab-home"),
     list: $("#tab-list"),
     map: $("#tab-map"),
     spiritual: $("#tab-spiritual"),
@@ -5989,10 +5991,17 @@ function switchView(targetView, skipScroll = false) {
   });
 
   if (!skipScroll) {
-    window.scrollTo({ top: 0, behavior: "instant" });
+    const viewport = document.getElementById("book-viewport");
+    if (viewport) {
+      viewport.scrollTop = 0;
+    } else {
+      window.scrollTo({ top: 0, behavior: "instant" });
+    }
   }
 
-  if (targetView === "map") {
+  if (targetView === "home") {
+    renderHome();
+  } else if (targetView === "map") {
     initMap();
     requestAnimationFrame(() => {
       if (map) {
@@ -6000,6 +6009,8 @@ function switchView(targetView, skipScroll = false) {
         fitMapToBounds(filtered());
       }
     });
+  } else if (targetView === "list") {
+    renderList();
   } else if (targetView === "spiritual") {
     renderSpiritualView();
   } else if (targetView === "liturgy") {
@@ -13307,7 +13318,12 @@ function goHome() {
   });
   try { closeAudioPanel(); } catch (e) { /* radio no montada */ }
   switchView("home");
-  window.scrollTo({ top: 0, behavior: "smooth" });
+  const viewport = document.getElementById("book-viewport");
+  if (viewport) {
+    viewport.scrollTo({ top: 0, behavior: "smooth" });
+  } else {
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
 }
 
 function closeProfileQuickModal() {
