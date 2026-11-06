@@ -52,6 +52,71 @@ body.dark-mode {
   --danger-soft: rgba(248, 113, 113, 0.16);
 }
 
+/* ============ Pantalla de Bienvenida / Splash Screen Institucional (Auto-Dismiss) ============ */
+.app-splash-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 100000;
+  background: var(--bg);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  transition: opacity 0.35s ease, visibility 0.35s ease;
+  padding: 24px;
+}
+.app-splash-screen.is-hidden {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.splash-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  gap: 12px;
+  max-width: 320px;
+}
+.splash-logo {
+  width: 72px;
+  height: 72px;
+  border-radius: 16px;
+  background: #FAF3E0;
+  border: 2px solid rgba(107, 20, 38, 0.22);
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.12);
+  object-fit: contain;
+}
+.splash-titles {
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+}
+.splash-brand-title {
+  font-family: var(--serif);
+  font-size: 1.55rem;
+  font-weight: 700;
+  color: var(--ink);
+  letter-spacing: -0.01em;
+}
+.splash-brand-sub {
+  font-size: 0.82rem;
+  color: var(--muted);
+}
+.splash-spinner {
+  width: 26px;
+  height: 26px;
+  border: 2.5px solid rgba(107, 20, 38, 0.18);
+  border-top-color: #6b1426;
+  border-radius: 50%;
+  animation: audioSpin 0.8s linear infinite;
+  margin-top: 8px;
+}
+body.dark-mode .splash-spinner {
+  border-color: rgba(241, 196, 15, 0.2);
+  border-top-color: #f1c40f;
+}
+
 * {
   box-sizing: border-box;
   margin: 0;
@@ -711,6 +776,13 @@ body.dark-mode .leaflet-tile-pane {
 .legend-dot.parroquia { width: 10px; height: 10px; background: #8E44AD; box-shadow: 0 0 0 2px #F3E8FF; }
 .legend-dot.capilla { width: 8px; height: 8px; background: #7F8C8D; box-shadow: 0 0 0 2px #E2E8F0; }
 
+.map-controls-group {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  pointer-events: auto;
+}
+
 .map-recenter-btn {
   pointer-events: auto;
   height: 34px;
@@ -725,8 +797,44 @@ body.dark-mode .leaflet-tile-pane {
   align-items: center;
   gap: 5px;
   box-shadow: 0 6px 20px rgba(20, 24, 31, .12);
+  cursor: pointer;
+  user-select: none;
+  transition: all 0.18s ease;
+}
+.map-recenter-btn:hover {
+  background: var(--surface-2);
+  border-color: rgba(36, 59, 143, 0.3);
 }
 .map-recenter-btn svg { width: 14px; height: 14px; color: var(--muted); }
+
+.map-touch-lock-btn {
+  border: 1.5px solid rgba(36, 59, 143, 0.28);
+}
+.map-touch-lock-btn.is-locked {
+  background: var(--surface);
+  color: var(--ink);
+}
+.map-touch-lock-btn.is-unlocked {
+  background: var(--brand);
+  border-color: var(--brand);
+  color: #fff;
+  box-shadow: 0 4px 14px rgba(36, 59, 143, 0.3);
+}
+.map-touch-lock-btn.is-unlocked svg {
+  color: #fff;
+}
+body.dark-mode .map-touch-lock-btn.is-unlocked {
+  background: #f1c40f;
+  border-color: #f1c40f;
+  color: #121826;
+}
+body.dark-mode .map-touch-lock-btn.is-unlocked svg {
+  color: #121826;
+}
+
+.map-canvas-full.map-touch-locked {
+  touch-action: pan-y !important;
+}
 
 /* ============ Marcadores Personalizados por Jerarquía (Leaflet DivIcon + CSS/SVG) ============ */
 .custom-pin-icon { background: transparent; border: 0; }
@@ -1633,13 +1741,22 @@ body.open .sheet { transform: none; visibility: visible; }
   width: 42px;
   height: 42px;
   border-radius: 50%;
-  background: linear-gradient(135deg, #FEF9C3 0%, #FDE047 100%);
-  color: #854D0E;
-  border: 2px solid #F59E0B;
+  background: var(--surface);
+  color: #6b1426;
+  border: 1.5px solid rgba(107, 20, 38, 0.28);
   display: grid;
   place-items: center;
-  font-size: 1.25rem;
   flex: none;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+body.dark-mode .saint-halo-icon {
+  background: rgba(255, 255, 255, 0.06);
+  color: #f1c40f;
+  border-color: rgba(241, 196, 15, 0.35);
+}
+.saint-halo-icon svg {
+  width: 22px;
+  height: 22px;
 }
 
 .saint-card h4 {
@@ -1658,6 +1775,136 @@ body.open .sheet { transform: none; visibility: visible; }
   background: var(--gold-soft);
   color: var(--gold);
   border: 1px solid rgba(143, 100, 23, .28);
+  display: inline-block;
+}
+
+.saint-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.btn-saint-more {
+  height: 32px;
+  padding: 0 12px;
+  border-radius: var(--r-pill);
+  background: var(--brand-soft);
+  color: var(--brand);
+  border: 1px solid rgba(36, 59, 143, 0.28);
+  font-size: 0.8rem;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.btn-saint-more:hover {
+  background: var(--brand);
+  color: #fff;
+}
+body.dark-mode .btn-saint-more {
+  background: rgba(241, 196, 15, 0.15);
+  color: #f1c40f;
+  border-color: rgba(241, 196, 15, 0.35);
+}
+body.dark-mode .btn-saint-more:hover {
+  background: #f1c40f;
+  color: #121826;
+}
+
+/* Modal de Saber Más del Santo */
+.saint-modal-halo-icon {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--surface-2);
+  color: #6b1426;
+  border: 1.5px solid rgba(107, 20, 38, 0.25);
+  display: grid;
+  place-items: center;
+  flex: none;
+}
+body.dark-mode .saint-modal-halo-icon {
+  color: #f1c40f;
+  border-color: rgba(241, 196, 15, 0.35);
+}
+
+.saint-modal-body {
+  display: grid;
+  gap: 16px;
+  margin-top: 14px;
+}
+
+.saint-section-block {
+  background: var(--bg);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  padding: 14px 16px;
+  display: grid;
+  gap: 8px;
+}
+
+.saint-section-title {
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--brand);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+body.dark-mode .saint-section-title {
+  color: #f1c40f;
+}
+
+.saint-theology-text {
+  font-size: 0.92rem;
+  line-height: 1.58;
+  color: var(--ink);
+}
+
+.saint-curiosities-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 8px;
+}
+
+.saint-curiosity-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 0.88rem;
+  line-height: 1.48;
+  color: var(--ink);
+}
+
+.saint-curiosity-bullet {
+  color: var(--gold);
+  flex: none;
+  margin-top: 3px;
+  font-size: 0.95rem;
+}
+
+.saint-quotes-grid {
+  display: grid;
+  gap: 8px;
+}
+
+.saint-quote-card {
+  font-family: var(--serif);
+  font-style: italic;
+  font-size: 0.92rem;
+  line-height: 1.46;
+  color: var(--ink);
+  background: var(--surface);
+  border-left: 3px solid var(--gold);
+  padding: 8px 12px;
+  border-radius: 6px;
 }
 
 .saint-bio {
@@ -2309,27 +2556,29 @@ body.dark-mode .audio-bubble-waves i {
 .audio-expanded-panel {
   pointer-events: auto;
   position: relative;
-  width: 320px;
-  max-width: calc(100vw - 32px);
+  width: min(330px, calc(100vw - 28px));
+  max-width: 100%;
+  box-sizing: border-box;
   padding: 14px 16px;
   border-radius: 18px;
-  background: rgba(255, 255, 255, 0.96);
+  background: rgba(255, 255, 255, 0.97);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border: 1.5px solid rgba(107, 20, 38, 0.25);
-  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.18), 0 4px 12px rgba(107, 20, 38, 0.1);
+  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.2), 0 4px 12px rgba(107, 20, 38, 0.1);
   display: flex;
   flex-direction: column;
   gap: 10px;
   user-select: none;
   animation: panelSlideUp 0.26s cubic-bezier(0.16, 1, 0.3, 1);
   transform-origin: bottom right;
+  overflow: hidden;
 }
 
 body.dark-mode .audio-expanded-panel {
-  background: rgba(22, 31, 52, 0.96);
+  background: rgba(22, 31, 52, 0.97);
   border-color: rgba(241, 196, 15, 0.3);
-  box-shadow: 0 14px 38px rgba(0, 0, 0, 0.55);
+  box-shadow: 0 16px 42px rgba(0, 0, 0, 0.6);
 }
 
 @keyframes panelSlideUp {
@@ -2345,15 +2594,18 @@ body.dark-mode .audio-expanded-panel {
 
 .audio-panel-header {
   display: flex;
-  align-items: flex-start;
+  align-items: center;
   justify-content: space-between;
   gap: 8px;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .audio-panel-info {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  flex: 1;
 }
 
 .audio-panel-kicker {
@@ -2386,6 +2638,42 @@ body.dark-mode .audio-panel-kicker {
   text-overflow: ellipsis;
 }
 
+.audio-panel-header-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex: none;
+}
+
+.btn-audio-panel-done {
+  height: 28px;
+  padding: 0 11px;
+  border-radius: var(--r-pill);
+  background: rgba(107, 20, 38, 0.1);
+  color: #6b1426;
+  border: 1px solid rgba(107, 20, 38, 0.25);
+  font-size: 0.76rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.btn-audio-panel-done:hover {
+  background: #6b1426;
+  color: #fff;
+}
+body.dark-mode .btn-audio-panel-done {
+  background: rgba(241, 196, 15, 0.15);
+  color: #f1c40f;
+  border-color: rgba(241, 196, 15, 0.35);
+}
+body.dark-mode .btn-audio-panel-done:hover {
+  background: #f1c40f;
+  color: #121826;
+}
+
 .audio-panel-close-btn {
   width: 28px;
   height: 28px;
@@ -2405,18 +2693,29 @@ body.dark-mode .audio-panel-kicker {
   background: rgba(107, 20, 38, 0.1);
 }
 
-/* Selector rápido de categorías de la Radio */
+/* Selector rápido de categorías de la Radio con desplazamiento suave */
 .audio-category-bar {
   display: flex;
   align-items: center;
-  gap: 5px;
+  gap: 6px;
   overflow-x: auto;
-  padding: 2px 0 4px;
-  scrollbar-width: none;
+  overflow-y: hidden;
+  white-space: nowrap;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  padding: 4px 2px 6px;
+  margin: 0;
+  scrollbar-width: thin;
   -webkit-overflow-scrolling: touch;
+  scroll-behavior: smooth;
 }
 .audio-category-bar::-webkit-scrollbar {
-  display: none;
+  height: 3px;
+}
+.audio-category-bar::-webkit-scrollbar-thumb {
+  background: rgba(107, 20, 38, 0.25);
+  border-radius: 3px;
 }
 
 .audio-cat-pill {

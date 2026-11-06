@@ -3292,6 +3292,59 @@ function setRadioVolume(vol) {
   }
 }
 
+let mapTouchLocked = true;
+
+function syncMapTouchLockUI() {
+  const btn = $("#btn-map-toggle-touch");
+  const mapEl = $("#map");
+  const iconLocked = $("#icon-map-locked");
+  const iconUnlocked = $("#icon-map-unlocked");
+  const label = $("#label-map-touch-state");
+  if (!map) return;
+
+  if (mapTouchLocked) {
+    if (btn) {
+      btn.classList.add("is-locked");
+      btn.classList.remove("is-unlocked");
+      btn.setAttribute("aria-pressed", "false");
+    }
+    if (mapEl) mapEl.classList.add("map-touch-locked");
+    if (iconLocked) iconLocked.hidden = false;
+    if (iconUnlocked) iconUnlocked.hidden = true;
+    if (label) label.textContent = "Fijado (Scroll libre)";
+    try {
+      map.dragging.disable();
+      map.touchZoom.disable();
+      map.scrollWheelZoom.disable();
+    } catch (e) {}
+  } else {
+    if (btn) {
+      btn.classList.remove("is-locked");
+      btn.classList.add("is-unlocked");
+      btn.setAttribute("aria-pressed", "true");
+    }
+    if (mapEl) mapEl.classList.remove("map-touch-locked");
+    if (iconLocked) iconLocked.hidden = true;
+    if (iconUnlocked) iconUnlocked.hidden = false;
+    if (label) label.textContent = "Mapa Activo (Explorar)";
+    try {
+      map.dragging.enable();
+      map.touchZoom.enable();
+      map.scrollWheelZoom.enable();
+    } catch (e) {}
+  }
+}
+
+function toggleMapTouchLock() {
+  mapTouchLocked = !mapTouchLocked;
+  syncMapTouchLockUI();
+  if (!mapTouchLocked) {
+    toast("🔓 Mapa activo: podés mover y hacer zoom libremente.");
+  } else {
+    toast("🔒 Mapa fijado: deslizate por la pantalla con total libertad.");
+  }
+}
+
 function initMap() {
   const mapEl = $("#map");
   if (!mapEl || typeof L === "undefined" || map) return;
@@ -3338,6 +3391,7 @@ function initMap() {
   });
 
   renderMapMarkers(filtered());
+  syncMapTouchLockUI();
 }
 
 function createHierarchyIcon(p) {
@@ -7556,111 +7610,233 @@ const ARGENTINE_GOSPELS_CYCLE = [
   OFFICIAL_GOSPELS_BY_MMDD["11-02"]
 ];
 
+const SVG_SAINT_HALO = `<svg class="saint-svg-icon" viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="7" r="4"/><ellipse cx="12" cy="3.5" rx="5" ry="1.2"/><path d="M6 21v-2a6 6 0 0 1 12 0v2"/><path d="M12 11v6m-2.5-3.5h5"/></svg>`;
+
 const SAINTS_BY_MMDD = {
   "11-01": [
     {
       name: "Solemnidad de Todos los Santos",
-      feast: "Solemnidad Litúrgica",
-      icon: "👑",
+      feast: "Solemnidad Litúrgica Universal",
+      iconSvg: SVG_SAINT_HALO,
       bio: "La Iglesia celebra en una única fiesta jubilosa a todos los bienaventurados que ya gozan de la presencia de Dios en el Cielo: tanto los santos canonizados como la multitud inmensa de hombres y mujeres sencillos que vivieron fielmente el Evangelio.",
-      quote: "«La santidad es el rostro más bello de la Iglesia»."
+      quote: "«La santidad es el rostro más bello de la Iglesia».",
+      theologicalExplanation: "La Iglesia une las bienaventuranzas del Evangelio (Mt 5, 1-12) con esta fiesta porque los santos son quienes encarnaron la radicalidad de ser pobres de espíritu, mansos y constructores de paz, reflejando el rostro bienaventurado del Reino.",
+      curiosities: [
+        "Instituida en Roma por el Papa Bonifacio IV en el siglo VII consagrando el Panteón pagano a Santa María de los Mártires.",
+        "No conmemora sólo a quienes están en los altares, sino a millones de almas anónimas que vivieron la santidad cotidiana.",
+        "Es una de las pocas solemnidades con precepto universal y precedida por una vigilia de luz frente a la oscuridad."
+      ],
+      otherQuotes: [
+        "«La santidad no es un privilegio de pocos, sino una vocación para todos los bautizados» (San Juan Pablo II).",
+        "«Los santos no eran superhombres, sino personas que amaron a Dios con todo el corazón»."
+      ]
     }
   ],
   "11-02": [
     {
       name: "Conmemoración de Todos los Fieles Difuntos",
       feast: "Conmemoración Litúrgica",
-      icon: "🕯️",
+      iconSvg: SVG_SAINT_HALO,
       bio: "Jornada universal de oración y sufragio por todos los hermanos que han partido de este mundo, renovando nuestra esperanza en la Resurrección de Cristo y en la comunión de los santos.",
-      quote: "«Para los que creen en Ti, Señor, la vida no termina, se transforma»."
+      quote: "«Para los que creen en Ti, Señor, la vida no termina, se transforma».",
+      theologicalExplanation: "La liturgia proclama la esperanza viva de la Resurrección (Jn 6, 37-40: «todo el que cree en el Hijo tiene Vida eterna»). No rezamos con angustia, sino con la certeza de que el amor de Dios es más fuerte que la muerte física.",
+      curiosities: [
+        "Promovida por San Odilón de Cluny en el año 998, quien mandó a todos sus monasterios rezar por las almas del purgatorio.",
+        "En Argentina y América Latina es tradición llevar flores a los cementerios y rezar responsos comunitarios en memoria de los antepasados.",
+        "La Iglesia concede indulgencias especiales y la posibilidad a cada sacerdote de celebrar tres misas ese día."
+      ],
+      otherQuotes: [
+        "«Una lágrima se evapora, una flor se marchita, sólo una oración llega hasta Dios» (San Agustín).",
+        "«La muerte no es el final del camino, sino la puerta de entrada a la Casa del Padre»."
+      ]
     }
   ],
   "11-03": [
     {
       name: "San Martín de Porres, Religioso",
       feast: "Memoria Libre · Patrono de la Justicia Social",
-      icon: "🧹",
+      iconSvg: SVG_SAINT_HALO,
       bio: "Nacido en Lima (1579-1639), hermano cooperador dominico conocido como «el santo de la escoba». Dedicó su vida a curar enfermos, asistir a los más pobres y reconciliar corazones con una humildad radiante y profunda vida eucarística.",
-      quote: "«Yo te curo, Dios te sana»."
+      quote: "«Yo te curo, Dios te sana».",
+      theologicalExplanation: "La lectura del Evangelio sobre servir a los más pequeños (Mt 25, 40) sintetiza el corazón de San Martín: descubrió a Cristo vivo y sufriente en los enfermos, esclavos y marginados del virreinato.",
+      curiosities: [
+        "Hijo de un noble español y una mujer afrodescendiente libre, ingresó como donado en la orden dominica por las leyes de casta de la época.",
+        "Tenía una asombrosa empatía con los animales: la tradición recuerda que alimentaba en un mismo plato a un perro, un gato y un ratón.",
+        "Fue proclamado Patrono Universal de la Justicia Social en 1962 por el Papa San Juan XXIII."
+      ],
+      otherQuotes: [
+        "«Yo te curo, hermano, pero Dios es quien te sana».",
+        "«El mejor homenaje a Dios es el servicio humilde y constante a quien sufre»."
+      ]
     }
   ],
   "11-04": [
     {
       name: "San Carlos Borromeo, Obispo",
       feast: "Memoria Obligatoria",
-      icon: "🏛️",
+      iconSvg: SVG_SAINT_HALO,
       bio: "Arzobispo de Milán (1538-1584) y gran impulsor de la renovación pastoral tras el Concilio de Trento. Fundó seminarios, visitó cada parroquia de su diócesis y entregó sus bienes y su salud cuidando personalmente a los enfermos durante la peste.",
-      quote: "«Un pastor debe arder primero en el amor de Dios para iluminar a su pueblo»."
+      quote: "«Un pastor debe arder primero en el amor de Dios para iluminar a su pueblo».",
+      theologicalExplanation: "Se asocia a la parábola del Buen Pastor (Jn 10, 11-16), ya que entregó su juventud y vida entera al cuidado de su rebaño milanés, renunciando a comodidades aristocráticas para renovar la Iglesia desde adentro.",
+      curiosities: [
+        "Nombrado cardenal a los 22 años, lejos de aferrarse al poder impulsó las reformas más profundas del Concilio de Trento redactando el Catecismo Romano.",
+        "Durante la peste de Milán en 1576, mientras la nobleza huía, caminó descalzo en penitencia por las calles y alimentó a más de 60.000 indigentes.",
+        "Fue el gran fundador de los seminarios modernos para la formación integral del clero."
+      ],
+      otherQuotes: [
+        "«Las almas se ganan de rodillas ante el sagrario».",
+        "«No basta hacer el bien, hay que hacerlo bien y con caridad ardiente»."
+      ]
     }
   ],
   "11-05": [
     {
       name: "Santa Ángela de la Cruz, Virgen y Fundadora",
       feast: "Santo del Día · 5 de Noviembre",
-      icon: "✝️",
+      iconSvg: SVG_SAINT_HALO,
       bio: "Religiosa sevillana (1846-1932), fundadora del Instituto de las Hermanas de la Compañía de la Cruz. Llamada «Madre de los pobres», vivió haciéndose pequeña con los humildes, cuidando enfermos abandonados y llevando consuelo silencioso a los hogares más necesitados.",
-      quote: "«No ser nunca nada para mí, y serlo todo para Dios y para los pobres»."
+      quote: "«No ser nunca nada para mí, y serlo todo para Dios y para los pobres».",
+      theologicalExplanation: "El pasaje evangélico de 'hacerse pequeños como niños para entrar al Reino' (Mt 18, 1-4) ilumina su consagración: ser nada en la tierra para que la gloria y la ternura de Cristo brillen en los más abandonados.",
+      curiosities: [
+        "Trabajó desde niña en un taller de calzado en Sevilla; rechazada inicialmente en conventos por su débil salud, fundó las Hermanas de la Cruz en 1875.",
+        "Su congregación tiene la regla de dormir en camas de paja y no tener rentas fijas, viviendo de la Providencia divina.",
+        "Fue canonizada por San Juan Pablo II en Madrid en mayo de 2003 ante más de un millón de peregrinos."
+      ],
+      otherQuotes: [
+        "«No ser nunca nada para mí, y serlo todo para Dios y para los pobres».",
+        "«Hay que callar, sufrir y esperar: Dios nunca llega tarde»."
+      ]
     },
     {
       name: "San Zacarías y Santa Isabel",
       feast: "Padres de San Juan Bautista",
-      icon: "🕊️",
+      iconSvg: SVG_SAINT_HALO,
       bio: "Esposos justos ante los ojos de Dios (Lucas 1, 5-25). En su ancianidad acogieron con fe el milagro de la vida de Juan el Precursor y entonaron el cántico del Benedictus, bendiciendo la fidelidad del Señor que visita y redime a su pueblo.",
-      quote: "«¡Feliz de ti por haber creído que se cumplirá lo que te fue anunciado de parte del Señor!» (Lc 1, 45)."
+      quote: "«¡Feliz de ti por haber creído que se cumplirá lo que te fue anunciado de parte del Señor!» (Lc 1, 45).",
+      theologicalExplanation: "Manifiesta el cumplimiento de las promesas de Dios a quienes perseveran en la oración aun cuando humanamente todo parece imposible, abriendo paso a la aurora de la salvación.",
+      curiosities: [
+        "Zacarías era sacerdote del turno de Abías y sirvió en el Santo de los Santos en el Templo de Jerusalén.",
+        "Isabel era prima de la Santísima Virgen María y la primera en llamarla «Madre de mi Señor».",
+        "El Benedictus (cántico de Zacarías) se reza todas las mañanas en la oración de Laudes de la Iglesia universal."
+      ],
+      otherQuotes: [
+        "«Bendito sea el Señor, Dios de Israel, porque ha visitado y redimido a su pueblo».",
+        "«Por la entrañable misericordia de nuestro Dios, nos visitará el sol que nace de lo alto»."
+      ]
     }
   ],
   "11-06": [
     {
-      name: "San Nuno de Santa María Álvarez Pereira y Beatos Mártires",
+      name: "San Nuno de Santa María Álvarez Pereira",
       feast: "Santo del Día · 6 de Noviembre",
-      icon: "🛡️",
+      iconSvg: SVG_SAINT_HALO,
       bio: "Después de servir con rectitud y buscar siempre la paz, ingresó como hermano carmelita descalzo dedicando sus últimos años a la oración contemplativa y al reparto diario de alimento a los pobres desde su convento.",
-      quote: "«Sólo quien se arrodilla ante Dios permanece firme ante las pruebas»."
+      quote: "«Sólo quien se arrodilla ante Dios permanece firme ante las pruebas».",
+      theologicalExplanation: "Se vincula al llamado evangélico a ser constructores de paz (Mt 5, 9). Tras ser estratega militar, comprendió que la mayor victoria del ser humano es el desprendimiento total de sí mismo y la caridad fraterna.",
+      curiosities: [
+        "Conde de Ourém y condestable de Portugal, repartió sus bienes entre sus soldados y pobres antes de tomar el hábito en el Carmen de Lisboa.",
+        "Instituyó la 'Olla de San Nuno', una olla comunitaria gigante con la que daba almuerzo diario a cientos de indigentes.",
+        "Benedicto XVI lo canonizó en 2009 destacando su ejemplo de reconciliación y caridad desinteresada."
+      ],
+      otherQuotes: [
+        "«Sólo quien se arrodilla ante Dios permanece firme ante las pruebas».",
+        "«El arma más poderosa del creyente es el rosario y el corazón humilde»."
+      ]
     }
   ],
   "11-07": [
     {
       name: "San Willibrordo, Obispo y Misionero",
       feast: "Santo del Día · 7 de Noviembre",
-      icon: "⛵",
+      iconSvg: SVG_SAINT_HALO,
       bio: "Monje benedictino y apóstol de Frisia (658-739). Evangelizó con paciencia, fundó monasterios y comunidades parroquiales, anunciando la alegría del Evangelio con mansedumbre y caridad.",
-      quote: "«Sembrar la Palabra con paciencia es confiar en el tiempo de Dios»."
+      quote: "«Sembrar la Palabra con paciencia es confiar en el tiempo de Dios».",
+      theologicalExplanation: "Refleja el mandato misionero: «Vayan por todo el mundo y anuncien la Buena Noticia» (Mc 16, 15). Su vida atestigua el valor de la perseverancia paciente en tierras lejanas.",
+      curiosities: [
+        "Nació en Northumbria (Inglaterra) en el 658 y consagró 50 años a misionar entre los frisones de los actuales Países Bajos y Alemania.",
+        "Fundó la célebre abadía de Echternach en Luxemburgo, donde se celebra hasta hoy la famosa 'procesión danzante' en su honor.",
+        "Es considerado el Apóstol de los Países Bajos y pionero de la inculturación del Evangelio."
+      ],
+      otherQuotes: [
+        "«Sembrar la Palabra con paciencia es confiar en el tiempo de Dios».",
+        "«En el nombre de Cristo comenzamos y en su paz perseveramos»."
+      ]
     }
   ],
   "11-08": [
     {
       name: "Santa Isabel de la Trinidad, Virgen Carmelita",
       feast: "Santo del Día · 8 de Noviembre",
-      icon: "✨",
+      iconSvg: SVG_SAINT_HALO,
       bio: "Joven carmelita descalza de Dijon (1880-1906), mística de la presencia de la Santísima Trinidad en el alma bautizada. Enseñó que cada cristiano puede encontrar un «cielo interior» de silencio y adoración en medio de sus tareas cotidianas.",
-      quote: "«¡Oh Dios mío, Trinidad a quien adoro, ayúdame a olvidarme enteramente de mí para establecerme en Ti!»."
+      quote: "«¡Oh Dios mío, Trinidad a quien adoro, ayúdame a olvidarme enteramente de mí para establecerme en Ti!»",
+      theologicalExplanation: "La promesa de Jesús en la Última Cena: «Si alguno me ama... vendremos a él y haremos morada en él» (Jn 14, 23) es el fundamento de su espiritualidad sobre la inhabitación trinitaria en el alma humana.",
+      curiosities: [
+        "Brillante pianista premiada en el conservatorio de Dijon, sintió la llamada al Carmelo a los 14 años pero esperó pacientemente la autorización materna.",
+        "Enfermó de la enfermedad de Addison y transformó sus dolores en una ofrenda de alabanza y amor a la Trinidad.",
+        "Fue canonizada por el Papa Francisco en octubre de 2016."
+      ],
+      otherQuotes: [
+        "«¡Oh Dios mío, Trinidad a quien adoro, ayúdame a olvidarme enteramente de mí para establecerme en Ti!»",
+        "«He encontrado mi cielo en la tierra, porque el cielo es Dios, y Dios está en mi alma»."
+      ]
     }
   ],
   "11-09": [
     {
       name: "Dedicación de la Basílica de San Juan de Letrán",
       feast: "Fiesta Litúrgica Universal",
-      icon: "⛪",
+      iconSvg: SVG_SAINT_HALO,
       bio: "Celebración de la Catedral del Obispo de Roma, «Madre y Cabeza de todas las iglesias de la Ciudad y del Mundo», signo visible de la unidad de todas las parroquias y comunidades católicas con la Cátedra de Pedro.",
-      quote: "«Ustedes son piedras vivas edificadas como templo espiritual» (1 Pe 2, 5)."
+      quote: "«Ustedes son piedras vivas edificadas como templo espiritual» (1 Pe 2, 5).",
+      theologicalExplanation: "El Evangelio de la purificación del Templo (Jn 2, 13-22) enseña que el templo de piedra es signo del Cuerpo místico de Cristo y del corazón de cada creyente, santuario vivo del Espíritu Santo.",
+      curiosities: [
+        "Construida por el emperador Constantino en el siglo IV, es la catedral de la diócesis de Roma y sede del Papa.",
+        "En su fachada exhibe la inscripción latina: «Omnium urbis et orbis ecclesiarum mater et caput».",
+        "En ella se celebraron cinco concilios ecuménicos fundamentales para la historia de la Iglesia."
+      ],
+      otherQuotes: [
+        "«Ustedes son piedras vivas edificadas como templo espiritual» (1 Pe 2, 5).",
+        "«Donde está la caridad y el amor, allí está el Señor»."
+      ]
     }
   ],
   "11-10": [
     {
       name: "San León Magno, Papa y Doctor de la Iglesia",
       feast: "Memoria Obligatoria",
-      icon: "📖",
+      iconSvg: SVG_SAINT_HALO,
       bio: "Gran pastor del siglo V que defendió la fe en la verdadera humanidad y divinidad de Cristo en el Concilio de Calcedonia y protegió al pueblo de Roma promoviendo la paz y las obras de caridad.",
-      quote: "«Reconoce, oh cristiano, tu dignidad de hijo de Dios»."
+      quote: "«Reconoce, oh cristiano, tu dignidad de hijo de Dios».",
+      theologicalExplanation: "La confesión de fe de Pedro: «Tú eres el Cristo, el Hijo de Dios vivo» (Mt 16, 16) fue magistralmente explicada por San León en su célebre 'Tomo a Flaviano', cimiento dogmático sobre las dos naturalezas de Cristo.",
+      curiosities: [
+        "En el año 452 salió desarmado al encuentro de Atila el Huno a orillas del río Mincio y logró disuadirlo de saquear e incendiar Roma.",
+        "Fue el primer Papa en recibir el título de 'Magno' (el Grande) y proclamado Doctor de la Iglesia en 1754.",
+        "Nos dejó más de 90 sermones y 140 cartas de sublime belleza teológica y pastoral."
+      ],
+      otherQuotes: [
+        "«Reconoce, oh cristiano, tu dignidad: hecho partícipe de la naturaleza divina, no vuelvas a la vieja bajeza».",
+        "«La verdadera paz consiste en concordar con la voluntad de Dios»."
+      ]
     }
   ],
   "11-11": [
     {
       name: "San Martín de Tours, Obispo (Patrono de Buenos Aires)",
       feast: "Memoria Obligatoria · Patrono de CABA",
-      icon: "🧥",
+      iconSvg: SVG_SAINT_HALO,
       bio: "Joven soldado que en una noche helada partió su capa con la espada para abrigar a un mendigo tembloroso; esa noche soñó a Jesucristo vestido con aquella media capa. Elegido en 1580 como Santo Patrono de la Ciudad de Buenos Aires.",
-      quote: "«Martín, todavía catecúmeno, me ha cubierto con este vestido»."
+      quote: "«Martín, todavía catecúmeno, me ha cubierto con este vestido».",
+      theologicalExplanation: "La frase célebre de Jesús: «Tuve hambre y me dieron de comer, estuve desnudo y me vistieron» (Mt 25, 36) se hizo carne cuando Martín cortó su capa militar para abrigar a Cristo en la figura de un mendigo.",
+      curiosities: [
+        "Nacido en Panonia (actual Hungría), sirvió en la caballería imperial romana antes de recibir el bautismo y fundar monasterios.",
+        "En 1580, don Juan de Garay y los fundadores de la Ciudad de Buenos Aires echaron suertes para elegir al Santo Patrono, recayendo en San Martín de Tours.",
+        "Es el primer santo no mártir venerado con culto litúrgico en la Iglesia universal."
+      ],
+      otherQuotes: [
+        "«Martín, todavía catecúmeno, me ha cubierto con este vestido».",
+        "«Señor, si todavía soy necesario a tu pueblo, no rehúso el trabajo: hágase tu voluntad»."
+      ]
     }
   ]
 };
@@ -7832,7 +8008,10 @@ function renderSaintsView() {
     <!-- Barra de Selección de Fecha del Santoral con Selector Estilizado Personalizado -->
     <div class="liturgy-toolbar">
       <div class="liturgy-toolbar-info">
-        <strong>👼 Santoral del ${g.formattedLongDate}</strong>
+        <div style="display:flex;align-items:center;gap:6px">
+          <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><ellipse cx="12" cy="3.5" rx="5" ry="1.2"/><path d="M6 21v-2a6 6 0 0 1 12 0v2"/></svg>
+          <strong>Santoral del ${g.formattedLongDate}</strong>
+        </div>
         <span>Testigos de la fe celebrados por la Iglesia Católica en esta fecha</span>
       </div>
       <div class="liturgy-date-controls">
@@ -7842,7 +8021,7 @@ function renderSaintsView() {
 
     <section class="saints-section-card" aria-label="Santos del Día">
       <div class="gospel-head" style="margin-bottom:8px">
-        <span class="gospel-tag">✨ Biografías Espirituales (${saints.length})</span>
+        <span class="gospel-tag">Biografías Espirituales (${saints.length})</span>
         <h3>Santos del Día · ${g.formattedLongDate}</h3>
         <p class="gospel-ref">Conocé la vida, misión y espiritualidad de los santos que nos acompañan hoy.</p>
       </div>
@@ -7851,19 +8030,120 @@ function renderSaintsView() {
         <article class="saint-card">
           <div class="saint-card-head">
             <div class="saint-title-wrap">
-              <span class="saint-halo-icon" aria-hidden="true">${st.icon || "👼"}</span>
+              <span class="saint-halo-icon" aria-hidden="true">${st.iconSvg || SVG_SAINT_HALO}</span>
               <div>
                 <h4>${st.name}</h4>
                 <span class="saint-feast-badge">${st.feast}</span>
               </div>
             </div>
-            <button type="button" class="btn-sm" style="flex:none" data-save-saint-idx="${idx}">📓 Guardar en Notas</button>
+            <div class="saint-actions">
+              <button type="button" class="btn-saint-more" data-saint-idx="${idx}" aria-label="Saber más sobre ${st.name}">
+                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+                Saber Más
+              </button>
+              <button type="button" class="btn-sm ghost" style="flex:none" data-save-saint-idx="${idx}">📓 Guardar en Notas</button>
+            </div>
           </div>
           <p class="saint-bio">${st.bio}</p>
           <div class="saint-quote">${st.quote}</div>
         </article>
       `).join("")}
     </section>`;
+}
+
+function openSaintMoreModal(idx) {
+  const saints = getSaintsForDate(state.saintsDate);
+  const st = saints[idx] || saints[0];
+  if (!st) return;
+
+  const modal = $("#saint-detail-modal");
+  const title = $("#saint-modal-title");
+  const feast = $("#saint-modal-feast");
+  const body = $("#saint-modal-body");
+  if (!modal || !body) return;
+
+  if (title) title.textContent = st.name;
+  if (feast) feast.textContent = st.feast;
+
+  const theologyHtml = st.theologicalExplanation ? `
+    <div class="saint-section-block">
+      <div class="saint-section-title">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M7 8h10"/></svg>
+        Conexión Teológica y Frase del Día
+      </div>
+      <p class="saint-theology-text">${st.theologicalExplanation}</p>
+    </div>
+  ` : "";
+
+  const curiositiesHtml = Array.isArray(st.curiosities) && st.curiosities.length ? `
+    <div class="saint-section-block">
+      <div class="saint-section-title">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="12" r="10"/><path d="M12 16v-4M12 8h.01"/></svg>
+        Datos Curiosos Históricos y Pastorales
+      </div>
+      <ul class="saint-curiosities-list">
+        ${st.curiosities.map(c => `
+          <li class="saint-curiosity-item">
+            <span class="saint-curiosity-bullet">✦</span>
+            <span>${c}</span>
+          </li>
+        `).join("")}
+      </ul>
+    </div>
+  ` : "";
+
+  const otherQuotesHtml = Array.isArray(st.otherQuotes) && st.otherQuotes.length ? `
+    <div class="saint-section-block">
+      <div class="saint-section-title">
+        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+        Otras Frases Célebres para la Oración
+      </div>
+      <div class="saint-quotes-grid">
+        ${st.otherQuotes.map(q => `
+          <div class="saint-quote-card">${q}</div>
+        `).join("")}
+      </div>
+    </div>
+  ` : "";
+
+  body.innerHTML = `
+    ${theologyHtml}
+    ${curiositiesHtml}
+    ${otherQuotesHtml}
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px">
+      <button type="button" class="btn-sm primary" id="btn-modal-save-saint-note">📓 Guardar en mis Notas</button>
+      <button type="button" class="btn-sm ghost" id="btn-modal-close-saint">Cerrar</button>
+    </div>
+  `;
+
+  $("#btn-modal-close-saint")?.addEventListener("click", closeSaintMoreModal);
+  $("#btn-modal-save-saint-note")?.addEventListener("click", () => {
+    closeSaintMoreModal();
+    state.spirTab = "notes";
+    state.editingNoteId = null;
+    switchView("spiritual");
+    requestAnimationFrame(() => {
+      const titleEl = $("#note-title-input");
+      const catEl = $("#note-category-select");
+      const contentEl = $("#note-content-input");
+      if (titleEl) titleEl.value = `Reflexión: ${st.name}`;
+      if (catEl) catEl.value = "Oración";
+      if (contentEl) {
+        contentEl.value = `Santo: ${st.name} (${st.feast})\n\nFrase: ${st.quote}\n\nConexión teológica:\n${st.theologicalExplanation || ""}\n\nPropósito espiritual:\n`;
+        contentEl.focus();
+      }
+    });
+    toast(`Enseñanzas de ${st.name} guardadas en borrador de Notas`);
+  });
+
+  modal.hidden = false;
+  document.body.classList.add("modal-open");
+}
+
+function closeSaintMoreModal() {
+  const modal = $("#saint-detail-modal");
+  if (modal) modal.hidden = true;
+  document.body.classList.remove("modal-open");
 }
 
 /* =====================================================================
@@ -8968,9 +9248,24 @@ function bindAppEvents() {
     }
   });
 
-  // Vista independiente "Santos del Día": guardar inspiración en Notas
+  // Control de bloqueo táctil del mapa Leaflet (evitar atrapar scroll)
+  $("#btn-map-toggle-touch")?.addEventListener("click", toggleMapTouchLock);
+
+  // Modal "Saber Más" de Santos del Día
+  $("#btn-close-saint-modal")?.addEventListener("click", closeSaintMoreModal);
+  $("#saint-detail-modal")?.addEventListener("click", e => {
+    if (e.target && e.target.id === "saint-detail-modal") closeSaintMoreModal();
+  });
+
+  // Vista independiente "Santos del Día": Saber Más y guardar en Notas
   $("#saints-content")?.addEventListener("click", e => {
     if (e.defaultPrevented) return;
+    const moreBtn = e.target.closest(".btn-saint-more");
+    if (moreBtn) {
+      const idx = Number(moreBtn.dataset.saintIdx) || 0;
+      openSaintMoreModal(idx);
+      return;
+    }
     const saveSaintBtn = e.target.closest("[data-save-saint-idx]");
     if (!saveSaintBtn) return;
     const idx = Number(saveSaintBtn.dataset.saveSaintIdx) || 0;
@@ -9010,6 +9305,11 @@ function bindAppEvents() {
   });
 
   $("#btn-close-audio-panel")?.addEventListener("click", (e) => {
+    e.stopPropagation();
+    closeAudioPanel();
+  });
+
+  $("#btn-audio-panel-done")?.addEventListener("click", (e) => {
     e.stopPropagation();
     closeAudioPanel();
   });
@@ -9308,25 +9608,67 @@ function initSwipeGestures() {
   }, { passive: true });
 }
 
+let splashDismissed = false;
+function dismissSplashScreen() {
+  if (splashDismissed) return;
+  splashDismissed = true;
+  const splash = document.getElementById("app-splash-screen");
+  if (splash) {
+    splash.classList.add("is-hidden");
+    setTimeout(() => {
+      try { splash.remove(); } catch (e) {}
+    }, 400);
+  }
+}
+
+// Bloque de seguridad estricto: tiempo de gracia máximo de 1.5 segundos para forzar el ocultamiento de la pantalla de bienvenida
+setTimeout(() => {
+  dismissSplashScreen();
+}, 1500);
+
 function bootstrapApp() {
   if (appInitialized) return;
   appInitialized = true;
-  applyAppSettings();
-  bindAppEvents();
-  syncAdminUI();
-  syncHeaderUserPill();
-  renderZoneSelector();
-  renderChips();
-  renderList();
-  renderSpiritualView();
-  renderLiturgyView();
-  renderSaintsView();
-  initGlobalRadio();
-  initSwipeGestures();
-  renderCommunityView();
-  renderProfileView();
-  if (state.view !== "list") switchView(state.view, true);
-  loadParishes();
+
+  const initSteps = [
+    ["applyAppSettings", applyAppSettings],
+    ["bindAppEvents", bindAppEvents],
+    ["syncAdminUI", syncAdminUI],
+    ["syncHeaderUserPill", syncHeaderUserPill],
+    ["renderZoneSelector", renderZoneSelector],
+    ["renderChips", renderChips],
+    ["renderList", renderList],
+    ["renderSpiritualView", renderSpiritualView],
+    ["renderLiturgyView", renderLiturgyView],
+    ["renderSaintsView", renderSaintsView],
+    ["initGlobalRadio", initGlobalRadio],
+    ["initSwipeGestures", initSwipeGestures],
+    ["renderCommunityView", renderCommunityView],
+    ["renderProfileView", renderProfileView]
+  ];
+
+  initSteps.forEach(([name, fn]) => {
+    try {
+      fn();
+    } catch (err) {
+      console.warn(`[Bootstrap Guard] Advertencia controlada en ${name}:`, err);
+    }
+  });
+
+  try {
+    if (state.view !== "list") switchView(state.view, true);
+  } catch (err) {
+    console.warn("[Bootstrap Guard] Error al restaurar vista activa:", err);
+  }
+
+  try {
+    loadParishes();
+  } catch (err) {
+    console.warn("[Bootstrap Guard] Error al invocar loadParishes:", err);
+  }
+
+  // Desactivación inmediata del splash screen una vez montados los componentes
+  dismissSplashScreen();
 }
 
 async function loadParishes() {

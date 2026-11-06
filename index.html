@@ -22,6 +22,18 @@
 </head>
 <body data-active-view="list">
 
+<!-- ==================== PANTALLA DE BIENVENIDA / SPLASH SCREEN INSTITUCIONAL (AUTO-DISMISS) ==================== -->
+<div class="app-splash-screen" id="app-splash-screen" role="status" aria-label="Cargando Guía Católica CABA y GBA">
+  <div class="splash-content">
+    <img src="icons/logo.png" alt="No apartes tu rostro del pobre" class="splash-logo">
+    <div class="splash-titles">
+      <span class="splash-brand-title">Guía Católica</span>
+      <span class="splash-brand-sub">CABA y GBA · Parroquias y Liturgia</span>
+    </div>
+    <div class="splash-spinner" aria-hidden="true"></div>
+  </div>
+</div>
+
 <!-- ==================== CABECERA SUPERIOR GLOBAL + NAVEGACIÓN DE PESTAÑAS (ESTILO LIBRO) ==================== -->
 <header class="top-app-shell" id="top-app-shell">
   <div class="global-topbar">
@@ -224,12 +236,25 @@
           Capilla
         </span>
       </div>
-      <button type="button" class="map-recenter-btn" id="btn-map-fit" aria-label="Ajustar vista a todos los templos">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
-          <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
-        </svg>
-        <span>Ver todos</span>
-      </button>
+      <div class="map-controls-group">
+        <button type="button" class="map-recenter-btn map-touch-lock-btn is-locked" id="btn-map-toggle-touch" aria-label="Alternar navegación del mapa o desplazamiento de página" title="Tocá para activar o fijar el mapa">
+          <svg class="map-lock-icon" id="icon-map-locked" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+          </svg>
+          <svg class="map-lock-icon" id="icon-map-unlocked" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" hidden>
+            <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+            <path d="M7 11V7a5 5 0 0 1 9.9-1"/>
+          </svg>
+          <span id="label-map-touch-state">Fijado (Scroll libre)</span>
+        </button>
+        <button type="button" class="map-recenter-btn" id="btn-map-fit" aria-label="Ajustar vista a todos los templos">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" aria-hidden="true">
+            <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+          </svg>
+          <span>Ver todos</span>
+        </button>
+      </div>
     </div>
     <div id="map" class="map-canvas-full" role="region" aria-label="Mapa interactivo de parroquias en CABA y GBA"></div>
   </section>
@@ -648,9 +673,12 @@
         <strong class="audio-panel-title" id="audio-panel-title">Cara a Cara</strong>
         <span class="audio-panel-artist" id="audio-panel-artist">Pascua Joven</span>
       </div>
-      <button type="button" class="audio-panel-close-btn" id="btn-close-audio-panel" aria-label="Minimizar Radio">
-        <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.2" fill="none"><path d="M18 6 6 18M6 6l12 12"/></svg>
-      </button>
+      <div class="audio-panel-header-actions">
+        <button type="button" class="btn-audio-panel-done" id="btn-audio-panel-done" aria-label="Listo, minimizar radio">Listo</button>
+        <button type="button" class="audio-panel-close-btn" id="btn-close-audio-panel" aria-label="Minimizar Radio">
+          <svg viewBox="0 0 24 24" width="16" height="16" stroke="currentColor" stroke-width="2.2" fill="none"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        </button>
+      </div>
     </div>
 
     <!-- Selector de Categorías de Radio -->
@@ -697,6 +725,35 @@
     </div>
   </div>
 </aside>
+
+<!-- Modal Interactivo: Saber Más sobre el Santo del Día (Explicación Teológica, Curiosidades y Frases) -->
+<div class="modal-backdrop" id="saint-detail-modal" hidden aria-hidden="true" role="dialog" aria-labelledby="saint-modal-title">
+  <div class="modal-card modal-lg">
+    <div class="modal-head">
+      <div style="display:flex;align-items:center;gap:12px">
+        <span class="saint-modal-halo-icon" id="saint-modal-icon" aria-hidden="true">
+          <svg class="saint-svg-icon" viewBox="0 0 24 24" width="24" height="24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+            <circle cx="12" cy="7" r="4"/>
+            <ellipse cx="12" cy="3.5" rx="5" ry="1.2"/>
+            <path d="M6 21v-2a6 6 0 0 1 12 0v2"/>
+            <path d="M12 11v6m-2.5-3.5h5"/>
+          </svg>
+        </span>
+        <div>
+          <h2 id="saint-modal-title" style="margin:0;font-size:1.22rem">San Martín de Tours</h2>
+          <span class="saint-feast-badge" id="saint-modal-feast" style="margin-top:2px">Memoria Litúrgica</span>
+        </div>
+      </div>
+      <button type="button" class="icon-btn modal-close" id="btn-close-saint-modal" aria-label="Cerrar detalles del santo">
+        <svg viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+      </button>
+    </div>
+
+    <div class="saint-modal-body" id="saint-modal-body">
+      <!-- Inyectado dinámicamente -->
+    </div>
+  </div>
+</div>
 
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
 
