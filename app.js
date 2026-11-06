@@ -2909,28 +2909,54 @@ let radioUserUnlocked = false;
 let audioPanelTimer = null;
 let isAudioTimelineUserDragging = false;
 let currentRadioCategory = "TODAS";
+let isAudioBuffering = false;
+let audioConsecutiveErrors = 0;
 
-function getActiveRadioPlaylist() {
-  if (currentRadioCategory === "TODAS") {
-    return CATHOLIC_RADIO_PLAYLIST;
+function setAudioBufferingState(isBuffering, customMsg = null) {
+  isAudioBuffering = isBuffering;
+  const playIco = document.getElementById("panel-icon-play");
+  const pauseIco = document.getElementById("panel-icon-pause");
+  const spinner = document.getElementById("audio-panel-spinner");
+  const statusContainer = document.getElementById("audio-loading-status");
+  const statusText = document.getElementById("audio-status-text");
+  const bubbleText = document.getElementById("audio-bubble-text");
+
+  if (spinner) spinner.hidden = !isBuffering;
+
+  if (isBuffering) {
+    if (playIco) playIco.hidden = true;
+    if (pauseIco) pauseIco.hidden = true;
+    if (statusContainer) statusContainer.classList.add("is-loading");
+    if (statusText) statusText.textContent = customMsg || "Cargando audio...";
+    if (bubbleText) bubbleText.textContent = "Radio: Cargando audio...";
+  } else {
+    if (statusContainer) statusContainer.classList.remove("is-loading");
+    if (statusText) {
+      statusText.textContent = state.radioPlaying ? "En vivo" : "Listo";
+    }
+    if (playIco) playIco.hidden = !!state.radioPlaying;
+    if (pauseIco) pauseIco.hidden = !state.radioPlaying;
   }
-  const filtered = CATHOLIC_RADIO_PLAYLIST.filter(track => track.category === currentRadioCategory);
-  return filtered.length ? filtered : CATHOLIC_RADIO_PLAYLIST;
 }
 
-function getCurrentRadioTrack() {
+function handleAudioLoadError(failedTrack, errorEvent = null) {
+  audioConsecutiveErrors++;
+  setAudioBufferingState(false);
+  console.warn(`Error al cargar pista "${failedTrack?.title}":`, errorEvent || "Fallo de conexión/CORS");
+
   const list = getActiveRadioPlaylist();
-  if (state.radioIndex >= list.length) {
-    state.radioIndex = 0;
+  if (audioConsecutiveErrors >= list.length) {
+    audioConsecutiveErrors = 0;
+    state.radioPlaying = false;
+    updateRadioUI("Error en streaming");
+    toast("⚠️ No se pudo reproducir la transmisión. Reintentá en unos momentos.");
+    return;
   }
-  return list[state.radioIndex] || list[0] || CATHOLIC_RADIO_PLAYLIST[0];
-}
 
-function formatAudioTime(seconds) {
-  if (isNaN(seconds) || seconds < 0) return "0:00";
-  const m = Math.floor(seconds / 60);
-  const s = Math.floor(seconds % 60);
-  return `${m}:${s < 10 ? "0" : ""}${s}`;
+  toast(`⚠️ Salteando "${failedTrack?.title || "pista"}" (reintentando)...`);
+  setTimeout(() => {
+    nextRadioTrack();
+  }, 450);
 }
 
 function getRadioAudio() {
@@ -2954,6 +2980,27 @@ function getRadioAudio() {
       radioAudio.volume = safeVol;
 
       // Eventos nativos del elemento de audio
+      radioAudio.addEventListener("loadstart", () => {
+        if (state.radioPlaying) {
+          setAudioBufferingState(true, "Cargando audio...");
+        }
+      });
+
+      radioAudio.addEventListener("waiting", () => {
+        setAudioBufferingState(true, "Amortiguando...");
+      });
+
+      radioAudio.addEventListener("canplay", () => {
+        setAudioBufferingState(false);
+      });
+
+      radioAudio.addEventListener("playing", () => {
+        audioConsecutiveErrors = 0;
+        state.radioPlaying = true;
+        setAudioBufferingState(false);
+        updateRadioUI();
+      });
+
       radioAudio.addEventListener("play", () => {
         state.radioPlaying = true;
         updateRadioUI();
@@ -2961,6 +3008,7 @@ function getRadioAudio() {
 
       radioAudio.addEventListener("pause", () => {
         state.radioPlaying = false;
+        setAudioBufferingState(false);
         updateRadioUI();
       });
 
@@ -2977,10 +3025,8 @@ function getRadioAudio() {
       });
 
       radioAudio.addEventListener("error", (e) => {
-        const errDetail = radioAudio.error ? `Código: ${radioAudio.error.code} - ${radioAudio.error.message}` : e;
-        console.error("Error al reproducir audio:", errDetail, "Ruta:", radioAudio.currentSrc || radioAudio.src);
-        state.radioPlaying = false;
-        updateRadioUI("Toca para reproducir");
+        const track = getCurrentRadioTrack();
+        handleAudioLoadError(track, e);
       });
     } catch (err) {
       console.error("Error crítico al inicializar Audio:", err);
@@ -3126,6 +3172,8 @@ function unlockAndPlayRadio() {
   const track = getCurrentRadioTrack();
   console.log("Ruta exacta del archivo de audio:", track.src);
 
+  setAudioBufferingState(true, "Iniciando...");
+
   if (!audio.src || !audio.src.includes(track.src)) {
     audio.src = track.src;
   }
@@ -3136,21 +3184,20 @@ function unlockAndPlayRadio() {
     if (playPromise !== undefined) {
       playPromise
         .then(() => {
+          audioConsecutiveErrors = 0;
           state.radioPlaying = true;
+          setAudioBufferingState(false);
           updateRadioUI();
           toast(`📻 Radio: ${track.title}`);
         })
         .catch((error) => {
           console.error("Error al reproducir audio:", error);
-          state.radioPlaying = false;
-          updateRadioUI("Toca para reproducir");
-          toast("Toca el botón ▶ para permitir el audio");
+          handleAudioLoadError(track, error);
         });
     }
   } catch (syncError) {
     console.error("Error sincrónico al invocar play():", syncError);
-    state.radioPlaying = false;
-    updateRadioUI("Toca para reproducir");
+    handleAudioLoadError(track, syncError);
   }
 }
 
@@ -3165,6 +3212,7 @@ function playRadioTrack(index) {
   const track = list[state.radioIndex];
 
   console.log("Cambiando y verificando pista de Radio:", track.title, "->", track.src);
+  setAudioBufferingState(true, "Cargando audio...");
   audio.src = track.src;
   audio.load();
 
@@ -3173,20 +3221,20 @@ function playRadioTrack(index) {
     if (playPromise !== undefined) {
       playPromise
         .then(() => {
+          audioConsecutiveErrors = 0;
           state.radioPlaying = true;
+          setAudioBufferingState(false);
           updateRadioUI();
           toast(`📻 Radio: ${track.title}`);
         })
         .catch((error) => {
           console.error("Error al reproducir audio:", error);
-          state.radioPlaying = false;
-          updateRadioUI("Toca para reproducir");
+          handleAudioLoadError(track, error);
         });
     }
   } catch (err) {
     console.error("Error sincrónico al reproducir pista:", err);
-    state.radioPlaying = false;
-    updateRadioUI("Toca para reproducir");
+    handleAudioLoadError(track, err);
   }
 }
 

@@ -669,24 +669,31 @@
       <span class="audio-time-label" id="audio-time-duration">0:00</span>
     </div>
 
-    <!-- Controles Principales: Play/Pausa, Siguiente, Volumen -->
+    <!-- Controles Principales: Play/Pausa, Siguiente y Spinner -->
     <div class="audio-panel-bottom-row">
       <div class="audio-panel-playback-btns">
         <button type="button" class="audio-ctrl-btn audio-btn-play" id="btn-audio-panel-play" aria-label="Reproducir o pausar">
           <svg class="audio-icon-play" id="panel-icon-play" viewBox="0 0 24 24" fill="currentColor"><polygon points="6 4 20 12 6 20 6 4"/></svg>
           <svg class="audio-icon-pause" id="panel-icon-pause" viewBox="0 0 24 24" fill="currentColor" hidden><rect x="6" y="4" width="4" height="16"/><rect x="14" y="4" width="4" height="16"/></svg>
+          <!-- Spinner de carga / buffering -->
+          <span class="audio-spinner" id="audio-panel-spinner" aria-hidden="true" hidden></span>
         </button>
         <button type="button" class="audio-ctrl-btn audio-btn-next" id="btn-audio-panel-next" aria-label="Siguiente canción" title="Siguiente canción">
           <svg viewBox="0 0 24 24" fill="currentColor"><polygon points="5 4 15 12 5 20 5 4"/><line x1="19" y1="5" x2="19" y2="19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/></svg>
         </button>
       </div>
 
-      <!-- Control de Volumen Compacto -->
-      <div class="audio-panel-volume-group">
-        <span class="audio-vol-icon" id="audio-panel-vol-icon" aria-hidden="true">🔈</span>
-        <input type="range" class="audio-vol-slider" id="audio-panel-vol-slider" min="0" max="1" step="0.05" value="0.5" aria-label="Volumen">
-        <span class="audio-vol-pct" id="audio-panel-vol-pct">50%</span>
+      <!-- Estado de buffer / Carga -->
+      <div class="audio-loading-status" id="audio-loading-status" aria-live="polite">
+        <span class="audio-status-text" id="audio-status-text">Listo</span>
       </div>
+    </div>
+
+    <!-- Fila dedicada para Control de Volumen (100% responsiva y sin desbordes) -->
+    <div class="audio-volume-wrapper">
+      <span class="audio-vol-icon" id="audio-panel-vol-icon" aria-hidden="true">🔈</span>
+      <input type="range" class="audio-vol-slider" id="audio-panel-vol-slider" min="0" max="1" step="0.05" value="0.5" aria-label="Volumen">
+      <span class="audio-vol-pct" id="audio-panel-vol-pct">50%</span>
     </div>
   </div>
 </aside>
