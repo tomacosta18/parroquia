@@ -2405,6 +2405,49 @@ body.dark-mode .audio-panel-kicker {
   background: rgba(107, 20, 38, 0.1);
 }
 
+/* Selector rápido de categorías de la Radio */
+.audio-category-bar {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  overflow-x: auto;
+  padding: 2px 0 4px;
+  scrollbar-width: none;
+  -webkit-overflow-scrolling: touch;
+}
+.audio-category-bar::-webkit-scrollbar {
+  display: none;
+}
+
+.audio-cat-pill {
+  flex: 0 0 auto;
+  padding: 3px 9px;
+  border-radius: var(--r-pill);
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  user-select: none;
+}
+.audio-cat-pill:hover {
+  color: var(--ink);
+  border-color: rgba(107, 20, 38, 0.3);
+}
+.audio-cat-pill.is-active {
+  background: #6b1426;
+  border-color: #6b1426;
+  color: #fff;
+  box-shadow: 0 2px 6px rgba(107, 20, 38, 0.25);
+}
+body.dark-mode .audio-cat-pill.is-active {
+  background: #f1c40f;
+  border-color: #f1c40f;
+  color: #121826;
+}
+
 /* Timeline / Barra de progreso */
 .audio-progress-row {
   display: flex;

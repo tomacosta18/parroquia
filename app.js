@@ -2883,18 +2883,48 @@ const SVG_PIN_CATEDRAL = `
 
 
 /* =====================================================================
-   RADIO CATÓLICA GLOBAL EN SEGUNDO PLANO Y PLAYLIST SACRA
+   RADIO: PLAYLIST SACRA MULTI-CATEGORÍA Y REPRODUCTOR RETRÁCTIL
    ===================================================================== */
 const CATHOLIC_RADIO_PLAYLIST = [
-  { title: "Cara a Cara", artist: "Pascua Joven", src: "audio/cara-a-cara.mp3" },
-  { title: "Haciéndote Pan", artist: "Pascua Joven", src: "audio/haciendote-pan.mp3" },
-  { title: "A Tanto Amor", artist: "Pascua Joven", src: "audio/a-tanto-amor.mp3" }
+  // 1. Biblioteca (archivos locales precargados de alta calidad)
+  { id: "lib-1", title: "Cara a Cara", artist: "Pascua Joven", category: "Biblioteca", src: "audio/cara-a-cara.mp3" },
+  { id: "lib-2", title: "Haciéndote Pan", artist: "Pascua Joven", category: "Biblioteca", src: "audio/haciendote-pan.mp3" },
+  { id: "lib-3", title: "A Tanto Amor", artist: "Pascua Joven", category: "Biblioteca", src: "audio/a-tanto-amor.mp3" },
+
+  // 2. Pacífica (música sacra ambiental para calma interior y meditación)
+  { id: "pac-1", title: "Canto Gregoriano: Salve Regina", artist: "Schola Gregoriana", category: "Pacífica", src: "https://archive.org/download/SalveReginaSimpleTone/SalveRegina.mp3" },
+  { id: "pac-2", title: "Benedictus: Paz y Quietud", artist: "Coro Sacro Litúrgico", category: "Pacífica", src: "https://archive.org/download/gregorian-chants/01%20Kyrie%20Eleison.mp3" },
+
+  // 3. Reflexión (adoración eucarística y contemplación espiritual)
+  { id: "ref-1", title: "Adoro Te Devote", artist: "Coro Monástico Benedictino", category: "Reflexión", src: "https://archive.org/download/AdoroTeDevote/AdoroTeDevote.mp3" },
+  { id: "ref-2", title: "Tantum Ergo Sacramentum", artist: "Capilla Mariana", category: "Reflexión", src: "https://archive.org/download/CatholicGregorianChant/TantumErgo.mp3" },
+
+  // 4. Órgano (solemnidad litúrgica e himnos clásicos para templos)
+  { id: "org-1", title: "Tocata en Órgano de Tubos", artist: "Órgano Catedralicio", category: "Órgano", src: "https://archive.org/download/PipeOrganBach/BachToccataOrgan.mp3" },
+  { id: "org-2", title: "Coral Litúrgico de Catedral", artist: "Mtro. de Capilla", category: "Órgano", src: "https://archive.org/download/PipeOrganHymns/CathedralChorale.mp3" }
 ];
 
 let radioAudio = null;
 let radioUserUnlocked = false;
 let audioPanelTimer = null;
 let isAudioTimelineUserDragging = false;
+let currentRadioCategory = "TODAS";
+
+function getActiveRadioPlaylist() {
+  if (currentRadioCategory === "TODAS") {
+    return CATHOLIC_RADIO_PLAYLIST;
+  }
+  const filtered = CATHOLIC_RADIO_PLAYLIST.filter(track => track.category === currentRadioCategory);
+  return filtered.length ? filtered : CATHOLIC_RADIO_PLAYLIST;
+}
+
+function getCurrentRadioTrack() {
+  const list = getActiveRadioPlaylist();
+  if (state.radioIndex >= list.length) {
+    state.radioIndex = 0;
+  }
+  return list[state.radioIndex] || list[0] || CATHOLIC_RADIO_PLAYLIST[0];
+}
 
 function formatAudioTime(seconds) {
   if (isNaN(seconds) || seconds < 0) return "0:00";
@@ -2913,7 +2943,7 @@ function getRadioAudio() {
         document.body.appendChild(radioAudio);
       }
 
-      const initialTrack = CATHOLIC_RADIO_PLAYLIST[state.radioIndex] || CATHOLIC_RADIO_PLAYLIST[0];
+      const initialTrack = getCurrentRadioTrack();
       radioAudio.src = initialTrack.src;
       radioAudio.preload = "auto";
       radioAudio.loop = false;
@@ -2935,8 +2965,7 @@ function getRadioAudio() {
       });
 
       radioAudio.addEventListener("ended", () => {
-        state.radioIndex = (state.radioIndex + 1) % CATHOLIC_RADIO_PLAYLIST.length;
-        playRadioTrack(state.radioIndex);
+        nextRadioTrack();
       });
 
       radioAudio.addEventListener("timeupdate", () => {
@@ -2951,7 +2980,7 @@ function getRadioAudio() {
         const errDetail = radioAudio.error ? `Código: ${radioAudio.error.code} - ${radioAudio.error.message}` : e;
         console.error("Error al reproducir audio:", errDetail, "Ruta:", radioAudio.currentSrc || radioAudio.src);
         state.radioPlaying = false;
-        updateRadioUI("Toca para reproducir música");
+        updateRadioUI("Toca para reproducir");
       });
     } catch (err) {
       console.error("Error crítico al inicializar Audio:", err);
@@ -3001,7 +3030,7 @@ function updateAudioTimeline() {
 }
 
 function updateRadioUI(overrideMessage = null) {
-  const track = CATHOLIC_RADIO_PLAYLIST[state.radioIndex] || CATHOLIC_RADIO_PLAYLIST[0];
+  const track = getCurrentRadioTrack();
   const widget = document.getElementById("floating-audio-widget");
   const bubbleText = document.getElementById("audio-bubble-text");
   const panelTitle = document.getElementById("audio-panel-title");
@@ -3013,19 +3042,19 @@ function updateRadioUI(overrideMessage = null) {
   const settingsIco = document.getElementById("btn-settings-radio-icon");
   const settingsTxt = document.getElementById("btn-settings-radio-text");
 
-  // Actualizar textos dinámicos
+  // Actualizar textos dinámicos con el nombre "Radio: [Pista]"
   if (bubbleText) {
     if (overrideMessage) {
-      bubbleText.textContent = `🎵 ${overrideMessage}`;
+      bubbleText.textContent = `Radio: ${overrideMessage}`;
     } else if (state.radioPlaying) {
-      bubbleText.textContent = `🎵 ${track.title}`;
+      bubbleText.textContent = `Radio: ${track.title}`;
     } else {
-      bubbleText.textContent = `🎵 Toca para reproducir música`;
+      bubbleText.textContent = `Radio: Toca para reproducir`;
     }
   }
 
   if (panelTitle) panelTitle.textContent = track.title;
-  if (panelArtist) panelArtist.textContent = track.artist;
+  if (panelArtist) panelArtist.textContent = `${track.artist} · ${track.category}`;
 
   if (widget) {
     widget.classList.toggle("is-playing", !!state.radioPlaying);
@@ -3042,6 +3071,12 @@ function updateRadioUI(overrideMessage = null) {
   if (settingsTxt) {
     settingsTxt.textContent = state.radioPlaying ? "Pausar Radio" : "Iniciar Radio";
   }
+
+  // Sincronizar pills activas de categorías
+  const catPills = document.querySelectorAll(".audio-cat-pill");
+  catPills.forEach(pill => {
+    pill.classList.toggle("is-active", pill.dataset.radioCat === currentRadioCategory);
+  });
 }
 
 // Control del Panel Retráctil con Auto-Cierre de 3 Segundos
@@ -3077,7 +3112,6 @@ function closeAudioPanel() {
 function resetAudioPanelTimer() {
   if (audioPanelTimer) clearTimeout(audioPanelTimer);
   audioPanelTimer = setTimeout(() => {
-    // Si el usuario no está arrastrando la barra de timeline, contraer
     if (!isAudioTimelineUserDragging) {
       closeAudioPanel();
     }
@@ -3089,7 +3123,7 @@ function unlockAndPlayRadio() {
   const audio = getRadioAudio();
   if (!audio) return;
 
-  const track = CATHOLIC_RADIO_PLAYLIST[state.radioIndex] || CATHOLIC_RADIO_PLAYLIST[0];
+  const track = getCurrentRadioTrack();
   console.log("Ruta exacta del archivo de audio:", track.src);
 
   if (!audio.src || !audio.src.includes(track.src)) {
@@ -3104,30 +3138,33 @@ function unlockAndPlayRadio() {
         .then(() => {
           state.radioPlaying = true;
           updateRadioUI();
-          toast(`📻 Reproduciendo: ${track.title}`);
+          toast(`📻 Radio: ${track.title}`);
         })
         .catch((error) => {
           console.error("Error al reproducir audio:", error);
           state.radioPlaying = false;
-          updateRadioUI("Toca para reproducir música");
+          updateRadioUI("Toca para reproducir");
           toast("Toca el botón ▶ para permitir el audio");
         });
     }
   } catch (syncError) {
     console.error("Error sincrónico al invocar play():", syncError);
     state.radioPlaying = false;
-    updateRadioUI("Toca para reproducir música");
+    updateRadioUI("Toca para reproducir");
   }
 }
 
+// Reproducción forzosa y limpia de la pista indicada
 function playRadioTrack(index) {
   const audio = getRadioAudio();
   if (!audio) return;
 
-  state.radioIndex = (index + CATHOLIC_RADIO_PLAYLIST.length) % CATHOLIC_RADIO_PLAYLIST.length;
-  const track = CATHOLIC_RADIO_PLAYLIST[state.radioIndex];
+  const list = getActiveRadioPlaylist();
+  // Incremento circular estricto
+  state.radioIndex = ((index % list.length) + list.length) % list.length;
+  const track = list[state.radioIndex];
 
-  console.log("Cambiando y verificando ruta de audio:", track.src);
+  console.log("Cambiando y verificando pista de Radio:", track.title, "->", track.src);
   audio.src = track.src;
   audio.load();
 
@@ -3138,18 +3175,18 @@ function playRadioTrack(index) {
         .then(() => {
           state.radioPlaying = true;
           updateRadioUI();
-          toast(`📻 En vivo: ${track.title}`);
+          toast(`📻 Radio: ${track.title}`);
         })
         .catch((error) => {
           console.error("Error al reproducir audio:", error);
           state.radioPlaying = false;
-          updateRadioUI("Toca para reproducir música");
+          updateRadioUI("Toca para reproducir");
         });
     }
   } catch (err) {
     console.error("Error sincrónico al reproducir pista:", err);
     state.radioPlaying = false;
-    updateRadioUI("Toca para reproducir música");
+    updateRadioUI("Toca para reproducir");
   }
 }
 
@@ -3162,14 +3199,26 @@ function toggleRadioPlayback() {
   } else {
     audio.pause();
     state.radioPlaying = false;
-    updateRadioUI("Toca para reproducir música");
+    updateRadioUI("Toca para reproducir");
     toast("⏸ Radio en pausa");
   }
 }
 
+// Función de siguiente canción con bucle circular garantizado
 function nextRadioTrack() {
-  state.radioIndex = (state.radioIndex + 1) % CATHOLIC_RADIO_PLAYLIST.length;
-  playRadioTrack(state.radioIndex);
+  const list = getActiveRadioPlaylist();
+  const nextIdx = (state.radioIndex + 1) % list.length;
+  playRadioTrack(nextIdx);
+}
+
+// Cambio de categoría con reinicio de índice y reproducción instantánea
+function setRadioCategory(categoryName) {
+  currentRadioCategory = categoryName;
+  state.radioIndex = 0;
+  const list = getActiveRadioPlaylist();
+  const track = list[0];
+  toast(`📻 Clima de Radio: ${categoryName}`);
+  playRadioTrack(0);
 }
 
 function setRadioVolume(vol) {
@@ -8927,6 +8976,16 @@ function bindAppEvents() {
     e.stopPropagation();
     resetAudioPanelTimer();
     nextRadioTrack();
+  });
+
+  // Selector de Categoría dentro del panel expandido de Radio
+  $("#audio-category-bar")?.addEventListener("click", (e) => {
+    const pill = e.target.closest("[data-radio-cat]");
+    if (pill) {
+      e.stopPropagation();
+      resetAudioPanelTimer();
+      setRadioCategory(pill.dataset.radioCat);
+    }
   });
 
   // Barra de progreso interactiva (Timeline)
