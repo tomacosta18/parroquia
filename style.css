@@ -3553,3 +3553,116 @@ body.dark-mode .slot-pill.is-active {
     gap: 5px;
   }
 }
+
+/* =====================================================================
+   RADIO v2: ESTADOS DE CARGA, PROGRESO Y VOLUMEN (módulo globalAudio)
+   ===================================================================== */
+/* Icono SVG de notas dentro de la burbuja */
+.audio-bubble-icon-wrap svg.audio-bubble-note {
+  width: 14px;
+  height: 14px;
+  color: #fff;
+  position: relative;
+  z-index: 2;
+  transition: opacity 0.2s ease;
+}
+
+/* Spinner de buffer dentro de la burbuja (oculto salvo en carga) */
+.audio-bubble-spinner {
+  position: absolute;
+  inset: 3px;
+  border-radius: 50%;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
+  opacity: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+.floating-audio-widget.is-loading .audio-bubble-spinner {
+  opacity: 1;
+  animation: audioSpin 0.75s linear infinite;
+}
+.floating-audio-widget.is-loading .audio-bubble-note,
+.floating-audio-widget.is-loading .audio-bubble-waves {
+  opacity: 0;
+}
+.floating-audio-widget.is-loading .audio-bubble-text {
+  color: var(--muted);
+}
+
+/* Spinner centrado dentro del botón play (el atributo hidden debe ganar siempre) */
+.audio-btn-play .audio-spinner[hidden],
+.audio-btn-play svg[hidden] {
+  display: none !important;
+}
+
+/* Sliders con relleno de progreso (--progress lo actualiza app.js) */
+.audio-timeline-slider,
+.audio-vol-slider {
+  --progress: 0%;
+  -webkit-appearance: none;
+  appearance: none;
+  background: linear-gradient(to right, #6b1426 0%, #6b1426 var(--progress), var(--line) var(--progress), var(--line) 100%);
+  touch-action: none; /* el arrastre del slider no desplaza la página en móviles */
+}
+body.dark-mode .audio-timeline-slider,
+body.dark-mode .audio-vol-slider {
+  background: linear-gradient(to right, #f1c40f 0%, #f1c40f var(--progress), rgba(255, 255, 255, 0.15) var(--progress), rgba(255, 255, 255, 0.15) 100%);
+}
+.audio-timeline-slider:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+/* Thumb Firefox (WebKit ya está definido arriba) */
+.audio-timeline-slider::-moz-range-thumb,
+.audio-vol-slider::-moz-range-thumb {
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #6b1426;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+}
+.audio-vol-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 14px;
+  height: 14px;
+  border-radius: 50%;
+  background: #6b1426;
+  border: 2px solid #fff;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, 0.3);
+  cursor: pointer;
+}
+body.dark-mode .audio-vol-slider::-webkit-slider-thumb,
+body.dark-mode .audio-timeline-slider::-moz-range-thumb,
+body.dark-mode .audio-vol-slider::-moz-range-thumb {
+  background: #f1c40f;
+  border-color: #1e293b;
+}
+
+/* Icono de volumen SVG según nivel */
+svg.audio-vol-icon {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  color: var(--muted);
+}
+svg.audio-vol-icon[data-level="low"] .vol-wave-2,
+svg.audio-vol-icon[data-level="mute"] .vol-wave-1,
+svg.audio-vol-icon[data-level="mute"] .vol-wave-2 {
+  display: none;
+}
+
+/* iOS Safari: el volumen sólo se controla con los botones físicos */
+.floating-audio-widget.volume-hardware-only .audio-vol-slider,
+.floating-audio-widget.volume-hardware-only .audio-vol-pct {
+  display: none;
+}
+.floating-audio-widget.volume-hardware-only .audio-volume-wrapper::after {
+  content: "Usá los botones de volumen de tu teléfono";
+  font-size: 0.7rem;
+  color: var(--muted);
+}

@@ -62,8 +62,7 @@
     </div>
   </div>
 
-  <!-- Audio Player nativo persistente -->
-  <audio id="global-radio-audio" preload="auto"></audio>
+  <!-- La Radio usa una única instancia global creada en app.js (const globalAudio = new Audio()) -->
 
   <!-- Barra de Navegación Superior con Scroll Horizontal Suave y Pestañas de Libro -->
   <nav class="top-nav" id="top-nav" role="tablist" aria-label="Navegación principal">
@@ -660,9 +659,10 @@
       <span class="audio-bubble-waves" id="audio-bubble-waves" aria-hidden="true">
         <i></i><i></i><i></i>
       </span>
-      <span class="audio-bubble-note" id="audio-bubble-note">📻</span>
+      <svg class="audio-bubble-note" id="audio-bubble-note" viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/></svg>
+      <span class="audio-bubble-spinner" aria-hidden="true"></span>
     </span>
-    <span class="audio-bubble-text" id="audio-bubble-text">Radio: Cara a Cara</span>
+    <span class="audio-bubble-text" id="audio-bubble-text">🎵 Radio · Toca para escuchar</span>
   </button>
 
   <!-- Estado Expandido: Panel de Control Flotante -->
@@ -719,7 +719,7 @@
 
     <!-- Fila dedicada para Control de Volumen (100% responsiva y sin desbordes) -->
     <div class="audio-volume-wrapper">
-      <span class="audio-vol-icon" id="audio-panel-vol-icon" aria-hidden="true">🔈</span>
+      <svg class="audio-vol-icon" id="audio-panel-vol-icon" data-level="high" viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5 6 9H2v6h4l5 4V5z"/><path class="vol-wave-1" d="M15.5 8.5a5 5 0 0 1 0 7"/><path class="vol-wave-2" d="M19 5a10 10 0 0 1 0 14"/></svg>
       <input type="range" class="audio-vol-slider" id="audio-panel-vol-slider" min="0" max="1" step="0.05" value="0.5" aria-label="Volumen">
       <span class="audio-vol-pct" id="audio-panel-vol-pct">50%</span>
     </div>

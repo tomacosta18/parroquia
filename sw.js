@@ -1,5 +1,5 @@
-const APP_CACHE = "parroquias-app-v27";
-const DATA_CACHE = "parroquias-data-v27";
+const APP_CACHE = "parroquias-app-v28";
+const DATA_CACHE = "parroquias-data-v28";
 
 const APP_SHELL = [
   "./",
@@ -63,6 +63,15 @@ self.addEventListener("fetch", (event) => {
   if (request.method !== "GET") return;
 
   const url = new URL(request.url);
+
+  // Audio: el reproductor pide rangos de bytes (Range). Safari exige 206 Partial Content;
+  // devolver el 200 completo del caché deja la radio muda. Audio externo: directo a la red.
+  const isAudio = request.destination === "audio" || /\.(mp3|m4a|aac|ogg|wav)$/i.test(url.pathname);
+  if (isAudio) {
+    if (url.origin !== self.location.origin) return; // CDN externo: sin intervención del SW
+    event.respondWith(serveAudio(request));
+    return;
+  }
 
   // Estrategia Network-first para los datos (data/parroquias.json)
   if (isDataRequest(request, url)) {
@@ -135,3 +144,44 @@ self.addEventListener("fetch", (event) => {
     })
   );
 });
+
+// Sirve audio local desde caché respetando la cabecera Range (respuesta 206).
+// Sin copia en caché: va a la red tal cual (el servidor ya maneja Range).
+async function serveAudio(request) {
+  const cached = await caches.match(request.url, { ignoreSearch: true });
+  if (!cached) {
+    try {
+      return await fetch(request);
+    } catch (err) {
+      return new Response("", { status: 504, statusText: "Audio no disponible sin conexión" });
+    }
+  }
+
+  const range = request.headers.get("range");
+  if (!range) return cached;
+
+  const buf = await cached.arrayBuffer();
+  const size = buf.byteLength;
+  const match = /bytes=(\d*)-(\d*)/.exec(range);
+  let start = match && match[1] ? parseInt(match[1], 10) : 0;
+  let end = match && match[2] ? parseInt(match[2], 10) : size - 1;
+  if (match && !match[1] && match[2]) { // sufijo: "bytes=-500" = últimos 500 bytes
+    start = Math.max(0, size - parseInt(match[2], 10));
+    end = size - 1;
+  }
+  if (isNaN(start) || start >= size) {
+    return new Response("", { status: 416, headers: { "Content-Range": `bytes */${size}` } });
+  }
+  end = Math.min(end, size - 1);
+
+  return new Response(buf.slice(start, end + 1), {
+    status: 206,
+    statusText: "Partial Content",
+    headers: {
+      "Content-Type": cached.headers.get("Content-Type") || "audio/mpeg",
+      "Content-Range": `bytes ${start}-${end}/${size}`,
+      "Content-Length": String(end - start + 1),
+      "Accept-Ranges": "bytes"
+    }
+  });
+}

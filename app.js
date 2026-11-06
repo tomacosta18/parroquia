@@ -2883,259 +2883,396 @@ const SVG_PIN_CATEDRAL = `
 
 
 /* =====================================================================
-   RADIO: PLAYLIST SACRA MULTI-CATEGORÍA Y REPRODUCTOR RETRÁCTIL
+   RADIO: MÓDULO DE AUDIO GLOBAL (instancia única, async/await, a prueba de fallos)
+   - Una sola instancia: globalAudio = new Audio()
+   - playTrack(index) con token anti-carreras: un cambio rápido de pista
+     nunca deja una promesa vieja pisando el estado de la nueva.
+   - Errores clasificados: AbortError (ignorado), NotAllowedError (autoplay
+     bloqueado -> "Toca para reproducir"), fallo de red/formato (salta pista).
    ===================================================================== */
-const CATHOLIC_RADIO_PLAYLIST = [
-  // 1. Biblioteca (archivos locales precargados de alta calidad)
-  { id: "lib-1", title: "Cara a Cara", artist: "Pascua Joven", category: "Biblioteca", src: "audio/cara-a-cara.mp3" },
-  { id: "lib-2", title: "Haciéndote Pan", artist: "Pascua Joven", category: "Biblioteca", src: "audio/haciendote-pan.mp3" },
-  { id: "lib-3", title: "A Tanto Amor", artist: "Pascua Joven", category: "Biblioteca", src: "audio/a-tanto-amor.mp3" },
+const RADIO_CATEGORIES = ["Biblioteca", "Pacífica", "Reflexión", "Órgano"];
 
-  // 2. Pacífica (música sacra ambiental para calma interior y meditación)
-  { id: "pac-1", title: "Canto Gregoriano: Salve Regina", artist: "Schola Gregoriana", category: "Pacífica", src: "https://archive.org/download/SalveReginaSimpleTone/SalveRegina.mp3" },
-  { id: "pac-2", title: "Benedictus: Paz y Quietud", artist: "Coro Sacro Litúrgico", category: "Pacífica", src: "https://archive.org/download/gregorian-chants/01%20Kyrie%20Eleison.mp3" },
+const playlist = [
+  // Biblioteca: archivos locales incluidos en /audio (siempre disponibles, también offline)
+  { title: "Cara a Cara", artist: "Pascua Joven", category: "Biblioteca", url: "audio/cara-a-cara.mp3" },
+  { title: "Haciéndote Pan", artist: "Pascua Joven", category: "Biblioteca", url: "audio/haciendote-pan.mp3" },
+  { title: "A Tanto Amor", artist: "Pascua Joven", category: "Biblioteca", url: "audio/a-tanto-amor.mp3" },
 
-  // 3. Reflexión (adoración eucarística y contemplación espiritual)
-  { id: "ref-1", title: "Adoro Te Devote", artist: "Coro Monástico Benedictino", category: "Reflexión", src: "https://archive.org/download/AdoroTeDevote/AdoroTeDevote.mp3" },
-  { id: "ref-2", title: "Tantum Ergo Sacramentum", artist: "Capilla Mariana", category: "Reflexión", src: "https://archive.org/download/CatholicGregorianChant/TantumErgo.mp3" },
-
-  // 4. Órgano (solemnidad litúrgica e himnos clásicos para templos)
-  { id: "org-1", title: "Tocata en Órgano de Tubos", artist: "Órgano Catedralicio", category: "Órgano", src: "https://archive.org/download/PipeOrganBach/BachToccataOrgan.mp3" },
-  { id: "org-2", title: "Coral Litúrgico de Catedral", artist: "Mtro. de Capilla", category: "Órgano", src: "https://archive.org/download/PipeOrganHymns/CathedralChorale.mp3" }
+  // Pistas externas (CDN). Si una URL no responde, se marca como no disponible
+  // y la radio salta a la siguiente sin quedarse muda. Reemplazalas por URLs propias verificadas.
+  { title: "Salve Regina (Gregoriano)", artist: "Schola Gregoriana", category: "Pacífica", url: "https://archive.org/download/SalveReginaSimpleTone/SalveRegina.mp3" },
+  { title: "Kyrie Eleison", artist: "Coro Sacro Litúrgico", category: "Pacífica", url: "https://archive.org/download/gregorian-chants/01%20Kyrie%20Eleison.mp3" },
+  { title: "Adoro Te Devote", artist: "Coro Monástico", category: "Reflexión", url: "https://archive.org/download/AdoroTeDevote/AdoroTeDevote.mp3" },
+  { title: "Tantum Ergo", artist: "Capilla Mariana", category: "Reflexión", url: "https://archive.org/download/CatholicGregorianChant/TantumErgo.mp3" },
+  { title: "Tocata para Órgano", artist: "Órgano Catedralicio", category: "Órgano", url: "https://archive.org/download/PipeOrganBach/BachToccataOrgan.mp3" },
+  { title: "Coral de Catedral", artist: "Maestro de Capilla", category: "Órgano", url: "https://archive.org/download/PipeOrganHymns/CathedralChorale.mp3" }
 ];
 
-let radioAudio = null;
-let radioUserUnlocked = false;
-let audioPanelTimer = null;
-let isAudioTimelineUserDragging = false;
-let currentRadioCategory = "TODAS";
-let isAudioBuffering = false;
-let audioConsecutiveErrors = 0;
+// Instancia única y global del reproductor
+const globalAudio = new Audio();
+globalAudio.preload = "none"; // no descargar MB al abrir la app; se carga al primer play
+globalAudio.loop = false;
 
-function setAudioBufferingState(isBuffering, customMsg = null) {
+let currentTrackIndex = 0;             // índice dentro de la lista activa (categoría)
+let currentRadioCategory = "TODAS";
+let radioPlayToken = 0;                // se incrementa en cada playTrack (anti-carreras)
+let radioFailedToken = -1;             // evita procesar dos veces el mismo fallo
+let radioConsecutiveFailures = 0;
+let radioHasStarted = false;
+let isAudioBuffering = false;
+let isAudioTimelineUserDragging = false;
+let audioPanelTimer = null;
+const radioUnavailableUrls = new Set(); // URLs que fallaron en esta sesión
+
+/* ---------- Helpers de datos ---------- */
+function getActiveRadioPlaylist() {
+  const base = currentRadioCategory === "TODAS"
+    ? playlist
+    : playlist.filter(t => t.category === currentRadioCategory);
+  const playable = base.filter(t => !radioUnavailableUrls.has(t.url));
+  // Si la categoría quedó sin pistas disponibles, se vuelve a la Biblioteca local
+  if (playable.length) return playable;
+  return playlist.filter(t => t.category === "Biblioteca");
+}
+
+function getCurrentRadioTrack() {
+  const list = getActiveRadioPlaylist();
+  if (currentTrackIndex >= list.length) currentTrackIndex = 0;
+  return list[currentTrackIndex] || playlist[0];
+}
+
+function formatAudioTime(sec) {
+  const s = Number(sec);
+  if (!isFinite(s) || s < 0) return "0:00";
+  const m = Math.floor(s / 60);
+  const r = Math.floor(s % 60);
+  return `${m}:${String(r).padStart(2, "0")}`;
+}
+
+function getRadioAudio() {
+  return globalAudio;
+}
+
+/* ---------- Estado visual ---------- */
+function setAudioBufferingState(isBuffering, msg = "Cargando...") {
   isAudioBuffering = isBuffering;
+  const widget = document.getElementById("floating-audio-widget");
+  const spinner = document.getElementById("audio-panel-spinner");
   const playIco = document.getElementById("panel-icon-play");
   const pauseIco = document.getElementById("panel-icon-pause");
-  const spinner = document.getElementById("audio-panel-spinner");
-  const statusContainer = document.getElementById("audio-loading-status");
+  const status = document.getElementById("audio-loading-status");
   const statusText = document.getElementById("audio-status-text");
   const bubbleText = document.getElementById("audio-bubble-text");
 
+  if (widget) widget.classList.toggle("is-loading", isBuffering);
   if (spinner) spinner.hidden = !isBuffering;
+  if (status) status.classList.toggle("is-loading", isBuffering);
 
   if (isBuffering) {
     if (playIco) playIco.hidden = true;
     if (pauseIco) pauseIco.hidden = true;
-    if (statusContainer) statusContainer.classList.add("is-loading");
-    if (statusText) statusText.textContent = customMsg || "Cargando audio...";
-    if (bubbleText) bubbleText.textContent = "Radio: Cargando audio...";
+    if (statusText) statusText.textContent = msg;
+    if (bubbleText) bubbleText.textContent = `🎵 ${msg}`;
   } else {
-    if (statusContainer) statusContainer.classList.remove("is-loading");
-    if (statusText) {
-      statusText.textContent = state.radioPlaying ? "En vivo" : "Listo";
-    }
-    if (playIco) playIco.hidden = !!state.radioPlaying;
-    if (pauseIco) pauseIco.hidden = !state.radioPlaying;
-  }
-}
-
-function handleAudioLoadError(failedTrack, errorEvent = null) {
-  audioConsecutiveErrors++;
-  setAudioBufferingState(false);
-  console.warn(`Error al cargar pista "${failedTrack?.title}":`, errorEvent || "Fallo de conexión/CORS");
-
-  const list = getActiveRadioPlaylist();
-  if (audioConsecutiveErrors >= list.length) {
-    audioConsecutiveErrors = 0;
-    state.radioPlaying = false;
-    updateRadioUI("Error en streaming");
-    toast("⚠️ No se pudo reproducir la transmisión. Reintentá en unos momentos.");
-    return;
-  }
-
-  toast(`⚠️ Salteando "${failedTrack?.title || "pista"}" (reintentando)...`);
-  setTimeout(() => {
-    nextRadioTrack();
-  }, 450);
-}
-
-function getRadioAudio() {
-  if (!radioAudio) {
-    try {
-      radioAudio = document.getElementById("global-radio-audio");
-      if (!radioAudio) {
-        radioAudio = new Audio();
-        radioAudio.id = "global-radio-audio";
-        document.body.appendChild(radioAudio);
-      }
-
-      const initialTrack = getCurrentRadioTrack();
-      radioAudio.src = initialTrack.src;
-      radioAudio.preload = "auto";
-      radioAudio.loop = false;
-
-      const savedVol = Store.get("radio_volume_v1", 0.5);
-      const parsedVol = parseFloat(savedVol);
-      const safeVol = (!isNaN(parsedVol) && parsedVol > 0) ? Math.min(1, parsedVol) : 0.5;
-      radioAudio.volume = safeVol;
-
-      // Eventos nativos del elemento de audio
-      radioAudio.addEventListener("loadstart", () => {
-        if (state.radioPlaying) {
-          setAudioBufferingState(true, "Cargando audio...");
-        }
-      });
-
-      radioAudio.addEventListener("waiting", () => {
-        setAudioBufferingState(true, "Amortiguando...");
-      });
-
-      radioAudio.addEventListener("canplay", () => {
-        setAudioBufferingState(false);
-      });
-
-      radioAudio.addEventListener("playing", () => {
-        audioConsecutiveErrors = 0;
-        state.radioPlaying = true;
-        setAudioBufferingState(false);
-        updateRadioUI();
-      });
-
-      radioAudio.addEventListener("play", () => {
-        state.radioPlaying = true;
-        updateRadioUI();
-      });
-
-      radioAudio.addEventListener("pause", () => {
-        state.radioPlaying = false;
-        setAudioBufferingState(false);
-        updateRadioUI();
-      });
-
-      radioAudio.addEventListener("ended", () => {
-        nextRadioTrack();
-      });
-
-      radioAudio.addEventListener("timeupdate", () => {
-        updateAudioTimeline();
-      });
-
-      radioAudio.addEventListener("loadedmetadata", () => {
-        updateAudioTimeline();
-      });
-
-      radioAudio.addEventListener("error", (e) => {
-        const track = getCurrentRadioTrack();
-        handleAudioLoadError(track, e);
-      });
-    } catch (err) {
-      console.error("Error crítico al inicializar Audio:", err);
-    }
-  }
-  return radioAudio;
-}
-
-function initGlobalRadio() {
-  const audio = getRadioAudio();
-  if (!audio) return;
-
-  const currentVol = (!isNaN(audio.volume) && audio.volume > 0) ? audio.volume : 0.5;
-  audio.volume = currentVol;
-
-  const panelVol = document.getElementById("audio-panel-vol-slider");
-  const panelVolPct = document.getElementById("audio-panel-vol-pct");
-  if (panelVol) panelVol.value = String(currentVol);
-  if (panelVolPct) panelVolPct.textContent = Math.round(currentVol * 100) + "%";
-
-  const volSlider = document.getElementById("radio-volume-slider");
-  const volLabel = document.getElementById("radio-volume-label");
-  if (volSlider) volSlider.value = String(currentVol);
-  if (volLabel) volLabel.textContent = Math.round(currentVol * 100) + "%";
-
-  updateRadioUI();
-}
-
-function updateAudioTimeline() {
-  const audio = getRadioAudio();
-  if (!audio) return;
-
-  const curTimeEl = document.getElementById("audio-time-current");
-  const durTimeEl = document.getElementById("audio-time-duration");
-  const slider = document.getElementById("audio-timeline-slider");
-
-  const cur = audio.currentTime || 0;
-  const dur = audio.duration || 0;
-
-  if (curTimeEl) curTimeEl.textContent = formatAudioTime(cur);
-  if (durTimeEl && dur > 0) durTimeEl.textContent = formatAudioTime(dur);
-
-  if (slider && !isAudioTimelineUserDragging && dur > 0) {
-    slider.max = dur;
-    slider.value = cur;
+    updateRadioUI();
   }
 }
 
 function updateRadioUI(overrideMessage = null) {
   const track = getCurrentRadioTrack();
+  const playing = !globalAudio.paused && !globalAudio.ended;
+  state.radioPlaying = playing;
+
   const widget = document.getElementById("floating-audio-widget");
   const bubbleText = document.getElementById("audio-bubble-text");
   const panelTitle = document.getElementById("audio-panel-title");
   const panelArtist = document.getElementById("audio-panel-artist");
   const playIco = document.getElementById("panel-icon-play");
   const pauseIco = document.getElementById("panel-icon-pause");
-
+  const statusText = document.getElementById("audio-status-text");
   const settingsBtn = document.getElementById("btn-settings-radio-play");
   const settingsIco = document.getElementById("btn-settings-radio-icon");
   const settingsTxt = document.getElementById("btn-settings-radio-text");
 
-  // Actualizar textos dinámicos con el nombre "Radio: [Pista]"
-  if (bubbleText) {
-    if (overrideMessage) {
-      bubbleText.textContent = `Radio: ${overrideMessage}`;
-    } else if (state.radioPlaying) {
-      bubbleText.textContent = `Radio: ${track.title}`;
-    } else {
-      bubbleText.textContent = `Radio: Toca para reproducir`;
-    }
+  if (bubbleText && !isAudioBuffering) {
+    bubbleText.textContent = overrideMessage
+      ? `🎵 ${overrideMessage}`
+      : (playing ? `🎵 ${track.title}` : (radioHasStarted ? `🎵 ${track.title} (pausa)` : "🎵 Radio · Toca para escuchar"));
   }
-
   if (panelTitle) panelTitle.textContent = track.title;
   if (panelArtist) panelArtist.textContent = `${track.artist} · ${track.category}`;
 
-  if (widget) {
-    widget.classList.toggle("is-playing", !!state.radioPlaying);
-  }
-  if (playIco) playIco.hidden = !!state.radioPlaying;
-  if (pauseIco) pauseIco.hidden = !state.radioPlaying;
-
-  if (settingsBtn) {
-    settingsBtn.classList.toggle("is-playing", !!state.radioPlaying);
-  }
-  if (settingsIco) {
-    settingsIco.textContent = state.radioPlaying ? "⏸" : "▶";
-  }
-  if (settingsTxt) {
-    settingsTxt.textContent = state.radioPlaying ? "Pausar Radio" : "Iniciar Radio";
+  if (widget) widget.classList.toggle("is-playing", playing);
+  if (!isAudioBuffering) {
+    if (playIco) playIco.hidden = playing;
+    if (pauseIco) pauseIco.hidden = !playing;
+    if (statusText) statusText.textContent = overrideMessage || (playing ? "Reproduciendo" : "En pausa");
   }
 
-  // Sincronizar pills activas de categorías
-  const catPills = document.querySelectorAll(".audio-cat-pill");
-  catPills.forEach(pill => {
+  if (settingsBtn) settingsBtn.classList.toggle("is-playing", playing);
+  if (settingsIco) settingsIco.textContent = playing ? "❚❚" : "▶";
+  if (settingsTxt) settingsTxt.textContent = playing ? "Pausar Radio" : "Iniciar Radio";
+
+  document.querySelectorAll(".audio-cat-pill").forEach(pill => {
     pill.classList.toggle("is-active", pill.dataset.radioCat === currentRadioCategory);
   });
 }
 
-// Control del Panel Retráctil con Auto-Cierre de 3 Segundos
+function updateAudioTimeline() {
+  const cur = globalAudio.currentTime || 0;
+  const dur = globalAudio.duration;
+  const hasDuration = isFinite(dur) && dur > 0;
+
+  const curEl = document.getElementById("audio-time-current");
+  const durEl = document.getElementById("audio-time-duration");
+  const slider = document.getElementById("audio-timeline-slider");
+
+  if (durEl) durEl.textContent = hasDuration ? formatAudioTime(dur) : "--:--";
+  if (!slider) return;
+
+  slider.disabled = !hasDuration;
+  if (isAudioTimelineUserDragging) return; // no pisar la posición mientras el usuario arrastra
+
+  if (curEl) curEl.textContent = formatAudioTime(cur);
+  if (hasDuration) {
+    slider.max = String(dur);
+    slider.value = String(cur);
+    slider.style.setProperty("--progress", `${(cur / dur) * 100}%`);
+  } else {
+    slider.value = "0";
+    slider.style.setProperty("--progress", "0%");
+  }
+}
+
+/* ---------- Núcleo de reproducción ---------- */
+async function playTrack(index) {
+  const list = getActiveRadioPlaylist();
+  if (!list.length) return;
+
+  currentTrackIndex = ((index % list.length) + list.length) % list.length;
+  const track = list[currentTrackIndex];
+  const token = ++radioPlayToken;
+  radioHasStarted = true;
+
+  // 1. Detener lo que esté sonando
+  globalAudio.pause();
+
+  // 2. Indicador de carga en burbuja y panel
+  setAudioBufferingState(true, "Cargando...");
+
+  // 3. Nueva fuente + load()
+  console.log("[Radio] Reproduciendo:", track.title, "->", track.url);
+  globalAudio.src = track.url;
+  globalAudio.load();
+  updateAudioTimeline();
+
+  // 4. play() con await seguro
+  try {
+    await globalAudio.play();
+    if (token !== radioPlayToken) return; // llegó otra pista mientras cargaba
+    radioConsecutiveFailures = 0;
+    setAudioBufferingState(false);
+    updateRadioUI();
+    updateMediaSession(track);
+  } catch (err) {
+    if (token !== radioPlayToken) return;
+    console.error("Error de reproducción:", err);
+
+    if (err && err.name === "AbortError") return; // interrumpido por un cambio de pista: normal
+
+    setAudioBufferingState(false);
+    if (err && err.name === "NotAllowedError") {
+      // Política de autoplay: requiere un toque del usuario
+      updateRadioUI("Toca para reproducir");
+      return;
+    }
+    handleTrackFailure(token, track);
+  }
+}
+
+function handleTrackFailure(token, track) {
+  if (token !== radioPlayToken || radioFailedToken === token) return; // ya procesado
+  radioFailedToken = token;
+  radioConsecutiveFailures++;
+
+  if (track && /^https?:/i.test(track.url)) radioUnavailableUrls.add(track.url);
+
+  const remaining = getActiveRadioPlaylist().length;
+  if (radioConsecutiveFailures >= Math.max(remaining, 1) + 1) {
+    radioConsecutiveFailures = 0;
+    setAudioBufferingState(false);
+    updateRadioUI("Sin conexión de audio");
+    toast("No se pudo reproducir la Radio. Revisá tu conexión.");
+    return;
+  }
+  toast(`"${track ? track.title : "Pista"}" no disponible. Pasando a la siguiente...`);
+  // Tras marcar la URL como no disponible, la lista se reindexa: se reproduce el mismo índice
+  setTimeout(() => {
+    if (token === radioPlayToken) playTrack(currentTrackIndex);
+  }, 400);
+}
+
+function nextRadioTrack() {
+  const list = getActiveRadioPlaylist();
+  currentTrackIndex = (currentTrackIndex + 1) % list.length;
+  playTrack(currentTrackIndex);
+}
+
+function prevRadioTrack() {
+  // Si ya avanzó más de 3 s, reinicia la pista actual (comportamiento estándar)
+  if (globalAudio.currentTime > 3) {
+    globalAudio.currentTime = 0;
+    return;
+  }
+  const list = getActiveRadioPlaylist();
+  currentTrackIndex = (currentTrackIndex - 1 + list.length) % list.length;
+  playTrack(currentTrackIndex);
+}
+
+async function toggleRadioPlayback() {
+  // Primera vez o sin fuente: arrancar la pista actual (gesto de usuario -> desbloquea autoplay)
+  if (!globalAudio.src || !radioHasStarted) {
+    return playTrack(currentTrackIndex);
+  }
+  if (globalAudio.paused) {
+    const token = radioPlayToken;
+    try {
+      await globalAudio.play();
+    } catch (err) {
+      console.error("Error de reproducción:", err);
+      if (err && err.name === "NotAllowedError") updateRadioUI("Toca para reproducir");
+      else if (err && err.name !== "AbortError") handleTrackFailure(token, getCurrentRadioTrack());
+    }
+  } else {
+    globalAudio.pause();
+  }
+}
+
+function setRadioCategory(categoryName) {
+  currentRadioCategory = categoryName;
+  currentTrackIndex = 0;
+  radioConsecutiveFailures = 0;
+  updateRadioUI();
+  playTrack(0);
+}
+
+function setRadioVolume(vol) {
+  let val = parseFloat(vol);
+  if (!isFinite(val)) val = 0.5;
+  val = Math.min(1, Math.max(0, val)); // 0 es un valor válido (silencio)
+  globalAudio.volume = val;
+  globalAudio.muted = val === 0;
+  Store.set("radio_volume_v1", val);
+
+  const pct = Math.round(val * 100) + "%";
+  ["audio-panel-vol-slider", "radio-volume-slider"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el && Math.abs(parseFloat(el.value) - val) > 0.001) el.value = String(val);
+    if (el) el.style.setProperty("--progress", `${val * 100}%`);
+  });
+  ["audio-panel-vol-pct", "radio-volume-label"].forEach(id => {
+    const el = document.getElementById(id);
+    if (el) el.textContent = pct;
+  });
+  const icon = document.getElementById("audio-panel-vol-icon");
+  if (icon) icon.dataset.level = val === 0 ? "mute" : (val < 0.5 ? "low" : "high");
+}
+
+function seekRadio(seconds) {
+  const dur = globalAudio.duration;
+  if (!isFinite(dur) || dur <= 0) return;
+  globalAudio.currentTime = Math.min(dur, Math.max(0, Number(seconds) || 0));
+  updateAudioTimeline();
+}
+
+/* ---------- Media Session (controles en pantalla de bloqueo / auriculares) ---------- */
+function updateMediaSession(track) {
+  if (!("mediaSession" in navigator) || !track) return;
+  try {
+    navigator.mediaSession.metadata = new MediaMetadata({
+      title: track.title,
+      artist: track.artist,
+      album: `Radio · ${track.category}`,
+      artwork: [{ src: "icons/icon-512.png", sizes: "512x512", type: "image/png" }]
+    });
+  } catch (e) { /* navegador sin soporte completo */ }
+}
+
+function setupMediaSessionHandlers() {
+  if (!("mediaSession" in navigator)) return;
+  const handlers = {
+    play: () => toggleRadioPlayback(),
+    pause: () => globalAudio.pause(),
+    nexttrack: () => nextRadioTrack(),
+    previoustrack: () => prevRadioTrack()
+  };
+  Object.entries(handlers).forEach(([action, fn]) => {
+    try { navigator.mediaSession.setActionHandler(action, fn); } catch (e) { /* acción no soportada */ }
+  });
+}
+
+/* ---------- Eventos nativos del <audio> (se registran una sola vez) ---------- */
+function attachGlobalAudioEvents() {
+  globalAudio.addEventListener("waiting", () => setAudioBufferingState(true, "Cargando..."));
+  globalAudio.addEventListener("stalled", () => { if (!globalAudio.paused) setAudioBufferingState(true, "Cargando..."); });
+  globalAudio.addEventListener("progress", () => {
+    // Porcentaje de buffer visible mientras carga
+    if (!isAudioBuffering) return;
+    const dur = globalAudio.duration;
+    if (!isFinite(dur) || dur <= 0 || !globalAudio.buffered.length) return;
+    const pct = Math.min(100, Math.round((globalAudio.buffered.end(globalAudio.buffered.length - 1) / dur) * 100));
+    const statusText = document.getElementById("audio-status-text");
+    if (statusText) statusText.textContent = `Cargando ${pct}%`;
+  });
+  globalAudio.addEventListener("playing", () => { setAudioBufferingState(false); updateRadioUI(); });
+  globalAudio.addEventListener("canplay", () => { if (isAudioBuffering && !globalAudio.paused) setAudioBufferingState(false); });
+  globalAudio.addEventListener("play", () => updateRadioUI());
+  globalAudio.addEventListener("pause", () => { if (!isAudioBuffering) updateRadioUI(); });
+  globalAudio.addEventListener("ended", () => nextRadioTrack());
+  globalAudio.addEventListener("timeupdate", updateAudioTimeline);
+  globalAudio.addEventListener("durationchange", updateAudioTimeline);
+  globalAudio.addEventListener("loadedmetadata", updateAudioTimeline);
+  globalAudio.addEventListener("error", () => {
+    // Sólo errores reales de la fuente actual (no los de un src vacío o reemplazado)
+    if (!globalAudio.src || !globalAudio.error) return;
+    console.error("Error de reproducción (media):", globalAudio.error.code, globalAudio.error.message || "");
+    setAudioBufferingState(false);
+    handleTrackFailure(radioPlayToken, getCurrentRadioTrack());
+  });
+}
+
+let radioInitialized = false;
+function initGlobalRadio() {
+  if (radioInitialized) return;
+  radioInitialized = true;
+
+  attachGlobalAudioEvents();
+  setupMediaSessionHandlers();
+
+  const saved = parseFloat(Store.get("radio_volume_v1", 0.5));
+  setRadioVolume(isFinite(saved) ? saved : 0.5);
+
+  // iOS Safari ignora audio.volume (siempre 1): se oculta el slider y se indica usar los botones físicos
+  const probe = new Audio();
+  probe.volume = 0.3;
+  if (probe.volume === 1) {
+    document.getElementById("floating-audio-widget")?.classList.add("volume-hardware-only");
+  }
+
+  updateRadioUI();
+  updateAudioTimeline();
+}
+
+/* ---------- Panel retráctil (auto-cierre 3 s) ---------- */
 function openAudioPanel() {
   const panel = document.getElementById("audio-expanded-panel");
   const widget = document.getElementById("floating-audio-widget");
   const trigger = document.getElementById("audio-bubble-trigger");
   if (!panel || !widget) return;
-
   panel.hidden = false;
   widget.classList.add("is-expanded");
   if (trigger) trigger.setAttribute("aria-expanded", "true");
-
+  updateAudioTimeline();
   resetAudioPanelTimer();
 }
 
@@ -3144,152 +3281,87 @@ function closeAudioPanel() {
   const widget = document.getElementById("floating-audio-widget");
   const trigger = document.getElementById("audio-bubble-trigger");
   if (!panel || !widget) return;
-
   panel.hidden = true;
   widget.classList.remove("is-expanded");
   if (trigger) trigger.setAttribute("aria-expanded", "false");
-
-  if (audioPanelTimer) {
-    clearTimeout(audioPanelTimer);
-    audioPanelTimer = null;
-  }
+  if (audioPanelTimer) { clearTimeout(audioPanelTimer); audioPanelTimer = null; }
 }
 
 function resetAudioPanelTimer() {
   if (audioPanelTimer) clearTimeout(audioPanelTimer);
   audioPanelTimer = setTimeout(() => {
-    if (!isAudioTimelineUserDragging) {
-      closeAudioPanel();
-    }
+    if (!isAudioTimelineUserDragging) closeAudioPanel();
   }, 3000);
 }
 
-function unlockAndPlayRadio() {
-  radioUserUnlocked = true;
-  const audio = getRadioAudio();
-  if (!audio) return;
+/* ---------- Enlace de controles de UI ---------- */
+function bindRadioControls() {
+  const on = (id, evt, fn, opts) => document.getElementById(id)?.addEventListener(evt, fn, opts);
 
-  const track = getCurrentRadioTrack();
-  console.log("Ruta exacta del archivo de audio:", track.src);
+  // Burbuja: abre el panel. El primer toque además arranca la radio (gesto de usuario).
+  on("audio-bubble-trigger", "click", (e) => {
+    e.stopPropagation();
+    openAudioPanel();
+    if (!radioHasStarted) playTrack(currentTrackIndex);
+  });
+  on("btn-close-audio-panel", "click", (e) => { e.stopPropagation(); closeAudioPanel(); });
+  on("btn-audio-panel-done", "click", (e) => { e.stopPropagation(); closeAudioPanel(); });
+  on("btn-audio-panel-play", "click", (e) => { e.stopPropagation(); resetAudioPanelTimer(); toggleRadioPlayback(); });
+  on("btn-audio-panel-next", "click", (e) => { e.stopPropagation(); resetAudioPanelTimer(); nextRadioTrack(); });
 
-  setAudioBufferingState(true, "Iniciando...");
+  on("audio-category-bar", "click", (e) => {
+    const pill = e.target.closest("[data-radio-cat]");
+    if (!pill) return;
+    e.stopPropagation();
+    resetAudioPanelTimer();
+    setRadioCategory(pill.dataset.radioCat);
+  });
 
-  if (!audio.src || !audio.src.includes(track.src)) {
-    audio.src = track.src;
+  // Timeline: vista previa al arrastrar, seek al soltar
+  const timeline = document.getElementById("audio-timeline-slider");
+  if (timeline) {
+    const startDrag = () => { isAudioTimelineUserDragging = true; resetAudioPanelTimer(); };
+    const endDrag = () => {
+      if (!isAudioTimelineUserDragging) return;
+      isAudioTimelineUserDragging = false;
+      seekRadio(timeline.value);
+      resetAudioPanelTimer();
+    };
+    timeline.addEventListener("pointerdown", startDrag);
+    timeline.addEventListener("touchstart", startDrag, { passive: true });
+    timeline.addEventListener("input", () => {
+      isAudioTimelineUserDragging = true;
+      const val = parseFloat(timeline.value) || 0;
+      const max = parseFloat(timeline.max) || 1;
+      const curEl = document.getElementById("audio-time-current");
+      if (curEl) curEl.textContent = formatAudioTime(val);
+      timeline.style.setProperty("--progress", `${(val / max) * 100}%`);
+      resetAudioPanelTimer();
+    });
+    timeline.addEventListener("change", endDrag); // teclado y soltar en la mayoría de navegadores
+    timeline.addEventListener("pointerup", endDrag);
+    timeline.addEventListener("touchend", endDrag);
   }
-  audio.load();
 
-  try {
-    const playPromise = audio.play();
-    if (playPromise !== undefined) {
-      playPromise
-        .then(() => {
-          audioConsecutiveErrors = 0;
-          state.radioPlaying = true;
-          setAudioBufferingState(false);
-          updateRadioUI();
-          toast(`📻 Radio: ${track.title}`);
-        })
-        .catch((error) => {
-          console.error("Error al reproducir audio:", error);
-          handleAudioLoadError(track, error);
-        });
-    }
-  } catch (syncError) {
-    console.error("Error sincrónico al invocar play():", syncError);
-    handleAudioLoadError(track, syncError);
+  // Volumen (panel flotante y panel de configuración)
+  ["audio-panel-vol-slider", "radio-volume-slider"].forEach(id => {
+    on(id, "input", (e) => { resetAudioPanelTimer(); setRadioVolume(e.target.value); });
+  });
+
+  on("btn-settings-radio-play", "click", (e) => { e.stopPropagation(); toggleRadioPlayback(); });
+
+  // Cualquier interacción dentro del panel reinicia el auto-cierre
+  const panel = document.getElementById("audio-expanded-panel");
+  if (panel) {
+    ["touchstart", "pointermove", "click", "keydown"].forEach(evt =>
+      panel.addEventListener(evt, resetAudioPanelTimer, { passive: true }));
   }
-}
 
-// Reproducción forzosa y limpia de la pista indicada
-function playRadioTrack(index) {
-  const audio = getRadioAudio();
-  if (!audio) return;
-
-  const list = getActiveRadioPlaylist();
-  // Incremento circular estricto
-  state.radioIndex = ((index % list.length) + list.length) % list.length;
-  const track = list[state.radioIndex];
-
-  console.log("Cambiando y verificando pista de Radio:", track.title, "->", track.src);
-  setAudioBufferingState(true, "Cargando audio...");
-  audio.src = track.src;
-  audio.load();
-
-  try {
-    const playPromise = audio.play();
-    if (playPromise !== undefined) {
-      playPromise
-        .then(() => {
-          audioConsecutiveErrors = 0;
-          state.radioPlaying = true;
-          setAudioBufferingState(false);
-          updateRadioUI();
-          toast(`📻 Radio: ${track.title}`);
-        })
-        .catch((error) => {
-          console.error("Error al reproducir audio:", error);
-          handleAudioLoadError(track, error);
-        });
-    }
-  } catch (err) {
-    console.error("Error sincrónico al reproducir pista:", err);
-    handleAudioLoadError(track, err);
-  }
-}
-
-function toggleRadioPlayback() {
-  const audio = getRadioAudio();
-  if (!audio) return;
-
-  if (audio.paused) {
-    unlockAndPlayRadio();
-  } else {
-    audio.pause();
-    state.radioPlaying = false;
-    updateRadioUI("Toca para reproducir");
-    toast("⏸ Radio en pausa");
-  }
-}
-
-// Función de siguiente canción con bucle circular garantizado
-function nextRadioTrack() {
-  const list = getActiveRadioPlaylist();
-  const nextIdx = (state.radioIndex + 1) % list.length;
-  playRadioTrack(nextIdx);
-}
-
-// Cambio de categoría con reinicio de índice y reproducción instantánea
-function setRadioCategory(categoryName) {
-  currentRadioCategory = categoryName;
-  state.radioIndex = 0;
-  const list = getActiveRadioPlaylist();
-  const track = list[0];
-  toast(`📻 Clima de Radio: ${categoryName}`);
-  playRadioTrack(0);
-}
-
-function setRadioVolume(vol) {
-  const val = Math.min(1, Math.max(0, parseFloat(vol) || 0.5));
-  const audio = getRadioAudio();
-  if (audio) {
-    audio.volume = val;
-  }
-  Store.set("radio_volume_v1", val);
-
-  const panelVol = document.getElementById("audio-panel-vol-slider");
-  const panelVolPct = document.getElementById("audio-panel-vol-pct");
-  if (panelVol && Math.abs(parseFloat(panelVol.value) - val) > 0.01) panelVol.value = String(val);
-  if (panelVolPct) panelVolPct.textContent = Math.round(val * 100) + "%";
-
-  const volSlider = document.getElementById("radio-volume-slider");
-  const volLabel = document.getElementById("radio-volume-label");
-  if (volSlider && Math.abs(parseFloat(volSlider.value) - val) > 0.01) {
-    volSlider.value = String(val);
-  }
-  if (volLabel) {
-    volLabel.textContent = Math.round(val * 100) + "%";
-  }
+  // Clic fuera del widget: minimizar
+  document.addEventListener("click", (e) => {
+    const widget = document.getElementById("floating-audio-widget");
+    if (widget && widget.classList.contains("is-expanded") && !widget.contains(e.target)) closeAudioPanel();
+  });
 }
 
 let mapTouchLocked = true;
@@ -9298,116 +9370,8 @@ function bindAppEvents() {
     if (e.target && e.target.id === "activity-edit-modal") closeActivityEditor();
   });
 
-  // Widget Retráctil de Audio (Burbuja Flotante y Panel Expandido)
-  $("#audio-bubble-trigger")?.addEventListener("click", (e) => {
-    e.stopPropagation();
-    openAudioPanel();
-  });
-
-  $("#btn-close-audio-panel")?.addEventListener("click", (e) => {
-    e.stopPropagation();
-    closeAudioPanel();
-  });
-
-  $("#btn-audio-panel-done")?.addEventListener("click", (e) => {
-    e.stopPropagation();
-    closeAudioPanel();
-  });
-
-  $("#btn-audio-panel-play")?.addEventListener("click", (e) => {
-    e.stopPropagation();
-    resetAudioPanelTimer();
-    toggleRadioPlayback();
-  });
-
-  $("#btn-audio-panel-next")?.addEventListener("click", (e) => {
-    e.stopPropagation();
-    resetAudioPanelTimer();
-    nextRadioTrack();
-  });
-
-  // Selector de Categoría dentro del panel expandido de Radio
-  $("#audio-category-bar")?.addEventListener("click", (e) => {
-    const pill = e.target.closest("[data-radio-cat]");
-    if (pill) {
-      e.stopPropagation();
-      resetAudioPanelTimer();
-      setRadioCategory(pill.dataset.radioCat);
-    }
-  });
-
-  // Barra de progreso interactiva (Timeline)
-  const timelineSlider = $("#audio-timeline-slider");
-  if (timelineSlider) {
-    timelineSlider.addEventListener("mousedown", () => {
-      isAudioTimelineUserDragging = true;
-      resetAudioPanelTimer();
-    });
-    timelineSlider.addEventListener("touchstart", () => {
-      isAudioTimelineUserDragging = true;
-      resetAudioPanelTimer();
-    }, { passive: true });
-
-    timelineSlider.addEventListener("input", (e) => {
-      resetAudioPanelTimer();
-      const val = parseFloat(e.target.value);
-      const curTimeEl = document.getElementById("audio-time-current");
-      if (curTimeEl) curTimeEl.textContent = formatAudioTime(val);
-    });
-
-    timelineSlider.addEventListener("change", (e) => {
-      isAudioTimelineUserDragging = false;
-      const audio = getRadioAudio();
-      if (audio) {
-        audio.currentTime = parseFloat(e.target.value);
-      }
-      resetAudioPanelTimer();
-    });
-
-    timelineSlider.addEventListener("mouseup", () => {
-      isAudioTimelineUserDragging = false;
-      resetAudioPanelTimer();
-    });
-    timelineSlider.addEventListener("touchend", () => {
-      isAudioTimelineUserDragging = false;
-      resetAudioPanelTimer();
-    });
-  }
-
-  // Slider de volumen en el panel expandido
-  $("#audio-panel-vol-slider")?.addEventListener("input", (e) => {
-    resetAudioPanelTimer();
-    setRadioVolume(parseFloat(e.target.value));
-  });
-
-  // Reiniciar temporizador de 3s con cualquier interacción dentro del panel
-  const expandedPanel = $("#audio-expanded-panel");
-  if (expandedPanel) {
-    ["touchstart", "mousemove", "click", "keydown"].forEach((evtName) => {
-      expandedPanel.addEventListener(evtName, () => {
-        resetAudioPanelTimer();
-      }, { passive: true });
-    });
-  }
-
-  // Cerrar panel expandido al hacer clic fuera
-  document.addEventListener("click", (e) => {
-    const widget = document.getElementById("floating-audio-widget");
-    if (widget && widget.classList.contains("is-expanded")) {
-      if (!widget.contains(e.target)) {
-        closeAudioPanel();
-      }
-    }
-  });
-
-  // Botón de audio en ajustes
-  $("#btn-settings-radio-play")?.addEventListener("click", (e) => {
-    e.stopPropagation();
-    toggleRadioPlayback();
-  });
-  $("#radio-volume-slider")?.addEventListener("input", (e) => {
-    setRadioVolume(parseFloat(e.target.value));
-  });
+  // Radio: todos los controles (burbuja, panel, timeline, volumen, ajustes)
+  bindRadioControls();
 
   // Selector de Zona / Barrio en Cuadrícula de Cuadrados Minimalistas
   $("#btn-open-zone-modal")?.addEventListener("click", openZonePickerModal);
