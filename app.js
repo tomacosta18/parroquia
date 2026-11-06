@@ -5693,6 +5693,675 @@ const FALLBACK_PARISHES = [
   }
 ];
 
+
+/* =====================================================================
+   Utilidades, Clasificación Regional (CABA / GBA) e Indexación Masiva
+   ===================================================================== */
+const $ = (s) => document.querySelector(s);
+const $$ = (s) => document.querySelectorAll(s);
+const norm = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+
+function toMinutes(hhmm) {
+  const m = String(hhmm || "").match(/(\d{1,2}):(\d{2})/);
+  if (!m) return NaN;
+  return Number(m[1]) * 60 + Number(m[2]);
+}
+
+function getCoords(p) {
+  if (p.coordenadas && typeof p.coordenadas.lat === "number" && typeof p.coordenadas.lng === "number") {
+    return p.coordenadas;
+  }
+  if (typeof p.lat === "number" && typeof p.lng === "number") {
+    return { lat: p.lat, lng: p.lng };
+  }
+  return null;
+}
+
+function getTags(p) {
+  return p.etiquetas || p.tags || [];
+}
+
+function getPhone(p) {
+  return p.telefono || p.tel || "";
+}
+
+/**
+ * Clasifica automáticamente cualquier templo en:
+ * "CABA", "Zona Norte", "Zona Oeste" o "Zona Sur".
+ */
+const NORTE_KEYWORDS = ["zona norte", "gba norte", "san isidro", "vicente lopez", "olivos", "martinez", "acassuso", "beccar", "tigre", "san fernando", "pilar", "escobar", "malvinas argentinas", "san martin", "villa ballester"];
+const OESTE_KEYWORDS = ["zona oeste", "gba oeste", "moron", "ramos mejia", "haedo", "castelar", "ituzaingo", "merlo", "moreno", "lujan", "hurlingham", "san justo", "la matanza", "ciudadela", "caseros", "tres de febrero"];
+const SUR_KEYWORDS = ["zona sur", "gba sur", "lomas", "lomas de zamora", "banfield", "temperley", "adrogue", "almirante brown", "avellaneda", "lanus", "quilmes", "bernal", "berazategui", "florencio varela", "ezeiza", "esteban echeverria", "monte grande"];
+
+function inferRegion(p) {
+  const explicit = norm(p.region || p.zona || "");
+  if (explicit === "caba" || explicit === "capital federal") return "CABA";
+  if (explicit.includes("norte")) return "Zona Norte";
+  if (explicit.includes("oeste")) return "Zona Oeste";
+  if (explicit.includes("sur")) return "Zona Sur";
+
+  const combined = norm(`${p.barrio || ""} ${p.direccion || ""} ${getTags(p).join(" ")}`);
+  if (NORTE_KEYWORDS.some(k => combined.includes(k))) return "Zona Norte";
+  if (OESTE_KEYWORDS.some(k => combined.includes(k))) return "Zona Oeste";
+  if (SUR_KEYWORDS.some(k => combined.includes(k))) return "Zona Sur";
+  return "CABA";
+}
+
+/**
+ * Pre-indexa los registros en memoria para que búsquedas y filtros sobre +100 o +500 templos
+ * se ejecuten en menos de 1 ms sin recalcular normalizaciones por pulsación.
+ */
+function prepareDataset(rawList) {
+  if (!Array.isArray(rawList)) return [];
+  return rawList.map(p => {
+    const region = inferRegion(p);
+    const tags = getTags(p);
+    const searchIndex = norm([
+      p.nombre,
+      p.tipo,
+      region,
+      p.barrio,
+      p.direccion,
+      ...tags
+    ].join(" "));
+    return {
+      ...p,
+      region,
+      _idStr: String(p.id),
+      _region: region,
+      _searchIndex: searchIndex,
+      _isMajor: isMajorTemple(p.tipo)
+    };
+  });
+}
+
+function normalizeOfficialUrl(rawUrl) {
+  if (typeof rawUrl !== "string") return "";
+  let clean = rawUrl.trim();
+  if (!clean || clean === "#" || clean === "-") return "";
+
+  if (!/^https?:\/\//i.test(clean)) {
+    clean = "https://" + clean.replace(/^\/+/, "");
+  }
+
+  try {
+    const parsed = new URL(clean);
+    const host = parsed.hostname.replace(/^www\./i, "").toLowerCase();
+    if (!host || !host.includes(".") || PLACEHOLDER_DOMAINS.has(host)) {
+      return "";
+    }
+    return parsed.href;
+  } catch (e) {
+    return "";
+  }
+}
+
+function buildGoogleMapsPlaceUrl(p) {
+  const query = `${p.nombre}, ${p.direccion || p.barrio || "Buenos Aires"}`;
+  return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(query)}`;
+}
+
+function buildDirectionsUrl(p) {
+  const coords = getCoords(p);
+  const dest = coords
+    ? `${coords.lat},${coords.lng}`
+    : encodeURIComponent(`${p.nombre}, ${p.direccion}`);
+  const originParam = state.userLoc
+    ? `&origin=${encodeURIComponent(`${state.userLoc.lat},${state.userLoc.lng}`)}`
+    : "";
+  return `https://www.google.com/maps/dir/?api=1&destination=${dest}${originParam}`;
+}
+
+function isMajorTemple(tipo) {
+  const t = norm(tipo);
+  return t === "catedral" || t === "basilica";
+}
+
+function getTypeBadgeClass(tipo) {
+  const t = norm(tipo);
+  if (t === "catedral") return "catedral";
+  if (t === "basilica") return "basilica";
+  if (t === "capilla") return "capilla";
+  return "parroquia";
+}
+
+function haversineKm(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const toRad = (deg) => (deg * Math.PI) / 180;
+  const dLat = toRad(lat2 - lat1);
+  const dLng = toRad(lng2 - lng1);
+  const a =
+    Math.sin(dLat / 2) ** 2 +
+    Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+function formatKm(km) {
+  return `${km.toFixed(1).replace(".", ",")} km`;
+}
+
+const Store = (() => {
+  const mem = {};
+  return {
+    get(k, def) {
+      try {
+        const v = window.localStorage.getItem(k);
+        if (v !== null && v !== undefined) {
+          const parsed = JSON.parse(v);
+          mem[k] = parsed;
+          return parsed;
+        }
+        return mem[k] !== undefined ? mem[k] : def;
+      } catch (e) {
+        return mem[k] !== undefined ? mem[k] : def;
+      }
+    },
+    set(k, v) {
+      mem[k] = v;
+      try {
+        window.localStorage.setItem(k, JSON.stringify(v));
+      } catch (e) {
+        console.warn("Aviso al persistir en localStorage (" + k + "):", e);
+      }
+    },
+    remove(k) {
+      delete mem[k];
+      try {
+        window.localStorage.removeItem(k);
+      } catch (e) {}
+    }
+  };
+})();
+
+function getLocalTodayIso() {
+  const now = new Date();
+  const y = now.getFullYear();
+  const m = String(now.getMonth() + 1).padStart(2, "0");
+  const d = String(now.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}
+
+/* =====================================================================
+   Estado de la Aplicación (Sincronizado con LocalStorage)
+   ===================================================================== */
+const savedAdminParishes = Store.get("parishes_admin_data", null);
+let PARISHES = prepareDataset(
+  Array.isArray(savedAdminParishes) && savedAdminParishes.length
+    ? savedAdminParishes
+    : Store.get("parishes_cache_v6", FALLBACK_PARISHES)
+);
+
+const initialAdminRole = (function resolveInitialRole() {
+  const savedRole = Store.get("admin_role_v1", null);
+  if (savedRole === "master" || savedRole === "collab") return savedRole;
+  if (Store.get("admin_unlocked", false)) return "master";
+  return null;
+})();
+
+const VALID_APP_VIEWS = ["list", "map", "spiritual", "liturgy", "saints", "community", "profile"];
+const savedActiveView = Store.get("ui_active_view_v1", "list");
+
+const state = {
+  view: VALID_APP_VIEWS.includes(savedActiveView) ? savedActiveView : "list",
+  commTab: Store.get("ui_comm_tab_v1", "all"), // 'all' | 'following' | 'ranking' | 'people'
+  spirTab: Store.get("ui_spir_tab_v1", "streak"), // 'streak' | 'notes' | 'stats'
+  checkinSlot: "Mañana", // 'Mañana' | 'Tarde' | 'Noche'
+  streakDate: getLocalTodayIso(),
+  editingNoteId: null,
+  liturgyDate: Store.get("ui_liturgy_date_v1", null) || getLocalTodayIso(),
+  saintsDate: Store.get("ui_saints_date_v1", null) || getLocalTodayIso(),
+  openFirstReading: false,
+  openPsalm: false,
+  liturgyExplainOpen: false,
+  openDatePickerId: null, // 'streak' | 'liturgy' | 'saints' | null
+  datePickerViewMonth: {}, // { [pickerId]: { year, month } }
+  detailSection: "horarios", // 'horarios' | 'actividades'
+  q: "",
+  region: "ALL", // 'ALL' | 'CABA' | 'Zona Norte' | 'Zona Oeste' | 'Zona Sur'
+  barrio: null,
+  soloFav: false,
+  soloNow: false,
+  sortByNear: false,
+  userLoc: null,
+  favs: new Set(Store.get("favs", []).map(String)),
+  current: null,
+  selectedServiceHour: null, // Hora de servicio seleccionada en el widget de concurrencia
+  visibleLimit: PAGE_SIZE,
+  adminRole: initialAdminRole, // 'master' (1118) | 'collab' (0000) | null
+  isAdmin: initialAdminRole === "master",
+  canEditActivities: initialAdminRole === "master" || initialAdminRole === "collab"
+};
+
+/* =====================================================================
+   Navegación Superior con Scroll Horizontal y Animación de Libro
+   ===================================================================== */
+function switchView(targetView, skipScroll = false) {
+  if (!VALID_APP_VIEWS.includes(targetView)) return;
+
+  const prevIdx = VALID_APP_VIEWS.indexOf(state.view);
+  const nextIdx = VALID_APP_VIEWS.indexOf(targetView);
+  const turnDirectionClass = nextIdx >= prevIdx ? "book-turn-next" : "book-turn-prev";
+
+  state.view = targetView;
+  state.openDatePickerId = null;
+  Store.set("ui_active_view_v1", targetView);
+  document.body.setAttribute("data-active-view", targetView);
+
+  const panels = {
+    list: $("#view-list"),
+    map: $("#view-map"),
+    spiritual: $("#view-spiritual"),
+    liturgy: $("#view-liturgy"),
+    saints: $("#view-saints"),
+    community: $("#view-community"),
+    profile: $("#view-profile")
+  };
+  const tabs = {
+    list: $("#tab-list"),
+    map: $("#tab-map"),
+    spiritual: $("#tab-spiritual"),
+    liturgy: $("#tab-liturgy"),
+    saints: $("#tab-saints"),
+    community: $("#tab-community"),
+    profile: $("#tab-profile")
+  };
+
+  VALID_APP_VIEWS.forEach(v => {
+    const active = v === targetView;
+    const panelEl = panels[v];
+    const tabEl = tabs[v];
+    if (panelEl) {
+      panelEl.classList.remove("book-turn-next", "book-turn-prev");
+      panelEl.classList.toggle("is-active", active);
+      panelEl.setAttribute("aria-hidden", String(!active));
+      if (active) {
+        void panelEl.offsetWidth; // Reflow para disparar la animación de paso de página de libro
+        panelEl.classList.add(turnDirectionClass);
+      }
+    }
+    if (tabEl) {
+      tabEl.classList.toggle("is-active", active);
+      tabEl.setAttribute("aria-selected", String(active));
+      if (active && typeof tabEl.scrollIntoView === "function") {
+        tabEl.scrollIntoView({ behavior: "smooth", inline: "center", block: "nearest" });
+      }
+    }
+  });
+
+  if (!skipScroll) {
+    window.scrollTo({ top: 0, behavior: "instant" });
+  }
+
+  if (targetView === "map") {
+    initMap();
+    requestAnimationFrame(() => {
+      if (map) {
+        map.invalidateSize();
+        fitMapToBounds(filtered());
+      }
+    });
+  } else if (targetView === "spiritual") {
+    renderSpiritualView();
+  } else if (targetView === "liturgy") {
+    renderLiturgyView();
+  } else if (targetView === "saints") {
+    renderSaintsView();
+  } else if (targetView === "community") {
+    renderCommunityView();
+  } else if (targetView === "profile") {
+    renderProfileView();
+  }
+}
+
+/* =====================================================================
+   Motor de Fechas y Horarios de Misa (Mapeo Inteligente de Días y Rangos)
+   ===================================================================== */
+const SHORT_DAY_NAMES = ["Dom", "Lun", "Mar", "Mié", "Jue", "Vie", "Sáb"];
+
+function tokenToDayIndex(word) {
+  const w = norm(word);
+  if (w.startsWith("dom")) return 0;
+  if (w.startsWith("lun")) return 1;
+  if (w.startsWith("mar")) return 2;
+  if (w.startsWith("mie") || w.startsWith("mié")) return 3;
+  if (w.startsWith("jue")) return 4;
+  if (w.startsWith("vie")) return 5;
+  if (w.startsWith("sab") || w.startsWith("sáb")) return 6;
+  return null;
+}
+
+function parseDaysFromLabel(diaLabel) {
+  const days = new Set();
+  const text = norm(diaLabel);
+  if (!text) return days;
+
+  if (text.includes("todos los dias") || text.includes("diario") || text.includes("lunes a domingo")) {
+    return new Set([0, 1, 2, 3, 4, 5, 6]);
+  }
+  if (text.includes("dias habiles") || text.includes("dias de semana") || text.includes("semana")) {
+    [1, 2, 3, 4, 5].forEach(d => days.add(d));
+  }
+  if (text.includes("fin de semana") || text.includes("fines de semana")) {
+    days.add(6);
+    days.add(0);
+  }
+
+  const rangeRegex = /\b(dom\w*|lun\w*|mar\w*|mie\w*|jue\w*|vie\w*|sab\w*)\s*(?:a|-|al)\s*(dom\w*|lun\w*|mar\w*|mie\w*|jue\w*|vie\w*|sab\w*)\b/g;
+  let match;
+  let hadRange = false;
+  while ((match = rangeRegex.exec(text)) !== null) {
+    const start = tokenToDayIndex(match[1]);
+    const end = tokenToDayIndex(match[2]);
+    if (start !== null && end !== null) {
+      hadRange = true;
+      if (start >= 1 && end === 0) {
+        for (let d = start; d <= 6; d++) days.add(d);
+        days.add(0);
+      } else if (start <= end) {
+        for (let d = start; d <= end; d++) days.add(d);
+      } else {
+        for (let d = start; d <= 6; d++) days.add(d);
+        for (let d = 0; d <= end; d++) days.add(d);
+      }
+    }
+  }
+
+  if (!hadRange) {
+    const tokens = text.split(/[\s,y/]+/);
+    tokens.forEach(tok => {
+      const idx = tokenToDayIndex(tok);
+      if (idx !== null) days.add(idx);
+    });
+  }
+
+  return days;
+}
+
+function matchesDayGroup(diaLabel, dayIndex) {
+  return parseDaysFromLabel(diaLabel).has(dayIndex);
+}
+
+function getMassHoursForDay(p, dayIndex) {
+  let rawHours = [];
+  if (Array.isArray(p.horariosMisa)) {
+    rawHours = p.horariosMisa
+      .filter(m => matchesDayGroup(m.dia, dayIndex))
+      .flatMap(m => Array.isArray(m.horarios) ? m.horarios : []);
+  } else if (Array.isArray(p.misas)) {
+    rawHours = p.misas
+      .filter(m => Array.isArray(m.d) && m.d.includes(dayIndex))
+      .flatMap(m => Array.isArray(m.h) ? m.h : []);
+  }
+
+  return rawHours
+    .map(h => ({ raw: String(h).trim(), mins: toMinutes(h) }))
+    .filter(item => !Number.isNaN(item.mins))
+    .sort((a, b) => a.mins - b.mins);
+}
+
+function findNextAvailableMass(p, todayIndex) {
+  for (let offset = 1; offset <= 7; offset++) {
+    const targetDay = (todayIndex + offset) % 7;
+    const hours = getMassHoursForDay(p, targetDay);
+    if (hours.length > 0) {
+      const dayLabel = offset === 1 ? "mañana" : SHORT_DAY_NAMES[targetDay];
+      return {
+        label: `${dayLabel} ${hours[0].raw} h`,
+        rawHour: hours[0].raw
+      };
+    }
+  }
+  return null;
+}
+
+function getMassStatus(p) {
+  const now = new Date();
+  const today = now.getDay();
+  const cur = now.getHours() * 60 + now.getMinutes();
+
+  const todayTimes = getMassHoursForDay(p, today);
+
+  const ongoing = todayTimes.find(t => cur >= t.mins && cur <= t.mins + MASS_DURATION_MIN);
+  if (ongoing) {
+    return {
+      isNowOrSoon: true,
+      serviceHour: ongoing.raw,
+      label: `Misa ahora · inició ${ongoing.raw} h`
+    };
+  }
+
+  const upcoming = todayTimes.filter(t => t.mins > cur);
+  if (upcoming.length > 0) {
+    const next = upcoming[0];
+    const diff = next.mins - cur;
+    if (diff <= NEXT_WINDOW_MIN) {
+      return {
+        isNowOrSoon: true,
+        serviceHour: next.raw,
+        label: `Próxima misa hoy: ${next.raw} h (en ${diff} min)`
+      };
+    }
+    return {
+      isNowOrSoon: false,
+      serviceHour: next.raw,
+      label: `Próxima misa hoy: ${next.raw} h`
+    };
+  }
+
+  const nextAvailable = findNextAvailableMass(p, today);
+  if (todayTimes.length > 0) {
+    const listStr = todayTimes.map(t => t.raw).join(" · ");
+    const fallbackHour = todayTimes[todayTimes.length - 1].raw;
+    return {
+      isNowOrSoon: false,
+      serviceHour: nextAvailable ? nextAvailable.rawHour : fallbackHour,
+      label: nextAvailable
+        ? `Hoy (${listStr} h) finalizadas · Próxima: ${nextAvailable.label}`
+        : `Misas de hoy: ${listStr} h`
+    };
+  }
+
+  if (nextAvailable) {
+    return {
+      isNowOrSoon: false,
+      serviceHour: nextAvailable.rawHour,
+      label: `Próxima misa: ${nextAvailable.label}`
+    };
+  }
+
+  return {
+    isNowOrSoon: false,
+    serviceHour: "general",
+    label: "Consultar horarios en la ficha"
+  };
+}
+
+/* =====================================================================
+   Indicador de Concurrencia Comunitario ("Lleno / Vacío") en Tiempo Real
+   ===================================================================== */
+function getTodayDateKey() {
+  const d = new Date();
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
+}
+
+function getAllDistinctHours(p) {
+  if (!Array.isArray(p.horariosMisa)) return [];
+  const seen = new Set();
+  const list = [];
+  p.horariosMisa.forEach(group => {
+    (group.horarios || []).forEach(h => {
+      const clean = String(h).trim();
+      if (clean && !seen.has(clean)) {
+        seen.add(clean);
+        list.push(clean);
+      }
+    });
+  });
+  return list.sort((a, b) => (toMinutes(a) || 0) - (toMinutes(b) || 0));
+}
+
+function getDefaultServiceHour(p) {
+  const status = getMassStatus(p);
+  if (status.serviceHour && status.serviceHour !== "general") {
+    return status.serviceHour;
+  }
+  const all = getAllDistinctHours(p);
+  return all[0] || "general";
+}
+
+function buildCrowdKey(parishId, serviceHour) {
+  return `${String(parishId)}__${getTodayDateKey()}__${String(serviceHour || "general").trim()}`;
+}
+
+function loadCrowdMap() {
+  const mapObj = Store.get(CROWD_STORAGE_KEY, {});
+  const now = Date.now();
+  let mutated = false;
+  Object.keys(mapObj).forEach(k => {
+    const entry = mapObj[k];
+    if (!entry || !entry.updatedAt || now - entry.updatedAt > CROWD_TTL_MS) {
+      delete mapObj[k];
+      mutated = true;
+    }
+  });
+  if (mutated) Store.set(CROWD_STORAGE_KEY, mapObj);
+  return mapObj;
+}
+
+function getDefaultBaseVotes(parishId, serviceHour) {
+  const seed = (Number(parishId) || 1) * 7 + (toMinutes(serviceHour) || 540);
+  const mins = toMinutes(serviceHour) || 600;
+  // Misas centrales de la mañana/tarde suelen tener más concurrencia inicial simulada
+  if (mins >= 630 && mins <= 760) {
+    return { tranquilo: 2 + (seed % 3), moderado: 5 + (seed % 4), lleno: 3 + (seed % 3) };
+  }
+  if (mins >= 1110 && mins <= 1200) {
+    return { tranquilo: 3 + (seed % 2), moderado: 6 + (seed % 4), lleno: 2 + (seed % 3) };
+  }
+  return { tranquilo: 5 + (seed % 4), moderado: 3 + (seed % 3), lleno: 1 + (seed % 2) };
+}
+
+function getCrowdStatus(parishId, serviceHour) {
+  const crowdMap = loadCrowdMap();
+  const key = buildCrowdKey(parishId, serviceHour);
+  if (crowdMap[key] && CROWD_LEVELS[crowdMap[key].level]) {
+    return crowdMap[key];
+  }
+  return null;
+}
+
+function getCrowdVotesBreakdown(parishId, serviceHour) {
+  const slot = String(serviceHour || "general").trim();
+  const base = getDefaultBaseVotes(parishId, slot);
+  const record = getCrowdStatus(parishId, slot);
+  const votes = record && record.votes
+    ? {
+        tranquilo: Number(record.votes.tranquilo) || 0,
+        moderado: Number(record.votes.moderado) || 0,
+        lleno: Number(record.votes.lleno) || 0
+      }
+    : { ...base };
+
+  const total = Math.max(1, votes.tranquilo + votes.moderado + votes.lleno);
+  const pct = {
+    tranquilo: Math.round((votes.tranquilo / total) * 100),
+    moderado: Math.round((votes.moderado / total) * 100),
+    lleno: Math.round((votes.lleno / total) * 100)
+  };
+  return { votes, total, pct, hasUserReport: Boolean(record) };
+}
+
+function getActiveParishCrowd(p) {
+  const defaultHour = getDefaultServiceHour(p);
+  const direct = getCrowdStatus(p.id, defaultHour);
+  if (direct) return direct;
+
+  // Si un usuario reportó en otro horario del mismo templo hoy recientemente, lo devuelve como referencia activa
+  const crowdMap = loadCrowdMap();
+  const prefix = `${String(p.id)}__${getTodayDateKey()}__`;
+  let latest = null;
+  Object.keys(crowdMap).forEach(k => {
+    if (k.startsWith(prefix)) {
+      const item = crowdMap[k];
+      if (!latest || item.updatedAt > latest.updatedAt) {
+        latest = item;
+      }
+    }
+  });
+  return latest;
+}
+
+function setCrowdStatus(parishId, serviceHour, level) {
+  if (!CROWD_LEVELS[level]) return null;
+  const crowdMap = loadCrowdMap();
+  const slot = String(serviceHour || "general").trim();
+  const key = buildCrowdKey(parishId, slot);
+  const existing = crowdMap[key];
+  const base = getDefaultBaseVotes(parishId, slot);
+
+  const votes = existing && existing.votes
+    ? { ...existing.votes }
+    : { ...base };
+
+  // Si el usuario ya había votado en esta sesión, ajusta el voto anterior antes de sumar el nuevo
+  if (existing && existing.lastUserVote && votes[existing.lastUserVote] > 0) {
+    votes[existing.lastUserVote] = Math.max(0, votes[existing.lastUserVote] - 1);
+  }
+  votes[level] = (votes[level] || 0) + 1;
+
+  const record = {
+    parishId: String(parishId),
+    serviceHour: slot,
+    dateKey: getTodayDateKey(),
+    level,
+    lastUserVote: level,
+    votes,
+    updatedAt: Date.now(),
+    byAdmin: Boolean(state.isAdmin)
+  };
+
+  crowdMap[key] = record;
+  Store.set(CROWD_STORAGE_KEY, crowdMap);
+  return record;
+}
+
+function clearCrowdStatus(parishId, serviceHour) {
+  const crowdMap = loadCrowdMap();
+  const key = buildCrowdKey(parishId, serviceHour);
+  delete crowdMap[key];
+  Store.set(CROWD_STORAGE_KEY, crowdMap);
+}
+
+function formatRelativeMinutes(timestamp) {
+  const diffSec = Math.max(0, Math.floor((Date.now() - timestamp) / 1000));
+  if (diffSec < 45) return " recién actualizado";
+  const mins = Math.floor(diffSec / 60);
+  if (mins < 60) return `hace ${mins} min`;
+  const hrs = Math.floor(mins / 60);
+  return `hace ${hrs} h`;
+}
+
+function renderCrowdBadgeHtml(p) {
+  const report = getActiveParishCrowd(p);
+  if (!report || !CROWD_LEVELS[report.level]) return "";
+  const cfg = CROWD_LEVELS[report.level];
+  const slotNote = report.serviceHour && report.serviceHour !== "general" ? ` · ${report.serviceHour} h` : "";
+  return `<span class="crowd-badge ${cfg.id}" title="Concurrencia comunitaria reportada">${cfg.svg}<span>${cfg.short}${slotNote}</span></span>`;
+}
+
+/* =====================================================================
+   Inicialización del Mapa (100% OpenStreetMap Libre + Marcadores Jerárquicos)
+   ===================================================================== */
+let map = null;
+let markersLayer = null;
+let userMarker = null;
+const markerById = new Map();
+
+// 1. Capilla: Cruz minimalista fina
+
 const SVG_PIN_CAPILLA = `
   <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
     <path d="M12 6v12M8.5 10.2h7"/>
@@ -12744,11 +13413,22 @@ function initWelcomeGate() {
   } else if (seen) {
     dismissSplashScreen();
   }
+
+  // Blindaje estricto: timeout de seguridad de máximo 1.5s para forzar el ocultamiento del splash
+  setTimeout(() => {
+    dismissSplashScreen();
+  }, 1500);
 }
 
 function bootstrapApp() {
   if (appInitialized) return;
   appInitialized = true;
+
+  // Timeout de seguridad de arranque inmediato: si cualquier parte del DOM o datos demora,
+  // la app se destraba obligatoriamente en máximo 1.5s.
+  setTimeout(() => {
+    dismissSplashScreen();
+  }, 1500);
 
   const initSteps = [
     ["applyAppSettings", applyAppSettings],
@@ -12788,17 +13468,26 @@ function bootstrapApp() {
     console.warn("[Bootstrap Guard] Error al invocar loadParishes:", err);
   }
 
-  initWelcomeGate();
+  try {
+    initWelcomeGate();
+  } catch (err) {
+    console.warn("[Bootstrap Guard] Error en initWelcomeGate:", err);
+    dismissSplashScreen();
+  }
 }
 
 async function loadParishes() {
-  const adminSaved = Store.get("parishes_admin_data", null);
-  if (Array.isArray(adminSaved) && adminSaved.length > 0) {
-    PARISHES = prepareDataset(adminSaved);
-    if (state.userLoc) updateDistances(state.userLoc.lat, state.userLoc.lng);
-    renderChips();
-    renderList();
-    return;
+  try {
+    const adminSaved = Store.get("parishes_admin_data", null);
+    if (Array.isArray(adminSaved) && adminSaved.length > 0) {
+      PARISHES = prepareDataset(adminSaved);
+      if (state.userLoc) updateDistances(state.userLoc.lat, state.userLoc.lng);
+      renderChips();
+      renderList();
+      return;
+    }
+  } catch (e) {
+    console.warn("[loadParishes] Error leyendo parishes_admin_data:", e);
   }
 
   try {
@@ -12806,7 +13495,7 @@ async function loadParishes() {
     if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     const list = Array.isArray(data) ? data : (data.parishes || []);
-    if (list.length) {
+    if (list && list.length) {
       PARISHES = prepareDataset(list);
       Store.set("parishes_cache_v6", list);
       if (state.userLoc) {
@@ -12814,9 +13503,22 @@ async function loadParishes() {
       }
       renderChips();
       renderList();
+      return;
     }
   } catch (err) {
-    console.warn("Usando listado local de respaldo (sin conexión o error de red):", err);
+    console.warn("[loadParishes] Usando dataset local offline de 150 templos por fallo en fetch:", err);
+  }
+
+  // Respaldo de seguridad definitivo: si fetch falla o devuelve vacío, garantizar que PARISHES
+  // quede cargado con el dataset de respaldo de 150 templos
+  try {
+    if (!PARISHES || !PARISHES.length) {
+      PARISHES = prepareDataset(FALLBACK_PARISHES);
+    }
+    renderChips();
+    renderList();
+  } catch (e) {
+    console.warn("[loadParishes] Error en fallback de templos:", e);
   }
 }
 
