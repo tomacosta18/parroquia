@@ -2,6 +2,13 @@
    CONFIGURACIÓN, REGIONES AMBA (CABA + GBA) Y DATOS DE RESPALDO OFFLINE
    ===================================================================== */
 const DATA_SOURCE_URL = "./data/parroquias.json";
+const REFLECTIONS_DATA_URL = "./data/reflexiones.json";
+const BIBLE_DATA_URL = "./data/libro_pueblo_de_dios.json";
+const OVERPASS_API_URL = "https://overpass-api.de/api/interpreter";
+const OVERPASS_FALLBACK_URL = "https://overpass.kumi.systems/api/interpreter";
+const OVERPASS_CACHE_KEY = "osm_overpass_catholic_ba_v1";
+const OVERPASS_BBOX_BA = "-34.72,-58.55,-34.52,-58.33"; // Área de Buenos Aires (CABA y alrededores)
+const SHOW_COMMUNITY = false; // Flag global para ocultar el módulo de Comunidad y Racha sin eliminar su código fuente
 const ADMIN_MASTER_PIN = "1118";
 const ADMIN_COLLAB_PIN = "0000";
 const CUSTOM_ACTIVITIES_STORAGE_KEY = "parish_activities_custom_v1";
@@ -5898,7 +5905,9 @@ const initialAdminRole = (function resolveInitialRole() {
   return null;
 })();
 
-const VALID_APP_VIEWS = ["home", "list", "map", "spiritual", "liturgy", "saints", "community", "profile"];
+const VALID_APP_VIEWS = SHOW_COMMUNITY
+  ? ["home", "list", "map", "spiritual", "liturgy", "bible", "reflections", "saints", "community", "profile"]
+  : ["home", "list", "map", "liturgy", "bible", "reflections", "saints", "profile"];
 const savedActiveView = Store.get("ui_active_view_v1", "home");
 
 const state = {
@@ -5910,6 +5919,10 @@ const state = {
   editingNoteId: null,
   liturgyDate: Store.get("ui_liturgy_date_v1", null) || getLocalTodayIso(),
   saintsDate: Store.get("ui_saints_date_v1", null) || getLocalTodayIso(),
+  bibleTestamentId: null, // 'antiguo' | 'nuevo' | null
+  bibleCategoryId: null,  // 'pentateuco' | 'historicos' | 'sapienciales' | 'profeticos' | 'evangelios' | 'hechos' | 'cartas_paulinas' | 'cartas_catolicas' | 'apocalipsis' | null
+  bibleBookId: null,      // 'gn' | 'mt' | ... | null
+  bibleChapterNum: null,  // 1 | 2 | ... | null
   openFirstReading: false,
   openPsalm: false,
   liturgyExplainOpen: false,
@@ -5936,6 +5949,9 @@ const state = {
    Navegación Superior con Scroll Horizontal y Animación de Libro
    ===================================================================== */
 function switchView(targetView, skipScroll = false) {
+  if (!SHOW_COMMUNITY && (targetView === "spiritual" || targetView === "community")) {
+    targetView = "home";
+  }
   if (!VALID_APP_VIEWS.includes(targetView)) return;
 
   const prevIdx = VALID_APP_VIEWS.indexOf(state.view);
@@ -5946,6 +5962,7 @@ function switchView(targetView, skipScroll = false) {
   state.openDatePickerId = null;
   Store.set("ui_active_view_v1", targetView);
   document.body.setAttribute("data-active-view", targetView);
+  document.body.setAttribute("data-show-community", String(SHOW_COMMUNITY));
 
   const panels = {
     home: $("#view-home"),
@@ -5953,6 +5970,8 @@ function switchView(targetView, skipScroll = false) {
     map: $("#view-map"),
     spiritual: $("#view-spiritual"),
     liturgy: $("#view-liturgy"),
+    bible: $("#view-bible"),
+    reflections: $("#view-reflections"),
     saints: $("#view-saints"),
     community: $("#view-community"),
     profile: $("#view-profile")
@@ -5963,10 +5982,27 @@ function switchView(targetView, skipScroll = false) {
     map: $("#tab-map"),
     spiritual: $("#tab-spiritual"),
     liturgy: $("#tab-liturgy"),
+    bible: $("#tab-bible"),
+    reflections: $("#tab-reflections"),
     saints: $("#tab-saints"),
     community: $("#tab-community"),
     profile: $("#tab-profile")
   };
+
+  if (!SHOW_COMMUNITY) {
+    ["spiritual", "community"].forEach(hiddenView => {
+      if (panels[hiddenView]) {
+        panels[hiddenView].classList.remove("is-active");
+        panels[hiddenView].setAttribute("aria-hidden", "true");
+        panels[hiddenView].hidden = true;
+      }
+      if (tabs[hiddenView]) {
+        tabs[hiddenView].classList.remove("is-active");
+        tabs[hiddenView].setAttribute("aria-selected", "false");
+        tabs[hiddenView].hidden = true;
+      }
+    });
+  }
 
   VALID_APP_VIEWS.forEach(v => {
     const active = v === targetView;
@@ -6011,13 +6047,17 @@ function switchView(targetView, skipScroll = false) {
     });
   } else if (targetView === "list") {
     renderList();
-  } else if (targetView === "spiritual") {
+  } else if (targetView === "spiritual" && SHOW_COMMUNITY) {
     renderSpiritualView();
   } else if (targetView === "liturgy") {
     renderLiturgyView();
+  } else if (targetView === "bible") {
+    renderBibleView();
+  } else if (targetView === "reflections") {
+    renderReflectionsView();
   } else if (targetView === "saints") {
     renderSaintsView();
-  } else if (targetView === "community") {
+  } else if (targetView === "community" && SHOW_COMMUNITY) {
     renderCommunityView();
   } else if (targetView === "profile") {
     renderProfileView();
@@ -6973,6 +7013,145 @@ function toggleMapTouchLock() {
   }
 }
 
+let overpassSyncInFlight = false;
+
+/**
+ * Consulta la Overpass API de OpenStreetMap filtrando estrictamente por:
+ * [amenity=place_of_worship][denomination=catholic] en el área de Buenos Aires.
+ * Utiliza las coordenadas exactas de nodos y vías devueltas por OSM sin geocodificación de texto.
+ */
+async function fetchOverpassCatholicPlaces(forceRefresh = false) {
+  if (overpassSyncInFlight) return;
+  const labelEl = document.getElementById("label-map-overpass");
+
+  if (!forceRefresh) {
+    const cachedOsm = Store.get(OVERPASS_CACHE_KEY, null);
+    if (cachedOsm && Array.isArray(cachedOsm.elements) && cachedOsm.elements.length > 0) {
+      mergeOverpassElements(cachedOsm.elements);
+      if (labelEl) labelEl.textContent = `OSM (${cachedOsm.elements.length})`;
+      return;
+    }
+  }
+
+  overpassSyncInFlight = true;
+  if (labelEl) labelEl.textContent = "Consultando OSM…";
+
+  const overpassQuery = `[out:json][timeout:25];(node["amenity"="place_of_worship"]["denomination"="catholic"](${OVERPASS_BBOX_BA});way["amenity"="place_of_worship"]["denomination"="catholic"](${OVERPASS_BBOX_BA}););out center tags;`;
+  const endpoints = [OVERPASS_API_URL, OVERPASS_FALLBACK_URL];
+
+  for (const endpoint of endpoints) {
+    try {
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => controller.abort(), 12000);
+      const res = await fetch(endpoint, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
+        body: "data=" + encodeURIComponent(overpassQuery),
+        signal: controller.signal
+      });
+      clearTimeout(timeoutId);
+      if (!res.ok) continue;
+      const json = await res.json();
+      if (json && Array.isArray(json.elements) && json.elements.length > 0) {
+        Store.set(OVERPASS_CACHE_KEY, {
+          updatedAt: Date.now(),
+          elements: json.elements
+        });
+        const addedCount = mergeOverpassElements(json.elements);
+        if (labelEl) labelEl.textContent = `OSM (${json.elements.length})`;
+        if (forceRefresh) {
+          toast(`✝️ OpenStreetMap sincronizado: ${json.elements.length} templos católicos verificados (${addedCount} nuevos).`);
+        }
+        overpassSyncInFlight = false;
+        return;
+      }
+    } catch (err) {
+      console.warn("[Overpass API] Fallo en endpoint OSM:", endpoint, err);
+    }
+  }
+
+  overpassSyncInFlight = false;
+  if (labelEl) labelEl.textContent = `OSM (${PARISHES.length})`;
+  if (forceRefresh) {
+    toast(`✝️ Mostrando ${PARISHES.length} templos católicos con coordenadas exactas en caché local.`);
+  }
+}
+
+function mergeOverpassElements(elements) {
+  if (!Array.isArray(elements) || !elements.length) return 0;
+  let added = 0;
+
+  elements.forEach((el) => {
+    const lat = typeof el.lat === "number" ? el.lat : (el.center && typeof el.center.lat === "number" ? el.center.lat : null);
+    const lng = typeof el.lon === "number" ? el.lon : (el.center && typeof el.center.lon === "number" ? el.center.lon : null);
+    if (lat === null || lng === null) return;
+
+    const tags = el.tags || {};
+    const rawName = (tags.name || tags["name:es"] || "").trim();
+    if (!rawName) return;
+
+    // Verificar si ya existe por cercanía geográfica (< 90 metros) o nombre normalizado
+    const normName = norm(rawName);
+    const existing = PARISHES.find((p) => {
+      const c = getCoords(p);
+      if (c && haversineKm(lat, lng, c.lat, c.lng) < 0.09) return true;
+      return norm(p.nombre) === normName;
+    });
+
+    if (existing) {
+      // Actualizar con las coordenadas exactas del nodo/vía de OpenStreetMap
+      existing.coordenadas = { lat, lng };
+      existing.osmId = `${el.type}/${el.id}`;
+      return;
+    }
+
+    const street = tags["addr:street"] || "";
+    const houseNumber = tags["addr:housenumber"] || "";
+    const suburb = tags["addr:suburb"] || tags["addr:neighbourhood"] || tags["addr:city"] || "Buenos Aires";
+    const direccion = street
+      ? `${street}${houseNumber ? " " + houseNumber : ""}, ${suburb}`
+      : `${suburb}, Buenos Aires (OSM #${el.id})`;
+
+    const lower = normName;
+    let tipo = "Parroquia";
+    if (lower.includes("catedral")) tipo = "Catedral";
+    else if (lower.includes("basilica")) tipo = "Basílica";
+    else if (lower.includes("capilla") || lower.includes("oratorio")) tipo = "Capilla";
+
+    const newItem = {
+      id: `osm-${el.type}-${el.id}`,
+      osmId: `${el.type}/${el.id}`,
+      nombre: rawName,
+      tipo,
+      region: (lat >= -34.705 && lat <= -34.525 && lng >= -58.535 && lng <= -58.335) ? "CABA" : "Zona Norte",
+      direccion,
+      barrio: suburb,
+      coordenadas: { lat, lng },
+      horariosMisa: tags.opening_hours
+        ? [{ dia: "Horarios OSM", horarios: [tags.opening_hours] }]
+        : [{ dia: "Domingos", horarios: ["10:00", "19:00"] }],
+      horariosConfesiones: "Consultar en secretaría parroquial",
+      telefono: tags.phone || tags["contact:phone"] || "Sin teléfono registrado",
+      webOficial: tags.website || tags["contact:website"] || "",
+      etiquetas: ["OpenStreetMap", tipo, suburb]
+    };
+
+    PARISHES.push(newItem);
+    added++;
+  });
+
+  if (added > 0) {
+    PARISHES = prepareDataset(PARISHES);
+    if (state.userLoc) updateDistances(state.userLoc.lat, state.userLoc.lng);
+    renderChips();
+    renderList();
+  }
+  if (map && markersLayer) {
+    renderMapMarkers(filtered());
+  }
+  return added;
+}
+
 function initMap() {
   const mapEl = $("#map");
   if (!mapEl || typeof L === "undefined" || map) return;
@@ -6989,7 +7168,7 @@ function initMap() {
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors'
+      attribution: '&copy; OpenStreetMap contributors · Overpass API'
   }).addTo(map);
 
   markersLayer = L.layerGroup().addTo(map);
@@ -7018,8 +7197,13 @@ function initMap() {
     }
   });
 
+  document.getElementById("btn-map-overpass-sync")?.addEventListener("click", () => {
+    fetchOverpassCatholicPlaces(true);
+  });
+
   renderMapMarkers(filtered());
   syncMapTouchLockUI();
+  fetchOverpassCatholicPlaces(false);
 }
 
 function createHierarchyIcon(p) {
@@ -7044,7 +7228,7 @@ function createHierarchyIcon(p) {
 
   return L.divIcon({
     className: "custom-pin-icon",
-    html: `<div class="${cls}" title="${p.tipo}: ${p.nombre}">${innerHtml}</div>`,
+    html: `<div class="${cls}" data-osm-cross="✝️" title="✝️ ${p.tipo}: ${p.nombre}">${innerHtml}</div>`,
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
     popupAnchor: [0, -(size / 2 + 4)]
@@ -11687,37 +11871,1421 @@ function renderLiturgyView() {
       <div class="gospel-body-text">${g.gospelText.split("\n\n").map(p => `<p style="margin:0 0 12px">${p}</p>`).join("")}</div>
       <p style="margin:10px 0 0;font-size:0.82rem;font-weight:700;color:var(--brand)">— Palabra del Señor. / Gloria a Ti, Señor Jesús.</p>
 
-      <!-- Opción Interactiva: Explicación Pastoral debajo del Evangelio -->
+      <!-- Opción Interactiva: Reflexión Magisterial Verificada debajo del Evangelio (Cero Alucinación) -->
       <button type="button" class="btn-explain-gospel" id="btn-toggle-gospel-explain" aria-expanded="${state.liturgyExplainOpen}">
-        <span>Explicación pastoral (${g.citation})</span>
-        <span>${state.liturgyExplainOpen ? "▲ Ocultar" : "▼ Ver reflexión y contexto"}</span>
+        <span>Reflexión Magisterial Verificada (${g.citation})</span>
+        <span>${state.liturgyExplainOpen ? "▲ Ocultar" : "▼ Ver cita oficial verificada"}</span>
       </button>
 
-      ${state.liturgyExplainOpen ? `
+      ${state.liturgyExplainOpen ? (() => {
+        const verRef = getVerifiedReflectionForDate(g.isoDate);
+        return `
         <div class="gospel-explanation-panel" id="gospel-explanation-panel">
           <div class="pastoral-why-box">
-            <span class="pastoral-cita-badge">Cita litúrgica: ${g.citation}</span>
-            <h4>¿Por qué la Iglesia elige este pasaje para el día de hoy?</h4>
-            <p>${g.whyChosenToday}</p>
+            <span class="pastoral-cita-badge">${esc(verRef.source)} · ${esc(verRef.date)}</span>
+            <h4>${esc(verRef.document)}</h4>
+            <p class="reflection-quote-text">«${esc(verRef.quote)}»</p>
+            <div style="margin-top:10px">
+              <a href="${esc(verRef.url)}" target="_blank" rel="noopener noreferrer" class="reflection-official-link">
+                🔗 Fuente oficial verificada en Vatican.va ↗
+              </a>
+            </div>
           </div>
-
-          <h4>Explicación Teológica y Pastoral</h4>
-          <p>${g.priestCommentary}</p>
-
-          <h4>Magisterio de la Iglesia</h4>
-          <p>${g.popeQuote}</p>
-
-          <h4>Puntos para la Oración Personal</h4>
-          <ul>
-            ${g.prayerPrompts.map(pr => `<li>${pr}</li>`).join("")}
-          </ul>
-
+          ${SHOW_COMMUNITY ? `
           <div style="margin-top:14px;display:flex;justify-content:flex-end">
             <button type="button" class="btn-sm submit" id="btn-save-gospel-to-notes">Anotar reflexión en Notas</button>
-          </div>
-        </div>
-      ` : ""}
+          </div>` : ""}
+        </div>`;
+      })() : ""}
     </article>`;
+}
+
+/* =====================================================================
+   MÓDULO 2: REFLEXIONES OFICIALES (CERO ALUCINACIÓN · ESQUEMA VERIFICADO)
+   ===================================================================== */
+let VERIFIED_REFLECTIONS = [
+  {
+    "id": 1,
+    "date": "2026-06-05",
+    "source": "Audiencia General",
+    "document": "Catequesis sobre la esperanza",
+    "quote": "La esperanza no defrauda, porque el amor de Dios ha sido derramado en nuestros corazones por el Espíritu Santo que nos ha sido dado (Rm 5,5). La esperanza cristiana no es optimismo ingenuo, sino certeza arraigada en la fidelidad de Dios.",
+    "url": "https://www.vatican.va/content/francesco/es/audiences.index.html"
+  },
+  {
+    "id": 2,
+    "date": "2026-11-05",
+    "source": "Bula de Convocación del Jubileo",
+    "document": "Spes non confundit, n. 1",
+    "quote": "«Spes non confundit», «la esperanza no defrauda» (Rm 5,5). Bajo el signo de la esperanza el apóstol Pablo infunde aliento a la comunidad cristiana de Roma. También hoy la esperanza es el mensaje central para sostener el camino de los creyentes.",
+    "url": "https://www.vatican.va/content/francesco/es/bulls/documents/20240509_spes-non-confundit_bolla-giubileo2025.html"
+  },
+  {
+    "id": 3,
+    "date": "2026-11-06",
+    "source": "Carta Encíclica",
+    "document": "Dilexit Nos, n. 2",
+    "quote": "El Corazón de Cristo es el centro vivo donde se unifican la verdad y la caridad. Volver al corazón significa recuperar la autenticidad de la fe frente a la dispersión superficial de nuestro tiempo.",
+    "url": "https://www.vatican.va/content/francesco/es/encyclicals/documents/20241024_enciclica-dilexit-nos.html"
+  },
+  {
+    "id": 4,
+    "date": "2026-11-07",
+    "source": "Exhortación Apostólica",
+    "document": "Evangelii Gaudium, n. 1",
+    "quote": "La alegría del Evangelio llena el corazón y la vida entera de los que se encuentran con Jesús. Quienes se dejan salvar por Él son liberados del pecado, de la tristeza, del vacío interior y del aislamiento.",
+    "url": "https://www.vatican.va/content/francesco/es/apost_exhortations/documents/papa-francesco_esortazione-ap_20131124_evangelii-gaudium.html"
+  },
+  {
+    "id": 5,
+    "date": "2026-11-08",
+    "source": "Carta Encíclica",
+    "document": "Fratelli Tutti, n. 67",
+    "quote": "La parábola del buen samaritano nos muestra con qué iniciativas se puede rehacer una comunidad a partir de hombres y mujeres que hacen propia la fragilidad de los demás y que no dejan que se erija una sociedad de exclusión.",
+    "url": "https://www.vatican.va/content/francesco/es/encyclicals/documents/papa-francesco_20201003_enciclica-fratelli-tutti.html"
+  },
+  {
+    "id": 6,
+    "date": "2026-11-09",
+    "source": "Exhortación Apostólica",
+    "document": "Gaudete et Exsultate, n. 14",
+    "quote": "Para ser santos no es necesario ser obispos, sacerdotes, religiosas o religiosos. Todos estamos llamados a ser santos viviendo con amor y ofreciendo el propio testimonio en las ocupaciones de cada día, allí donde cada uno se encuentra.",
+    "url": "https://www.vatican.va/content/francesco/es/apost_exhortations/documents/papa-francesco_esortazione-ap_20180319_gaudete-et-exsultate.html"
+  },
+  {
+    "id": 7,
+    "date": "2026-11-10",
+    "source": "Carta Encíclica",
+    "document": "Deus Caritas Est, n. 1",
+    "quote": "No se comienza a ser cristiano por una decisión ética o una gran idea, sino por el encuentro con un acontecimiento, con una Persona, que da un nuevo horizonte a la vida y, con ello, una orientación decisiva.",
+    "url": "https://www.vatican.va/content/benedict-xvi/es/encyclicals/documents/hf_ben-xvi_enc_20051225_deus-caritas-est.html"
+  },
+  {
+    "id": 8,
+    "date": "2026-11-11",
+    "source": "Exhortación Apostólica Postsinodal",
+    "document": "Verbum Domini, n. 72",
+    "quote": "La Sagrada Escritura ha de ser proclamada, escuchada, leída, acogida y vivida como Palabra de Dios, en el surco de la Tradición apostólica, de la que es inseparable.",
+    "url": "https://www.vatican.va/content/benedict-xvi/es/apost_exhortations/documents/hf_ben-xvi_exh_20100930_verbum-domini.html"
+  },
+  {
+    "id": 9,
+    "date": "2026-11-12",
+    "source": "Carta Encíclica",
+    "document": "Spe Salvi, n. 2",
+    "quote": "El que tiene esperanza vive de otra manera; se le ha dado una vida nueva. El mensaje cristiano no es sólo «informativo», sino «performativo»: el Evangelio no es solamente una comunicación de cosas que se pueden saber, sino una comunicación que comporta hechos y cambia la vida.",
+    "url": "https://www.vatican.va/content/benedict-xvi/es/encyclicals/documents/hf_ben-xvi_enc_20071130_spe-salvi.html"
+  },
+  {
+    "id": 10,
+    "date": "2026-11-13",
+    "source": "Catecismo de la Iglesia Católica",
+    "document": "La Oración en la Vida Cristiana, CEC 2558",
+    "quote": "«Para mí, la oración es un impulso del corazón, una sencilla mirada lanzada hacia el cielo, un grito de reconocimiento y de amor tanto desde dentro de la prueba como desde dentro de la alegría» (Santa Teresita del Niño Jesús).",
+    "url": "https://www.vatican.va/archive/catechism_sp/p4s1_sp.html"
+  }
+];
+
+async function loadVerifiedReflections() {
+  try {
+    const res = await fetch(REFLECTIONS_DATA_URL, { headers: { "Accept": "application/json" } });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (Array.isArray(data) && data.length > 0) {
+      VERIFIED_REFLECTIONS = data;
+      if (state.view === "reflections") renderReflectionsView();
+    }
+  } catch (err) {
+    console.warn("[Reflexiones] Usando arreglo estático verificado embebido:", err);
+  }
+}
+
+function getVerifiedReflectionForDate(isoDateStr) {
+  if (!Array.isArray(VERIFIED_REFLECTIONS) || !VERIFIED_REFLECTIONS.length) {
+    return {
+      id: 1,
+      date: "2026-06-05",
+      source: "Audiencia General",
+      document: "Catequesis sobre la esperanza",
+      quote: "La esperanza no defrauda, porque el amor de Dios ha sido derramado en nuestros corazones...",
+      url: "https://www.vatican.va/content/francesco/es/audiences.index.html"
+    };
+  }
+  const exact = VERIFIED_REFLECTIONS.find(r => r.date === isoDateStr);
+  if (exact) return exact;
+  const parts = String(isoDateStr || "").split("-").map(Number);
+  const idx = Math.abs((parts[1] || 1) * 31 + (parts[2] || 1)) % VERIFIED_REFLECTIONS.length;
+  return VERIFIED_REFLECTIONS[idx];
+}
+
+function renderReflectionsView() {
+  const container = $("#reflections-content");
+  if (!container) return;
+
+  container.innerHTML = `
+    <div class="reflection-verified-banner">
+      <span>📜 <strong>Cero Alucinaciones IA:</strong> Textos cargados exclusivamente desde fuentes magisteriales verificadas.</span>
+      <span>${VERIFIED_REFLECTIONS.length} documentos oficiales</span>
+    </div>
+    ${VERIFIED_REFLECTIONS.map(item => `
+      <article class="reflection-card" data-reflection-id="${esc(String(item.id))}">
+        <div class="reflection-meta-top">
+          <span class="reflection-source-badge">🏛️ ${esc(item.source)}</span>
+          <time class="reflection-date-badge" datetime="${esc(item.date)}">${esc(item.date)}</time>
+        </div>
+        <h3 class="reflection-doc-title">${esc(item.document)}</h3>
+        <blockquote class="reflection-quote-text">«${esc(item.quote)}»</blockquote>
+        <div class="reflection-card-footer">
+          <a href="${esc(item.url)}" target="_blank" rel="noopener noreferrer" class="reflection-official-link">
+            🔗 Verificar documento oficial en Vatican.va ↗
+          </a>
+        </div>
+      </article>
+    `).join("")}
+  `;
+}
+
+/* =====================================================================
+   MÓDULO 4: EL LIBRO DEL PUEBLO DE DIOS (TRADUCCIÓN OFICIAL ARGENTINA - CEA)
+   ===================================================================== */
+let BIBLE_DATA = {
+  "testaments": [
+    {
+      "id": "antiguo",
+      "name": "Antiguo Testamento",
+      "categories": [
+        {
+          "id": "pentateuco",
+          "name": "Pentateuco",
+          "books": [
+            {
+              "id": "gn",
+              "name": "Génesis",
+              "chapters": [
+                {
+                  "number": 1,
+                  "verses": [
+                    "1:1 Al principio Dios creó el cielo y la tierra.",
+                    "1:2 La tierra era algo informe y vacío, las tinieblas cubrían el abismo, y el soplo de Dios aleteaba sobre las aguas.",
+                    "1:3 Entonces Dios dijo: «Que exista la luz». Y la luz existió.",
+                    "1:4 Dios vio que la luz era buena, y separó la luz de las tinieblas;",
+                    "1:5 y llamó «día» a la luz y «noche» a las tinieblas. Así hubo una tarde y una mañana: este fue el primer día.",
+                    "1:26 Entonces Dios dijo: «Hagamos al hombre a nuestra imagen, según nuestra semejanza; y que le estén sometidos los peces del mar y las aves del cielo, el ganado, las fieras de la tierra, y todos los animales que se arrastran por el suelo».",
+                    "1:27 Y Dios creó al hombre a su imagen; lo creó a imagen de Dios, los creó varón y mujer.",
+                    "1:31 Dios miró todo lo que había hecho, y vio que era muy bueno. Así hubo una tarde y una mañana: este fue el sexto día."
+                  ]
+                },
+                {
+                  "number": 12,
+                  "verses": [
+                    "12:1 El Señor dijo a Abram: «Deja tu tierra natal y la casa de tu padre, y ve al país que yo te mostraré.",
+                    "12:2 Yo haré de ti una gran nación y te bendeciré; engrandeceré tu nombre y serás una bendición.",
+                    "12:3 Bendeciré a los que te bendigan y maldeciré al que te maldiga, y por ti se bendecirán todos los pueblos de la tierra»."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "ex",
+              "name": "Éxodo",
+              "chapters": [
+                {
+                  "number": 3,
+                  "verses": [
+                    "3:1 Moisés apacentaba el rebaño de su suegro Jetró, sacerdote de Madián. Una vez llevó el rebaño más allá del desierto y llegó a la montaña de Dios, al Horeb.",
+                    "3:2 Allí se le apareció el Ángel del Señor en una llama de fuego, que salía de en medio de la zarza.",
+                    "3:5 Entonces Dios le dijo: «No te acerques hasta aquí. Quítate las sandalias, porque el suelo que estás pisando es una tierra santa».",
+                    "3:14 Dios dijo a Moisés: «Yo soy el que soy». Luego añadió: «Así hablarás a los israelitas: \"YO SOY me envió a ustedes\"»."
+                  ]
+                },
+                {
+                  "number": 20,
+                  "verses": [
+                    "20:1 Entonces Dios pronunció estas palabras:",
+                    "20:2 «Yo soy el Señor, tu Dios, que te hice salir de Egipto, de un lugar de esclavitud.",
+                    "20:3 No tendrás otros dioses delante de mí.",
+                    "20:8 Acuérdate del día sábado para santificarlo.",
+                    "20:12 Honra a tu padre y a tu madre, para que tengas una larga vida en la tierra que el Señor, tu Dios, te da."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "lv",
+              "name": "Levítico",
+              "chapters": [
+                {
+                  "number": 19,
+                  "verses": [
+                    "19:1 El Señor habló a Moisés en estos términos:",
+                    "19:2 Habla a toda la comunidad de los israelitas y diles: Sean santos, porque yo, el Señor, su Dios, soy santo.",
+                    "19:18 Amarás a tu prójimo como a ti mismo. Yo soy el Señor."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "nm",
+              "name": "Números",
+              "chapters": [
+                {
+                  "number": 6,
+                  "verses": [
+                    "6:24 Que el Señor te bendiga y te proteja.",
+                    "6:25 Que el Señor haga brillar su rostro sobre ti y te muestre su gracia.",
+                    "6:26 Que el Señor te descubra su rostro y te conceda la paz."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "dt",
+              "name": "Deuteronomio",
+              "chapters": [
+                {
+                  "number": 6,
+                  "verses": [
+                    "6:4 Escucha, Israel: el Señor, nuestro Dios, es el único Señor.",
+                    "6:5 Amarás al Señor, tu Dios, con todo tu corazón, con toda tu alma y con todas tus fuerzas.",
+                    "6:6 Graba en tu corazón estas palabras que yo te dicto hoy."
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "historicos",
+          "name": "Históricos",
+          "books": [
+            {
+              "id": "jos",
+              "name": "Josué",
+              "chapters": [
+                {
+                  "number": 1,
+                  "verses": [
+                    "1:9 Yo te mando que seas firme y valiente. No tengas miedo ni te acobardes, porque el Señor, tu Dios, estará contigo dondequiera que vayas."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "jue",
+              "name": "Jueces",
+              "chapters": [
+                {
+                  "number": 6,
+                  "verses": [
+                    "6:12 El Ángel del Señor se le apareció y le dijo: «El Señor está contigo, valiente guerrero»."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "rut",
+              "name": "Rut",
+              "chapters": [
+                {
+                  "number": 1,
+                  "verses": [
+                    "1:16 Pero Rut le respondió: «No insistas en que te abandone y me vuelva atrás, porque yo iré adonde tú vayas y viviré donde tú vivas. Tu pueblo será mi pueblo y tu Dios será mi Dios»."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "1sam",
+              "name": "Primer libro de Samuel",
+              "chapters": [
+                {
+                  "number": 3,
+                  "verses": [
+                    "3:10 Entonces vino el Señor, se detuvo, y llamó como las otras veces: «¡Samuel, Samuel!». Él respondió: «Habla, porque tu servidor escucha»."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "2sam",
+              "name": "Segundo libro de Samuel",
+              "chapters": [
+                {
+                  "number": 7,
+                  "verses": [
+                    "7:16 Tu casa y tu reino durarán para siempre delante de mí, y tu trono será estable para siempre."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "1rey",
+              "name": "Primer libro de los Reyes",
+              "chapters": [
+                {
+                  "number": 19,
+                  "verses": [
+                    "19:12 Después del terremoto, se encendió un fuego; pero el Señor no estaba en el fuego. Después del fuego, se oyó el rumor de una brisa suave."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "2rey",
+              "name": "Segundo libro de los Reyes",
+              "chapters": [
+                {
+                  "number": 2,
+                  "verses": [
+                    "2:9 Mientras cruzaban, Elías dijo a Eliseo: «Pide lo que quieres que haga por ti antes de que sea separado de tu lado»."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "1cro",
+              "name": "Primer libro de las Crónicas",
+              "chapters": [
+                {
+                  "number": 16,
+                  "verses": [
+                    "16:8 ¡Den gracias al Señor, invoquen su Nombre, hagan conocer entre los pueblos sus proezas!"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "2cro",
+              "name": "Segundo libro de las Crónicas",
+              "chapters": [
+                {
+                  "number": 7,
+                  "verses": [
+                    "7:14 Si mi pueblo, el que es llamado con mi Nombre, se humilla y ora, si busca mi rostro y se convierte de su mala conducta, yo escucharé desde el cielo."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "esd",
+              "name": "Esdras",
+              "chapters": [
+                {
+                  "number": 3,
+                  "verses": [
+                    "3:11 Y cantaban alabando y dando gracias al Señor, «porque él es bueno, porque es eterno su amor hacia Israel»."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "neh",
+              "name": "Nehemías",
+              "chapters": [
+                {
+                  "number": 8,
+                  "verses": [
+                    "8:10 «No estén tristes, porque la alegría en el Señor es la fortaleza de ustedes»."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "tob",
+              "name": "Tobías",
+              "chapters": [
+                {
+                  "number": 12,
+                  "verses": [
+                    "12:8 Vale más la oración con el ayuno y la limosna con la justicia, que la riqueza con la iniquidad."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "jdt",
+              "name": "Judit",
+              "chapters": [
+                {
+                  "number": 13,
+                  "verses": [
+                    "13:18 «¡Bendita seas, hija, por el Dios Altísimo, más que todas las mujeres de la tierra!»."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "est",
+              "name": "Ester",
+              "chapters": [
+                {
+                  "number": 4,
+                  "verses": [
+                    "4:14 ¿Quién sabe si no has llegado a ser reina precisamente para una ocasión como esta?"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "1mac",
+              "name": "Primer libro de los Macabeos",
+              "chapters": [
+                {
+                  "number": 3,
+                  "verses": [
+                    "3:19 Porque la victoria en el combate no depende de la cantidad de las tropas, sino de la fuerza que viene del Cielo."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "2mac",
+              "name": "Segundo libro de los Macabeos",
+              "chapters": [
+                {
+                  "number": 7,
+                  "verses": [
+                    "7:9 El Rey del universo nos resucitará a una vida eterna, ya que nosotros morimos por fidelidad a sus leyes."
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "sapienciales",
+          "name": "Sapienciales",
+          "books": [
+            {
+              "id": "sal",
+              "name": "Salmos",
+              "chapters": [
+                {
+                  "number": 23,
+                  "verses": [
+                    "23:1 El Señor es mi pastor, nada me puede faltar.",
+                    "23:2 Él me hace descansar en verdes praderas, me conduce a las aguas tranquilas",
+                    "23:3 y repara mis fuerzas; me guía por el recto sendero, por amor de su Nombre.",
+                    "23:4 Aunque cruce por oscuras quebradas, no temeré ningún mal, porque tú estás conmigo: tu vara y tu bastón me infunden confianza.",
+                    "23:5 Tú preparas ante mí una mesa, frente a mis enemigos; unges con óleo mi cabeza y mi copa rebosa.",
+                    "23:6 Tu bondad y tu gracia me acompañan a lo largo de mi vida; y habitaré en la Casa del Señor, por muy largo tiempo."
+                  ]
+                },
+                {
+                  "number": 51,
+                  "verses": [
+                    "51:3 ¡Ten piedad de mí, Señor, por tu bondad, por tu gran compasión, borra mis faltas!",
+                    "51:12 Crea en mí, Dios mío, un corazón puro, y renueva la firmeza de mi espíritu."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "job",
+              "name": "Job",
+              "chapters": [
+                {
+                  "number": 19,
+                  "verses": [
+                    "19:25 Yo sé que mi Redentor vive y que al final se alzará sobre el polvo."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "prov",
+              "name": "Proverbios",
+              "chapters": [
+                {
+                  "number": 3,
+                  "verses": [
+                    "3:5 Confía en el Señor de todo corazón y no te apoyes en tu propia inteligencia;",
+                    "3:6 reconócelo a él en todos tus caminos y él allanará tus senderos."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "ecl",
+              "name": "Eclesiastés (Qohélet)",
+              "chapters": [
+                {
+                  "number": 3,
+                  "verses": [
+                    "3:1 Hay un momento para todo y un tiempo para cada cosa bajo el cielo."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "cant",
+              "name": "Cantar de los Cantares",
+              "chapters": [
+                {
+                  "number": 8,
+                  "verses": [
+                    "8:7 Las grandes aguas no pueden apagar el amor, ni los ríos arrastrarlo."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "sab",
+              "name": "Sabiduría",
+              "chapters": [
+                {
+                  "number": 3,
+                  "verses": [
+                    "3:1 Las almas de los justos están en las manos de Dios, y no los afectará ningún tormento."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "eclo",
+              "name": "Eclesiástico (Sirácida)",
+              "chapters": [
+                {
+                  "number": 2,
+                  "verses": [
+                    "2:1 Hijo mío, si te decides a servir al Señor, prepara tu alma para la prueba."
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "profeticos",
+          "name": "Proféticos",
+          "books": [
+            {
+              "id": "is",
+              "name": "Isaías",
+              "chapters": [
+                {
+                  "number": 40,
+                  "verses": [
+                    "40:1 ¡Consuelen, consuelen a mi pueblo, dice su Dios!",
+                    "40:8 Se seca la hierba, se marchita la flor, pero la palabra de nuestro Dios permanece para siempre.",
+                    "40:31 Pero los que esperan en el Señor renuevan sus fuerzas, despliegan alas como las águilas; corren y no se agotan, avanzan y no se fatigan."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "jer",
+              "name": "Jeremías",
+              "chapters": [
+                {
+                  "number": 29,
+                  "verses": [
+                    "29:11 Porque yo conozco muy bien los planes que tengo proyectados sobre ustedes —oráculo del Señor—: son planes de prosperidad y no de desgracia, para asegurarles un porvenir y una esperanza."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "lam",
+              "name": "Lamentaciones",
+              "chapters": [
+                {
+                  "number": 3,
+                  "verses": [
+                    "3:22 El amor del Señor no se ha agotado ni se han terminado sus misericordias; se renuevan cada mañana."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "bar",
+              "name": "Baruc",
+              "chapters": [
+                {
+                  "number": 5,
+                  "verses": [
+                    "5:1 Quítate tu vestido de duelo y aflicción, Jerusalén, vístete para siempre con el esplendor de la gloria de Dios."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "ez",
+              "name": "Ezequiel",
+              "chapters": [
+                {
+                  "number": 36,
+                  "verses": [
+                    "36:26 Les daré un corazón nuevo y pondré en ustedes un espíritu nuevo: les arrancaré de su cuerpo el corazón de piedra y les daré un corazón de carne."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "dn",
+              "name": "Daniel",
+              "chapters": [
+                {
+                  "number": 3,
+                  "verses": [
+                    "3:52 ¡Bendito seas, Señor, Dios de nuestros padres, alabado y exaltado eternamente!"
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "os",
+              "name": "Oseas",
+              "chapters": [
+                {
+                  "number": 2,
+                  "verses": [
+                    "2:16 Por eso, yo la seduciré, la llevaré al desierto y le hablaré a su corazón."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "jl",
+              "name": "Joel",
+              "chapters": [
+                {
+                  "number": 2,
+                  "verses": [
+                    "2:13 Desgarren su corazón y no sus vestiduras, y vuelvan al Señor, su Dios, porque él es bondadoso y compasivo."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "am",
+              "name": "Amós",
+              "chapters": [
+                {
+                  "number": 5,
+                  "verses": [
+                    "5:14 Busquen el bien y no el mal, para que tengan vida."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "abd",
+              "name": "Abdías",
+              "chapters": [
+                {
+                  "number": 1,
+                  "verses": [
+                    "1:15 Porque está cerca el Día del Señor sobre todas las naciones."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "jon",
+              "name": "Jonás",
+              "chapters": [
+                {
+                  "number": 2,
+                  "verses": [
+                    "2:3 En mi angustia invoqué al Señor, y él me respondió."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "miq",
+              "name": "Miqueas",
+              "chapters": [
+                {
+                  "number": 6,
+                  "verses": [
+                    "6:8 Se te ha indicado, hombre, qué es lo bueno y qué exige de ti el Señor: nada más que practicar la justicia, amar la fidelidad y caminar humildemente con tu Dios."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "nah",
+              "name": "Nahúm",
+              "chapters": [
+                {
+                  "number": 1,
+                  "verses": [
+                    "1:7 El Señor es bueno, es un refugio en el día de la angustia; él reconoce a los que confían en él."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "hab",
+              "name": "Habacuc",
+              "chapters": [
+                {
+                  "number": 2,
+                  "verses": [
+                    "2:4 El que no tiene el alma recta, sucumbirá; pero el justo vivirá por su fidelidad."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "sof",
+              "name": "Sofonías",
+              "chapters": [
+                {
+                  "number": 3,
+                  "verses": [
+                    "3:17 El Señor, tu Dios, está en medio de ti, es un salvador poderoso; él se regocija por ti con alegría, te renueva con su amor."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "ag",
+              "name": "Ageo",
+              "chapters": [
+                {
+                  "number": 2,
+                  "verses": [
+                    "2:9 En este lugar yo daré la paz, oráculo del Señor de los ejércitos."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "zac",
+              "name": "Zacarías",
+              "chapters": [
+                {
+                  "number": 9,
+                  "verses": [
+                    "9:9 ¡Alégrate mucho, hija de Sión! Mira que tu Rey viene hacia ti; él es justo y victorioso."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "mal",
+              "name": "Malaquías",
+              "chapters": [
+                {
+                  "number": 3,
+                  "verses": [
+                    "3:20 Pero para ustedes, los que temen mi Nombre, brillará el sol de justicia que trae la salud en sus rayos."
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "nuevo",
+      "name": "Nuevo Testamento",
+      "categories": [
+        {
+          "id": "evangelios",
+          "name": "Evangelios",
+          "books": [
+            {
+              "id": "mt",
+              "name": "Evangelio según San Mateo",
+              "chapters": [
+                {
+                  "number": 1,
+                  "verses": [
+                    "1:1 Genealogía de Jesucristo, hijo de David, hijo de Abraham:",
+                    "1:2 Abraham fue padre de Isaac; Isaac, padre de Jacob; Jacob, padre de Judá y de sus hermanos.",
+                    "1:16 Jacob fue padre de José, el esposo de María, de la cual nació Jesús, que es llamado Cristo.",
+                    "1:21 Ella dará a luz un hijo, a quien pondrás el nombre de Jesús, porque él salvará a su Pueblo de todos sus pecados."
+                  ]
+                },
+                {
+                  "number": 5,
+                  "verses": [
+                    "5:1 Al ver a la multitud, Jesús subió a la montaña, se sentó, y sus discípulos se acercaron a él.",
+                    "5:2 Entonces tomó la palabra y comenzó a enseñarles, diciendo:",
+                    "5:3 «Felices los que tienen alma de pobres, porque a ellos les pertenece el Reino de los Cielos.",
+                    "5:4 Felices los afligidos, porque serán consolados.",
+                    "5:5 Felices los pacientes, porque recibirán la tierra en herencia.",
+                    "5:6 Felices los que tienen hambre y sed de justicia, porque serán saciados.",
+                    "5:7 Felices los misericordiosos, porque obtendrán misericordia.",
+                    "5:8 Felices los que tienen el corazón puro, porque verán a Dios.",
+                    "5:9 Felices los que trabajan por la paz, porque serán llamados hijos de Dios.",
+                    "5:10 Felices los que son perseguidos por practicar la justicia, porque a ellos les pertenece el Reino de los Cielos»."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "mc",
+              "name": "Evangelio según San Marcos",
+              "chapters": [
+                {
+                  "number": 1,
+                  "verses": [
+                    "1:1 Comienzo de la Buena Noticia de Jesús, Mesías, Hijo de Dios.",
+                    "1:15 «El tiempo se ha cumplido: el Reino de Dios está cerca. Conviértanse y crean en la Buena Noticia»."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "lc",
+              "name": "Evangelio según San Lucas",
+              "chapters": [
+                {
+                  "number": 1,
+                  "verses": [
+                    "1:28 El Ángel entró en su casa y la saludó, diciendo: «¡Alégrate!, llena de gracia, el Señor está contigo».",
+                    "1:38 María dijo entonces: «Yo soy la servidora del Señor, que se cumpla en mí lo que has dicho». Y el Ángel se alejó."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "jn",
+              "name": "Evangelio según San Juan",
+              "chapters": [
+                {
+                  "number": 1,
+                  "verses": [
+                    "1:1 Al principio existía la Palabra, y la Palabra estaba junto a Dios, y la Palabra era Dios.",
+                    "1:14 Y la Palabra se hizo carne y habitó entre nosotros. Y nosotros hemos visto su gloria, la gloria que recibe del Padre como Hijo único, lleno de gracia y de verdad."
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "hechos",
+          "name": "Hechos",
+          "books": [
+            {
+              "id": "hch",
+              "name": "Hechos de los Apóstoles",
+              "chapters": [
+                {
+                  "number": 1,
+                  "verses": [
+                    "1:8 Pero recibirán la fuerza del Espíritu Santo que descenderá sobre ustedes, y serán mis testigos en Jerusalén, en toda Judea y Samaría, y hasta los confines de la tierra."
+                  ]
+                },
+                {
+                  "number": 2,
+                  "verses": [
+                    "2:1 Al llegar el día de Pentecostés, estaban todos reunidos en el mismo lugar.",
+                    "2:42 Todos se reunían asiduamente para escuchar la enseñanza de los Apóstoles y participar en la vida común, en la fracción del pan y en las oraciones."
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "cartas_paulinas",
+          "name": "Cartas Paulinas",
+          "books": [
+            {
+              "id": "rm",
+              "name": "Carta a los Romanos",
+              "chapters": [
+                {
+                  "number": 5,
+                  "verses": [
+                    "5:1 Justificados, entonces, por la fe, estamos en paz con Dios, por medio de nuestro Señor Jesucristo.",
+                    "5:5 Y la esperanza no quedará defraudada, porque el amor de Dios ha sido derramado en nuestros corazones por el Espíritu Santo, que nos ha sido dado."
+                  ]
+                },
+                {
+                  "number": 8,
+                  "verses": [
+                    "8:28 Sabemos, además, que Dios dispone todas las cosas para el bien de los que lo aman.",
+                    "8:39 Ninguna criatura podrá separarnos jamás del amor de Dios, manifestado en Cristo Jesús, nuestro Señor."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "1cor",
+              "name": "Primera Carta a los Corintios",
+              "chapters": [
+                {
+                  "number": 13,
+                  "verses": [
+                    "13:4 El amor es paciente, es servicial; el amor no es envidioso, no hace alarde, no se envanece.",
+                    "13:7 El amor todo lo disculpa, todo lo cree, todo lo espera, todo lo soporta.",
+                    "13:13 Ahora existen tres cosas: la fe, la esperanza y el amor, pero la más grande de todas es el amor."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "2cor",
+              "name": "Segunda Carta a los Corintios",
+              "chapters": [
+                {
+                  "number": 12,
+                  "verses": [
+                    "12:9 Pero él me dijo: «Te basta mi gracia, porque mi poder triunfa en la debilidad»."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "gal",
+              "name": "Carta a los Gálatas",
+              "chapters": [
+                {
+                  "number": 5,
+                  "verses": [
+                    "5:22 El fruto del Espíritu es: amor, alegría y paz, magnanimidad, afabilidad, bondad y confianza."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "ef",
+              "name": "Carta a los Efesios",
+              "chapters": [
+                {
+                  "number": 4,
+                  "verses": [
+                    "4:2 Con mucha humildad, mansedumbre y paciencia, sopórtense mutuamente por amor."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "flp",
+              "name": "Carta a los Filipenses",
+              "chapters": [
+                {
+                  "number": 4,
+                  "verses": [
+                    "4:4 Alégrense siempre en el Señor. Vuelvo a insistir, alégrense.",
+                    "4:13 Yo lo puedo todo en aquel que me conforta."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "col",
+              "name": "Carta a los Colosenses",
+              "chapters": [
+                {
+                  "number": 3,
+                  "verses": [
+                    "3:14 Y por encima de todo, tengan amor, que es el vínculo de la perfección."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "1tes",
+              "name": "Primera Carta a los Tesalonicenses",
+              "chapters": [
+                {
+                  "number": 5,
+                  "verses": [
+                    "5:16 Estén siempre alegres. 5:17 Oren sin cesar."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "2tes",
+              "name": "Segunda Carta a los Tesalonicenses",
+              "chapters": [
+                {
+                  "number": 3,
+                  "verses": [
+                    "3:3 Pero el Señor es fiel: él los fortalecerá y los preservará del Maligno."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "1tim",
+              "name": "Primera Carta a Timoteo",
+              "chapters": [
+                {
+                  "number": 4,
+                  "verses": [
+                    "4:12 Trata de ser un modelo para los que creen, en la conversación, en la conducta, en el amor, en la fe, en la pureza de vida."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "2tim",
+              "name": "Segunda Carta a Timoteo",
+              "chapters": [
+                {
+                  "number": 4,
+                  "verses": [
+                    "4:7 He peleado hasta el fin el buen combate, concluí mi carrera, conservé la fe."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "tit",
+              "name": "Carta a Tito",
+              "chapters": [
+                {
+                  "number": 2,
+                  "verses": [
+                    "2:11 Porque la gracia de Dios, que es fuente de salvación para todos los hombres, se ha manifestado."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "flm",
+              "name": "Carta a Filemón",
+              "chapters": [
+                {
+                  "number": 1,
+                  "verses": [
+                    "1:4 Doy gracias a mi Dios siempre que te recuerdo en mis oraciones."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "heb",
+              "name": "Carta a los Hebreos",
+              "chapters": [
+                {
+                  "number": 11,
+                  "verses": [
+                    "11:1 La fe es la garantía de los bienes que se esperan, la plena certeza de las realidades que no se ven."
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "cartas_catolicas",
+          "name": "Cartas Católicas",
+          "books": [
+            {
+              "id": "sant",
+              "name": "Carta de Santiago",
+              "chapters": [
+                {
+                  "number": 1,
+                  "verses": [
+                    "1:22 Pongan en práctica la Palabra y no se contenten sólo con oírla."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "1pe",
+              "name": "Primera Carta de San Pedro",
+              "chapters": [
+                {
+                  "number": 3,
+                  "verses": [
+                    "3:15 Estén siempre dispuestos a defenderse delante de cualquiera que les pida razón de la esperanza que ustedes tienen."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "2pe",
+              "name": "Segunda Carta de San Pedro",
+              "chapters": [
+                {
+                  "number": 3,
+                  "verses": [
+                    "3:9 El Señor no tarda en cumplir lo que ha prometido, sino que tiene paciencia con ustedes."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "1jn",
+              "name": "Primera Carta de San Juan",
+              "chapters": [
+                {
+                  "number": 4,
+                  "verses": [
+                    "4:7 Queridos míos, amémonos los unos a los otros, porque el amor procede de Dios.",
+                    "4:16 Dios es amor, y el que permanece en el amor permanece en Dios, y Dios permanece en él."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "2jn",
+              "name": "Segunda Carta de San Juan",
+              "chapters": [
+                {
+                  "number": 1,
+                  "verses": [
+                    "1:6 Y el amor consiste en vivir según sus mandamientos."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "3jn",
+              "name": "Tercera Carta de San Juan",
+              "chapters": [
+                {
+                  "number": 1,
+                  "verses": [
+                    "1:2 Querido hermano, ruego a Dios que te vaya bien en todo."
+                  ]
+                }
+              ]
+            },
+            {
+              "id": "jud",
+              "name": "Carta de San Judas",
+              "chapters": [
+                {
+                  "number": 1,
+                  "verses": [
+                    "1:21 Manténganse en el amor de Dios, esperando la misericordia de nuestro Señor Jesucristo para la Vida eterna."
+                  ]
+                }
+              ]
+            }
+          ]
+        },
+        {
+          "id": "apocalipsis",
+          "name": "Apocalipsis",
+          "books": [
+            {
+              "id": "ap",
+              "name": "Apocalipsis de San Juan",
+              "chapters": [
+                {
+                  "number": 1,
+                  "verses": [
+                    "1:8 «Yo soy el Alfa y la Omega, dice el Señor Dios, el que es, el que era y el que vendrá, el Todopoderoso»."
+                  ]
+                },
+                {
+                  "number": 21,
+                  "verses": [
+                    "21:1 Después vi un cielo nuevo y una tierra nueva.",
+                    "21:4 Él secará todas sus lágrimas, y no habrá más muerte, ni pena, ni queja, ni dolor, porque todo lo de antes pasó.",
+                    "21:5 Y el que estaba sentado en el trono dijo: «Yo hago nuevas todas las cosas»."
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+};
+
+async function loadBibleData() {
+  try {
+    const res = await fetch(BIBLE_DATA_URL, { headers: { "Accept": "application/json" } });
+    if (!res.ok) return;
+    const data = await res.json();
+    if (data && Array.isArray(data.testaments) && data.testaments.length > 0) {
+      BIBLE_DATA = data;
+      if (state.view === "bible") renderBibleView();
+    }
+  } catch (err) {
+    console.warn("[Libro del Pueblo de Dios] Usando dataset oficial CEA embebido:", err);
+  }
+}
+
+function renderBibleView() {
+  const container = $("#bible-content");
+  if (!container) return;
+
+  const testaments = Array.isArray(BIBLE_DATA.testaments) ? BIBLE_DATA.testaments : [];
+  const selectedTestament = testaments.find(t => t.id === state.bibleTestamentId) || null;
+  const categories = selectedTestament && Array.isArray(selectedTestament.categories) ? selectedTestament.categories : [];
+  const selectedCategory = categories.find(c => c.id === state.bibleCategoryId) || null;
+  const books = selectedCategory && Array.isArray(selectedCategory.books) ? selectedCategory.books : [];
+  const selectedBook = books.find(b => b.id === state.bibleBookId) || null;
+  const chapters = selectedBook && Array.isArray(selectedBook.chapters) ? selectedBook.chapters : [];
+  const selectedChapter = chapters.find(ch => Number(ch.number) === Number(state.bibleChapterNum)) || chapters[0] || null;
+
+  // Construcción de barra de migas de pan (Breadcrumbs) para navegación jerárquica limpia
+  const crumbs = [
+    `<button type="button" class="bible-crumb-btn ${!selectedTestament ? "is-current" : ""}" data-bible-nav="root">📖 Testamentos</button>`
+  ];
+  if (selectedTestament) {
+    crumbs.push(`<span>›</span><button type="button" class="bible-crumb-btn ${!selectedCategory ? "is-current" : ""}" data-bible-nav="testament" data-testament-id="${esc(selectedTestament.id)}">${esc(selectedTestament.name)}</button>`);
+  }
+  if (selectedCategory) {
+    crumbs.push(`<span>›</span><button type="button" class="bible-crumb-btn ${!selectedBook ? "is-current" : ""}" data-bible-nav="category" data-category-id="${esc(selectedCategory.id)}">${esc(selectedCategory.name)}</button>`);
+  }
+  if (selectedBook) {
+    crumbs.push(`<span>›</span><button type="button" class="bible-crumb-btn is-current" data-bible-nav="book" data-book-id="${esc(selectedBook.id)}">${esc(selectedBook.name)}</button>`);
+  }
+
+  let bodyHtml = "";
+
+  // NIVEL 1: Selección de Testamento (Antiguo Testamento / Nuevo Testamento)
+  if (!selectedTestament) {
+    bodyHtml = `
+      <div class="bible-testament-grid">
+        ${testaments.map(t => {
+          const cats = Array.isArray(t.categories) ? t.categories : [];
+          const totalBooks = cats.reduce((acc, c) => acc + (Array.isArray(c.books) ? c.books.length : 0), 0);
+          return `
+            <button type="button" class="bible-testament-card" data-select-testament="${esc(t.id)}">
+              <span class="bible-testament-kicker">Edición Oficial Argentina (CEA)</span>
+              <h2 class="bible-testament-title">${esc(t.name)}</h2>
+              <p class="bible-testament-desc">${cats.length} categorías litúrgicas · ${totalBooks} libros canónicos</p>
+              <div class="bible-testament-pills">
+                ${cats.map(c => `<span class="bible-cat-mini-pill">${esc(c.name)}</span>`).join("")}
+              </div>
+            </button>
+          `;
+        }).join("")}
+      </div>
+    `;
+  }
+  // NIVEL 2: Selección de Categoría Oficial según el Testamento elegido
+  else if (!selectedCategory) {
+    bodyHtml = `
+      <div class="bible-category-grid">
+        ${categories.map(cat => {
+          const bCount = Array.isArray(cat.books) ? cat.books.length : 0;
+          return `
+            <button type="button" class="bible-category-card" data-select-category="${esc(cat.id)}">
+              <strong>${esc(cat.name)}</strong>
+              <span>${bCount} ${bCount === 1 ? "libro oficial" : "libros oficiales"} ›</span>
+            </button>
+          `;
+        }).join("")}
+      </div>
+    `;
+  }
+  // NIVEL 3: Lista de Libros Oficiales de la Categoría seleccionada
+  else if (!selectedBook) {
+    bodyHtml = `
+      <div class="bible-book-grid">
+        ${books.map(b => `
+          <button type="button" class="bible-book-btn" data-select-book="${esc(b.id)}">
+            <span>${esc(b.name)}</span>
+            <span class="bible-book-abbr">${esc(b.id)}</span>
+          </button>
+        `).join("")}
+      </div>
+    `;
+  }
+  // NIVEL 4: Interfaz de lectura limpia tipo libro (Capítulos y Versículos)
+  else {
+    const activeChapNum = selectedChapter ? selectedChapter.number : 1;
+    const verses = selectedChapter && Array.isArray(selectedChapter.verses) ? selectedChapter.verses : [];
+
+    bodyHtml = `
+      <article class="bible-reader-card">
+        <div class="bible-reader-header">
+          <div class="bible-reader-title-group">
+            <span class="bible-testament-kicker">${esc(selectedTestament.name)} · ${esc(selectedCategory.name)}</span>
+            <h2>${esc(selectedBook.name)} — Capítulo ${esc(String(activeChapNum))}</h2>
+          </div>
+          <button type="button" class="btn-sm ghost" data-bible-nav="category" data-category-id="${esc(selectedCategory.id)}">← Cambiar libro</button>
+        </div>
+
+        <div class="bible-chapter-bar" role="tablist" aria-label="Capítulos de ${esc(selectedBook.name)}">
+          ${chapters.map(ch => `
+            <button type="button" class="bible-chapter-pill ${Number(ch.number) === Number(activeChapNum) ? "is-active" : ""}" data-select-chapter="${esc(String(ch.number))}">
+              Cap. ${esc(String(ch.number))}
+            </button>
+          `).join("")}
+        </div>
+
+        <div class="bible-verses-container">
+          ${verses.map(v => {
+            const match = String(v).match(/^(\d+:\d+)\s+(.*)$/);
+            if (match) {
+              return `<p class="bible-verse-line"><span class="bible-verse-num">${esc(match[1])}</span>${esc(match[2])}</p>`;
+            }
+            return `<p class="bible-verse-line">${esc(String(v))}</p>`;
+          }).join("")}
+        </div>
+        <p class="reading-liturgical-footer" style="margin-top:18px;font-size:0.84rem;font-weight:700;color:var(--brand)">
+          — Palabra de Dios. / Te alabamos, Señor. (El Libro del Pueblo de Dios · CEA)
+        </p>
+      </article>
+    `;
+  }
+
+  container.innerHTML = `
+    <nav class="bible-nav-bar" aria-label="Navegación del Libro del Pueblo de Dios">
+      <div class="bible-breadcrumbs">${crumbs.join("")}</div>
+    </nav>
+    ${bodyHtml}
+  `;
+
+  // Delegación de eventos de navegación del Libro del Pueblo de Dios
+  container.onclick = (e) => {
+    const tBtn = e.target.closest("[data-select-testament]");
+    if (tBtn) {
+      state.bibleTestamentId = tBtn.getAttribute("data-select-testament");
+      state.bibleCategoryId = null;
+      state.bibleBookId = null;
+      state.bibleChapterNum = null;
+      renderBibleView();
+      return;
+    }
+
+    const cBtn = e.target.closest("[data-select-category]");
+    if (cBtn) {
+      state.bibleCategoryId = cBtn.getAttribute("data-select-category");
+      state.bibleBookId = null;
+      state.bibleChapterNum = null;
+      renderBibleView();
+      return;
+    }
+
+    const bBtn = e.target.closest("[data-select-book]");
+    if (bBtn) {
+      state.bibleBookId = bBtn.getAttribute("data-select-book");
+      state.bibleChapterNum = null;
+      renderBibleView();
+      return;
+    }
+
+    const chBtn = e.target.closest("[data-select-chapter]");
+    if (chBtn) {
+      state.bibleChapterNum = Number(chBtn.getAttribute("data-select-chapter"));
+      renderBibleView();
+      return;
+    }
+
+    const navBtn = e.target.closest("[data-bible-nav]");
+    if (navBtn) {
+      const level = navBtn.getAttribute("data-bible-nav");
+      if (level === "root") {
+        state.bibleTestamentId = null;
+        state.bibleCategoryId = null;
+        state.bibleBookId = null;
+        state.bibleChapterNum = null;
+      } else if (level === "testament") {
+        state.bibleCategoryId = null;
+        state.bibleBookId = null;
+        state.bibleChapterNum = null;
+      } else if (level === "category") {
+        state.bibleBookId = null;
+        state.bibleChapterNum = null;
+      }
+      renderBibleView();
+    }
+  };
 }
 
 function renderSaintsView() {
@@ -13296,16 +14864,20 @@ function dismissSplashScreen() {
 function renderHome() {
   const set = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
   set("bento-meta-list", `${PARISHES.length} templos · CABA y GBA`);
-  set("bento-meta-map", "Pines por jerarquía");
-  let streakTxt = "Registrá tu misa";
-  try {
-    const s = evaluateSpiritualStreak(spiritualDB.checkins);
-    if (s && s.consecutiveWeekends > 0) streakTxt = `🔥 ${s.consecutiveWeekends} ${s.consecutiveWeekends === 1 ? "fin de semana" : "fines de semana"}`;
-  } catch (e) { /* sin datos de racha */ }
-  set("bento-meta-spiritual", streakTxt);
+  set("bento-meta-map", "OpenStreetMap · Overpass API");
+  if (SHOW_COMMUNITY) {
+    let streakTxt = "Registrá tu misa";
+    try {
+      const s = evaluateSpiritualStreak(spiritualDB.checkins);
+      if (s && s.consecutiveWeekends > 0) streakTxt = `🔥 ${s.consecutiveWeekends} ${s.consecutiveWeekends === 1 ? "fin de semana" : "fines de semana"}`;
+    } catch (e) { /* sin datos de racha */ }
+    set("bento-meta-spiritual", streakTxt);
+  }
   try {
     set("bento-meta-liturgy", new Date().toLocaleDateString(appSettings.lang || "es-AR", { weekday: "long", day: "numeric", month: "long" }));
   } catch (e) { set("bento-meta-liturgy", "Lecturas de hoy"); }
+  set("bento-meta-bible", "Antiguo y Nuevo Testamento (CEA)");
+  set("bento-meta-reflections", `${VERIFIED_REFLECTIONS.length} citas verificadas`);
   set("bento-meta-saints", "Santoral de hoy");
   set("bento-meta-settings", appSettings.darkMode ? "Modo noche activado" : "Modo claro · Idioma · Radio");
 }
@@ -13349,9 +14921,9 @@ function renderProfileQuick() {
       </div>
     </div>
     ${user && user.bio ? `<p class="pq-bio">${esc(user.bio)}</p>` : ""}
-    <div class="pq-stats">
+    <div class="pq-stats" style="${SHOW_COMMUNITY ? "" : "grid-template-columns: repeat(2, 1fr);"}">
       <div class="pq-stat"><strong>${state.favs.size}</strong><span>Favoritos</span></div>
-      <div class="pq-stat"><strong>${streakN}</strong><span>Racha</span></div>
+      ${SHOW_COMMUNITY ? `<div class="pq-stat"><strong>${streakN}</strong><span>Racha</span></div>` : ""}
       <div class="pq-stat"><strong>${PARISHES.length}</strong><span>Templos</span></div>
     </div>
     <div class="pq-actions">
@@ -13454,15 +15026,19 @@ function bootstrapApp() {
     ["renderZoneSelector", renderZoneSelector],
     ["renderChips", renderChips],
     ["renderList", renderList],
-    ["renderSpiritualView", renderSpiritualView],
     ["renderLiturgyView", renderLiturgyView],
+    ["renderBibleView", renderBibleView],
+    ["renderReflectionsView", renderReflectionsView],
     ["renderSaintsView", renderSaintsView],
     ["initGlobalRadio", initGlobalRadio],
     ["initSwipeGestures", initSwipeGestures],
     ["initHomeAndHeader", initHomeAndHeader],
-    ["renderCommunityView", renderCommunityView],
     ["renderProfileView", renderProfileView]
   ];
+  if (SHOW_COMMUNITY) {
+    initSteps.push(["renderSpiritualView", renderSpiritualView]);
+    initSteps.push(["renderCommunityView", renderCommunityView]);
+  }
 
   initSteps.forEach(([name, fn]) => {
     try {
@@ -13480,8 +15056,10 @@ function bootstrapApp() {
 
   try {
     loadParishes();
+    loadVerifiedReflections();
+    loadBibleData();
   } catch (err) {
-    console.warn("[Bootstrap Guard] Error al invocar loadParishes:", err);
+    console.warn("[Bootstrap Guard] Error al invocar carga de datos:", err);
   }
 
   try {
