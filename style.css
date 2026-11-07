@@ -508,44 +508,48 @@ body.dark-mode .top-app-shell {
   display: block;
 }
 
+#view-map.view-panel.is-active,
+.map-fullscreen.is-active {
+  display: flex !important;
+  flex-direction: column;
+  width: 100%;
+  height: calc(100dvh - 118px);
+  min-height: 480px;
+}
+
 @keyframes bookPageTurnNext {
   0% {
-    opacity: 0.25;
-    transform: perspective(1200px) rotateY(-9deg) translateX(26px) scale(0.985);
-    transform-origin: left top;
+    opacity: 0.4;
   }
   100% {
     opacity: 1;
-    transform: perspective(1200px) rotateY(0deg) translateX(0) scale(1);
-    transform-origin: left top;
   }
 }
 
 @keyframes bookPageTurnPrev {
   0% {
-    opacity: 0.25;
-    transform: perspective(1200px) rotateY(9deg) translateX(-26px) scale(0.985);
-    transform-origin: right top;
+    opacity: 0.4;
   }
   100% {
     opacity: 1;
-    transform: perspective(1200px) rotateY(0deg) translateX(0) scale(1);
-    transform-origin: right top;
   }
 }
 
 .view-panel.book-turn-next {
-  animation: bookPageTurnNext 0.36s var(--ease) both;
+  animation: bookPageTurnNext 0.2s var(--ease);
 }
 
 .view-panel.book-turn-prev {
-  animation: bookPageTurnPrev 0.36s var(--ease) both;
+  animation: bookPageTurnPrev 0.2s var(--ease);
 }
 
 body[data-active-view="community"] .fab-near,
 body[data-active-view="profile"] .fab-near,
 body[data-active-view="spiritual"] .fab-near,
-body[data-active-view="liturgy"] .fab-near {
+body[data-active-view="liturgy"] .fab-near,
+body[data-active-view="bible"] .fab-near,
+body[data-active-view="reflections"] .fab-near,
+body[data-active-view="saints"] .fab-near {
   opacity: 0;
   pointer-events: none;
 }
@@ -759,9 +763,9 @@ h1 {
 .map-fullscreen.is-active {
   position: relative;
   width: 100%;
-  height: 100%;
-  min-height: 100%;
-  display: flex;
+  height: calc(100dvh - 118px);
+  min-height: 480px;
+  display: flex !important;
   flex-direction: column;
   background: var(--bg);
 }
@@ -769,7 +773,8 @@ h1 {
 .map-canvas-full {
   width: 100%;
   height: 100%;
-  flex: 1;
+  min-height: 440px;
+  flex: 1 1 auto;
   z-index: 1;
   background: var(--bg);
   touch-action: pan-x pan-y;

@@ -18,12 +18,6 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Newsreader:opsz,wght@6..72,500;6..72,600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
-<script src="https://cdn.tailwindcss.com"></script>
-<script>
-  tailwind.config = {
-    corePlugins: { preflight: false }
-  };
-</script>
 <link rel="stylesheet" href="style.css">
 </head>
 <body data-active-view="home" class="splash-open">
@@ -132,7 +126,7 @@
         <path d="M12 3v18M8 7h8"/>
         <circle cx="12" cy="12" r="9"/>
       </svg>
-      <span data-i18n="nav_reflections">Reflexiones</span>
+      <span data-i18n="nav_reflections">Reflexiones del Papa</span>
     </button>
     <button type="button" class="nav-tab" id="tab-saints" role="tab" aria-selected="false" aria-controls="view-saints" data-target-view="saints">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -202,8 +196,8 @@
     </button>
     <button type="button" class="bento-card bento-reflections" data-go="reflections">
       <span class="bento-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v18M8 7h8"/><circle cx="12" cy="12" r="9"/></svg></span>
-      <span class="bento-text"><strong class="bento-title">Reflexiones</strong></span>
-      <span class="bento-meta" id="bento-meta-reflections">Magisterio verificado</span>
+      <span class="bento-text"><strong class="bento-title">Reflexiones del Papa</strong></span>
+      <span class="bento-meta" id="bento-meta-reflections">Audiencias y documentos</span>
       <span class="bento-chevron" aria-hidden="true">›</span>
     </button>
     <button type="button" class="bento-card bento-saints" data-go="saints">
@@ -336,10 +330,6 @@
         </span>
       </div>
       <div class="map-controls-group">
-        <button type="button" class="map-recenter-btn" id="btn-map-overpass-sync" aria-label="Sincronizar parroquias desde OpenStreetMap Overpass API" title="Consultar Overpass API ([amenity=place_of_worship][denomination=catholic])">
-          <span aria-hidden="true">✝️</span>
-          <span id="label-map-overpass">OSM Overpass</span>
-        </button>
         <button type="button" class="map-recenter-btn map-touch-lock-btn is-locked" id="btn-map-toggle-touch" aria-label="Alternar navegación del mapa o desplazamiento de página" title="Tocá para activar o fijar el mapa">
           <svg class="map-lock-icon" id="icon-map-locked" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
@@ -399,11 +389,11 @@
     <div id="bible-content" class="liturgy-body bible-module-body"></div>
   </section>
 
-  <!-- ==================== VISTA 4C: REFLEXIONES OFICIALES (MAGISTERIO VERIFICADO · CERO ALUCINACIÓN) ==================== -->
+  <!-- ==================== VISTA 4C: REFLEXIONES DEL PAPA ==================== -->
   <section class="app view-panel" id="view-reflections" role="tabpanel" aria-labelledby="tab-reflections" aria-hidden="true">
     <div class="page-intro">
-      <h1 data-i18n="reflections_heading">Reflexiones Oficiales</h1>
-      <p class="sub" data-i18n="reflections_subheading">Citas textuales verificadas del Magisterio Pontificio (Vatican.va)</p>
+      <h1 data-i18n="reflections_heading">Reflexiones del Papa</h1>
+      <p class="sub" data-i18n="reflections_subheading" hidden></p>
     </div>
 
     <div id="reflections-content" class="liturgy-body reflections-module-body"></div>

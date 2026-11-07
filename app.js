@@ -4,11 +4,11 @@
 const DATA_SOURCE_URL = "./data/parroquias.json";
 const REFLECTIONS_DATA_URL = "./data/reflexiones.json";
 const BIBLE_DATA_URL = "./data/libro_pueblo_de_dios.json";
-const OVERPASS_API_URL = "https://overpass-api.de/api/interpreter";
-const OVERPASS_FALLBACK_URL = "https://overpass.kumi.systems/api/interpreter";
-const OVERPASS_CACHE_KEY = "osm_overpass_catholic_ba_v1";
-const OVERPASS_BBOX_BA = "-34.72,-58.55,-34.52,-58.33"; // Área de Buenos Aires (CABA y alrededores)
 const SHOW_COMMUNITY = false; // Flag global para ocultar el módulo de Comunidad y Racha sin eliminar su código fuente
+try {
+  localStorage.removeItem("osm_overpass_catholic_ba_v1");
+  localStorage.removeItem("parishes_cache_v7");
+} catch (e) { /* modo privado */ }
 const ADMIN_MASTER_PIN = "1118";
 const ADMIN_COLLAB_PIN = "0000";
 const CUSTOM_ACTIVITIES_STORAGE_KEY = "parish_activities_custom_v1";
@@ -108,11 +108,11 @@ const FALLBACK_PARISHES = [
     "nombre": "Catedral Metropolitana de Buenos Aires",
     "tipo": "Catedral",
     "region": "CABA",
-    "direccion": "San Martín 27, San Nicolás, CABA",
+    "direccion": "San Martín 27 (Rivadavia 437), San Nicolás, CABA",
     "barrio": "San Nicolás",
     "coordenadas": {
-      "lat": -34.60747,
-      "lng": -58.37328
+      "lat": -34.60756,
+      "lng": -58.37326
     },
     "horariosMisa": [
       {
@@ -147,11 +147,11 @@ const FALLBACK_PARISHES = [
     "nombre": "Catedral San Isidro Labrador",
     "tipo": "Catedral",
     "region": "Zona Norte",
-    "direccion": "Avenida del Libertador 16200, San Isidro",
+    "direccion": "Av. del Libertador 16200, San Isidro",
     "barrio": "San Isidro",
     "coordenadas": {
-      "lat": -34.46748,
-      "lng": -58.50907
+      "lat": -34.46736,
+      "lng": -58.50892
     },
     "horariosMisa": [
       {
@@ -196,8 +196,8 @@ const FALLBACK_PARISHES = [
     "direccion": "Belgrano 327, Morón",
     "barrio": "Morón",
     "coordenadas": {
-      "lat": -34.65215,
-      "lng": -58.62142
+      "lat": -34.65105,
+      "lng": -58.62158
     },
     "horariosMisa": [
       {
@@ -240,8 +240,8 @@ const FALLBACK_PARISHES = [
     "direccion": "Sáenz 438, Lomas de Zamora",
     "barrio": "Lomas de Zamora",
     "coordenadas": {
-      "lat": -34.75821,
-      "lng": -58.40254
+      "lat": -34.76092,
+      "lng": -58.40358
     },
     "horariosMisa": [
       {
@@ -285,8 +285,8 @@ const FALLBACK_PARISHES = [
     "direccion": "Rivadavia 355, Quilmes",
     "barrio": "Quilmes",
     "coordenadas": {
-      "lat": -34.72091,
-      "lng": -58.25413
+      "lat": -34.72062,
+      "lng": -58.25335
     },
     "horariosMisa": [
       {
@@ -325,11 +325,11 @@ const FALLBACK_PARISHES = [
     "nombre": "Catedral San Justo Mártir",
     "tipo": "Catedral",
     "region": "Zona Oeste",
-    "direccion": "Doctor Ignacio Arieta 3056, San Justo",
+    "direccion": "Dr. Ignacio Arieta 3045, San Justo",
     "barrio": "San Justo",
     "coordenadas": {
-      "lat": -34.67821,
-      "lng": -58.56165
+      "lat": -34.67765,
+      "lng": -58.56122
     },
     "horariosMisa": [
       {
@@ -371,8 +371,8 @@ const FALLBACK_PARISHES = [
     "direccion": "Belgrano 1257, San Miguel",
     "barrio": "San Miguel",
     "coordenadas": {
-      "lat": -34.54345,
-      "lng": -58.71106
+      "lat": -34.54295,
+      "lng": -58.71195
     },
     "horariosMisa": [
       {
@@ -411,11 +411,11 @@ const FALLBACK_PARISHES = [
     "nombre": "Catedral Nuestra Señora de la Asunción (Avellaneda)",
     "tipo": "Catedral",
     "region": "Zona Sur",
-    "direccion": "General San Martín 705, Avellaneda",
+    "direccion": "San Martín 745, Avellaneda",
     "barrio": "Avellaneda",
     "coordenadas": {
-      "lat": -34.66299,
-      "lng": -58.36585
+      "lat": -34.66255,
+      "lng": -58.36475
     },
     "horariosMisa": [
       {
@@ -454,11 +454,11 @@ const FALLBACK_PARISHES = [
     "nombre": "Basílica Nuestra Señora del Pilar",
     "tipo": "Basílica",
     "region": "CABA",
-    "direccion": "Junín 1904, Recoleta, CABA",
+    "direccion": "Junín 1898, Recoleta, CABA",
     "barrio": "Recoleta",
     "coordenadas": {
-      "lat": -34.58752,
-      "lng": -58.39314
+      "lat": -34.58672,
+      "lng": -58.39178
     },
     "horariosMisa": [
       {
@@ -505,8 +505,8 @@ const FALLBACK_PARISHES = [
     "direccion": "San Martín 1039, Retiro, CABA",
     "barrio": "Retiro",
     "coordenadas": {
-      "lat": -34.59573,
-      "lng": -58.37401
+      "lat": -34.59555,
+      "lng": -58.37466
     },
     "horariosMisa": [
       {
@@ -543,8 +543,8 @@ const FALLBACK_PARISHES = [
     "direccion": "Reconquista 207, San Nicolás, CABA",
     "barrio": "San Nicolás",
     "coordenadas": {
-      "lat": -34.60531,
-      "lng": -58.3718
+      "lat": -34.60542,
+      "lng": -58.37218
     },
     "horariosMisa": [
       {
@@ -588,8 +588,8 @@ const FALLBACK_PARISHES = [
     "direccion": "Defensa 422, Monserrat, CABA",
     "barrio": "Monserrat",
     "coordenadas": {
-      "lat": -34.61286,
-      "lng": -58.37168
+      "lat": -34.61282,
+      "lng": -58.37185
     },
     "horariosMisa": [
       {
@@ -622,11 +622,11 @@ const FALLBACK_PARISHES = [
     "nombre": "Basílica San José de Flores",
     "tipo": "Basílica",
     "region": "CABA",
-    "direccion": "Avenida Rivadavia 6950, Flores, CABA",
+    "direccion": "Av. Rivadavia 6950, Flores, CABA",
     "barrio": "Flores",
     "coordenadas": {
-      "lat": -34.62971,
-      "lng": -58.46311
+      "lat": -34.62858,
+      "lng": -58.46368
     },
     "horariosMisa": [
       {
@@ -673,8 +673,8 @@ const FALLBACK_PARISHES = [
     "direccion": "Isabel La Católica 520, Barracas, CABA",
     "barrio": "Barracas",
     "coordenadas": {
-      "lat": -34.63842,
-      "lng": -58.37521
+      "lat": -34.63712,
+      "lng": -58.37408
     },
     "horariosMisa": [
       {
@@ -709,8 +709,8 @@ const FALLBACK_PARISHES = [
     "direccion": "Vuelta de Obligado 2042, Belgrano, CABA",
     "barrio": "Belgrano",
     "coordenadas": {
-      "lat": -34.56142,
-      "lng": -58.45631
+      "lat": -34.56145,
+      "lng": -58.45502
     },
     "horariosMisa": [
       {
@@ -754,11 +754,11 @@ const FALLBACK_PARISHES = [
     "nombre": "Basílica San Antonio de Padua",
     "tipo": "Basílica",
     "region": "CABA",
-    "direccion": "Agüero 2030, Recoleta, CABA",
-    "barrio": "Recoleta",
+    "direccion": "Av. Lincoln 3751, Villa Devoto, CABA",
+    "barrio": "Villa Devoto",
     "coordenadas": {
-      "lat": -34.59021,
-      "lng": -58.39852
+      "lat": -34.59936,
+      "lng": -58.51128
     },
     "horariosMisa": [
       {
@@ -794,8 +794,8 @@ const FALLBACK_PARISHES = [
     "direccion": "Hipólito Yrigoyen 3999, Almagro, CABA",
     "barrio": "Almagro",
     "coordenadas": {
-      "lat": -34.61448,
-      "lng": -58.42084
+      "lat": -34.61436,
+      "lng": -58.42228
     },
     "horariosMisa": [
       {
@@ -831,11 +831,11 @@ const FALLBACK_PARISHES = [
     "nombre": "Basílica Nuestra Señora de la Piedad",
     "tipo": "Basílica",
     "region": "CABA",
-    "direccion": "Bartolomé Mitre 1524, Balvanera, CABA",
+    "direccion": "Bartolomé Mitre 1524, San Nicolás, CABA",
     "barrio": "Balvanera",
     "coordenadas": {
-      "lat": -34.60782,
-      "lng": -58.38882
+      "lat": -34.60755,
+      "lng": -58.38838
     },
     "horariosMisa": [
       {
@@ -869,11 +869,11 @@ const FALLBACK_PARISHES = [
     "nombre": "Basílica Nuestra Señora de Buenos Aires",
     "tipo": "Basílica",
     "region": "CABA",
-    "direccion": "Avenida Gaona 1730, Caballito, CABA",
+    "direccion": "Av. Gaona 1730, Caballito, CABA",
     "barrio": "Caballito",
     "coordenadas": {
-      "lat": -34.60951,
-      "lng": -58.44781
+      "lat": -34.61472,
+      "lng": -58.45084
     },
     "horariosMisa": [
       {
@@ -913,11 +913,11 @@ const FALLBACK_PARISHES = [
     "nombre": "Basílica del Espíritu Santo (Guadalupe)",
     "tipo": "Basílica",
     "region": "CABA",
-    "direccion": "Mansilla 3844, Palermo, CABA",
+    "direccion": "Mansilla 3865, Palermo, CABA",
     "barrio": "Palermo",
     "coordenadas": {
-      "lat": -34.59012,
-      "lng": -58.41621
+      "lat": -34.58925,
+      "lng": -58.41686
     },
     "horariosMisa": [
       {
@@ -964,8 +964,8 @@ const FALLBACK_PARISHES = [
     "direccion": "Cuzco 150, Liniers, CABA",
     "barrio": "Liniers",
     "coordenadas": {
-      "lat": -34.64052,
-      "lng": -58.52731
+      "lat": -34.64015,
+      "lng": -58.52625
     },
     "horariosMisa": [
       {
@@ -1008,8 +1008,8 @@ const FALLBACK_PARISHES = [
     "direccion": "Bolívar 225, Monserrat, CABA",
     "barrio": "Monserrat",
     "coordenadas": {
-      "lat": -34.61058,
-      "lng": -58.37345
+      "lat": -34.61052,
+      "lng": -58.37342
     },
     "horariosMisa": [
       {
@@ -1044,8 +1044,8 @@ const FALLBACK_PARISHES = [
     "direccion": "Humberto 1º 340, San Telmo, CABA",
     "barrio": "San Telmo",
     "coordenadas": {
-      "lat": -34.62124,
-      "lng": -58.37315
+      "lat": -34.62038,
+      "lng": -58.37158
     },
     "horariosMisa": [
       {
@@ -1077,11 +1077,11 @@ const FALLBACK_PARISHES = [
     "nombre": "Parroquia San Nicolás de Bari",
     "tipo": "Parroquia",
     "region": "CABA",
-    "direccion": "Avenida Santa Fe 1352, Retiro, CABA",
+    "direccion": "Av. Santa Fe 1352, Retiro, CABA",
     "barrio": "Retiro",
     "coordenadas": {
-      "lat": -34.59607,
-      "lng": -58.38656
+      "lat": -34.59568,
+      "lng": -58.38632
     },
     "horariosMisa": [
       {
@@ -1127,8 +1127,8 @@ const FALLBACK_PARISHES = [
     "direccion": "San Martín 705, Retiro, CABA",
     "barrio": "Retiro",
     "coordenadas": {
-      "lat": -34.59871,
-      "lng": -58.37424
+      "lat": -34.59992,
+      "lng": -58.37412
     },
     "horariosMisa": [
       {
@@ -1163,8 +1163,8 @@ const FALLBACK_PARISHES = [
     "direccion": "Villanueva 905, Palermo, CABA",
     "barrio": "Palermo",
     "coordenadas": {
-      "lat": -34.56672,
-      "lng": -58.43851
+      "lat": -34.56925,
+      "lng": -58.43942
     },
     "horariosMisa": [
       {
@@ -1206,11 +1206,11 @@ const FALLBACK_PARISHES = [
     "nombre": "Parroquia Santa Rosa de Lima",
     "tipo": "Parroquia",
     "region": "CABA",
-    "direccion": "Avenida Belgrano 2216, Balvanera, CABA",
+    "direccion": "Av. Belgrano 2216, Balvanera, CABA",
     "barrio": "Balvanera",
     "coordenadas": {
-      "lat": -34.61479,
-      "lng": -58.39736
+      "lat": -34.61348,
+      "lng": -58.39792
     },
     "horariosMisa": [
       {
@@ -1243,11 +1243,11 @@ const FALLBACK_PARISHES = [
     "nombre": "Parroquia Nuestra Señora de Caacupé",
     "tipo": "Parroquia",
     "region": "CABA",
-    "direccion": "Avenida Rivadavia 4879, Caballito, CABA",
+    "direccion": "Av. Rivadavia 4879, Caballito, CABA",
     "barrio": "Caballito",
     "coordenadas": {
-      "lat": -34.61864,
-      "lng": -58.43612
+      "lat": -34.61775,
+      "lng": -58.43425
     },
     "horariosMisa": [
       {
@@ -1290,8 +1290,8 @@ const FALLBACK_PARISHES = [
     "direccion": "Curapaligüe 1185, Parque Chacabuco, CABA",
     "barrio": "Parque Chacabuco",
     "coordenadas": {
-      "lat": -34.63641,
-      "lng": -58.44852
+      "lat": -34.63485,
+      "lng": -58.44855
     },
     "horariosMisa": [
       {
@@ -1331,11 +1331,11 @@ const FALLBACK_PARISHES = [
     "nombre": "Santuario Nuestra Señora del Rosario de Nueva Pompeya",
     "tipo": "Parroquia",
     "region": "CABA",
-    "direccion": "Avenida Sáenz 1059, Nueva Pompeya, CABA",
+    "direccion": "Av. Sáenz 1059, Nueva Pompeya, CABA",
     "barrio": "Nueva Pompeya",
     "coordenadas": {
-      "lat": -34.65284,
-      "lng": -58.42085
+      "lat": -34.65122,
+      "lng": -58.41685
     },
     "horariosMisa": [
       {
@@ -1373,8 +1373,8 @@ const FALLBACK_PARISHES = [
     "direccion": "Estados Unidos 3150, San Cristóbal, CABA",
     "barrio": "San Cristóbal",
     "coordenadas": {
-      "lat": -34.62415,
-      "lng": -58.40682
+      "lat": -34.62085,
+      "lng": -58.40958
     },
     "horariosMisa": [
       {
@@ -2184,11 +2184,11 @@ const FALLBACK_PARISHES = [
     "nombre": "Basílica San Francisco de Asís",
     "tipo": "Basílica",
     "region": "CABA",
-    "direccion": "Alsina y Defensa, Monserrat, CABA",
+    "direccion": "Alsina 380, Monserrat, CABA",
     "barrio": "Monserrat",
     "coordenadas": {
       "lat": -34.61058,
-      "lng": -58.37192
+      "lng": -58.37188
     },
     "horariosMisa": [
       {
@@ -2223,8 +2223,8 @@ const FALLBACK_PARISHES = [
     "direccion": "Bartolomé Mitre 886, San Nicolás, CABA",
     "barrio": "San Nicolás",
     "coordenadas": {
-      "lat": -34.60533,
-      "lng": -58.37944
+      "lat": -34.60662,
+      "lng": -58.37905
     },
     "horariosMisa": [
       {
@@ -2259,8 +2259,8 @@ const FALLBACK_PARISHES = [
     "direccion": "Bartolomé Mitre 2411, Balvanera, CABA",
     "barrio": "Balvanera",
     "coordenadas": {
-      "lat": -34.60912,
-      "lng": -58.39714
+      "lat": -34.60852,
+      "lng": -58.39995
     },
     "horariosMisa": [
       {
@@ -2292,11 +2292,11 @@ const FALLBACK_PARISHES = [
     "nombre": "Parroquia Nuestra Señora de Montserrat",
     "tipo": "Parroquia",
     "region": "CABA",
-    "direccion": "Belgrano 1151, Monserrat, CABA",
+    "direccion": "Av. Belgrano 1151, Monserrat, CABA",
     "barrio": "Monserrat",
     "coordenadas": {
-      "lat": -34.61391,
-      "lng": -58.38147
+      "lat": -34.61295,
+      "lng": -58.38275
     },
     "horariosMisa": [
       {
@@ -2330,8 +2330,8 @@ const FALLBACK_PARISHES = [
     "direccion": "Hipólito Yrigoyen 2025, Balvanera, CABA",
     "barrio": "Balvanera",
     "coordenadas": {
-      "lat": -34.61002,
-      "lng": -58.39521
+      "lat": -34.60985,
+      "lng": -58.39485
     },
     "horariosMisa": [
       {
@@ -2365,8 +2365,8 @@ const FALLBACK_PARISHES = [
     "direccion": "Av. Jujuy 1241, San Cristóbal, CABA",
     "barrio": "San Cristóbal",
     "coordenadas": {
-      "lat": -34.62551,
-      "lng": -58.40428
+      "lat": -34.62435,
+      "lng": -58.40342
     },
     "horariosMisa": [
       {
@@ -2400,8 +2400,8 @@ const FALLBACK_PARISHES = [
     "direccion": "Av. Cnel. Díaz 2245, Palermo, CABA",
     "barrio": "Palermo",
     "coordenadas": {
-      "lat": -34.58784,
-      "lng": -58.40791
+      "lat": -34.58775,
+      "lng": -58.40832
     },
     "horariosMisa": [
       {
@@ -2439,8 +2439,8 @@ const FALLBACK_PARISHES = [
     "direccion": "Guise 1939, Palermo, CABA",
     "barrio": "Palermo",
     "coordenadas": {
-      "lat": -34.59021,
-      "lng": -58.41432
+      "lat": -34.59038,
+      "lng": -58.41392
     },
     "horariosMisa": [
       {
@@ -2472,11 +2472,11 @@ const FALLBACK_PARISHES = [
     "nombre": "Parroquia Nuestra Señora del Socorro",
     "tipo": "Parroquia",
     "region": "CABA",
-    "direccion": "Juncal 876, Retiro, CABA",
+    "direccion": "Juncal 888, Retiro, CABA",
     "barrio": "Retiro",
     "coordenadas": {
-      "lat": -34.59273,
-      "lng": -58.38218
+      "lat": -34.59245,
+      "lng": -58.38028
     },
     "horariosMisa": [
       {
@@ -2513,8 +2513,8 @@ const FALLBACK_PARISHES = [
     "direccion": "San Martín de Tours 2949, Palermo Chico, CABA",
     "barrio": "Palermo",
     "coordenadas": {
-      "lat": -34.57791,
-      "lng": -58.40263
+      "lat": -34.57695,
+      "lng": -58.40328
     },
     "horariosMisa": [
       {
@@ -2551,8 +2551,8 @@ const FALLBACK_PARISHES = [
     "direccion": "Av. Las Heras 2560, Recoleta, CABA",
     "barrio": "Recoleta",
     "coordenadas": {
-      "lat": -34.58552,
-      "lng": -58.39981
+      "lat": -34.58442,
+      "lng": -58.40055
     },
     "horariosMisa": [
       {
@@ -2590,8 +2590,8 @@ const FALLBACK_PARISHES = [
     "direccion": "Constitución 1077, Constitución, CABA",
     "barrio": "Constitución",
     "coordenadas": {
-      "lat": -34.62688,
-      "lng": -58.38372
+      "lat": -34.62585,
+      "lng": -58.38065
     },
     "horariosMisa": [
       {
@@ -2625,8 +2625,8 @@ const FALLBACK_PARISHES = [
     "direccion": "Olavarría 486, La Boca, CABA",
     "barrio": "La Boca",
     "coordenadas": {
-      "lat": -34.63661,
-      "lng": -58.36194
+      "lat": -34.63525,
+      "lng": -58.36235
     },
     "horariosMisa": [
       {
@@ -2657,11 +2657,11 @@ const FALLBACK_PARISHES = [
     "nombre": "Parroquia San Antonio de Padua de Parque Patricios",
     "tipo": "Parroquia",
     "region": "CABA",
-    "direccion": "Caseros 2901, Parque Patricios, CABA",
+    "direccion": "Av. Caseros 2798, Parque Patricios, CABA",
     "barrio": "Parque Patricios",
     "coordenadas": {
-      "lat": -34.63673,
-      "lng": -58.40461
+      "lat": -34.63685,
+      "lng": -58.40275
     },
     "horariosMisa": [
       {
@@ -2695,8 +2695,8 @@ const FALLBACK_PARISHES = [
     "direccion": "Gurruchaga 171, Villa Crespo, CABA",
     "barrio": "Villa Crespo",
     "coordenadas": {
-      "lat": -34.59628,
-      "lng": -58.43851
+      "lat": -34.59985,
+      "lng": -58.44425
     },
     "horariosMisa": [
       {
@@ -2730,8 +2730,8 @@ const FALLBACK_PARISHES = [
     "direccion": "Bahía Blanca 363, Floresta, CABA",
     "barrio": "Floresta",
     "coordenadas": {
-      "lat": -34.62945,
-      "lng": -58.48123
+      "lat": -34.62965,
+      "lng": -58.48155
     },
     "horariosMisa": [
       {
@@ -2765,8 +2765,8 @@ const FALLBACK_PARISHES = [
     "direccion": "Vidal 1745, Belgrano, CABA",
     "barrio": "Belgrano",
     "coordenadas": {
-      "lat": -34.56781,
-      "lng": -58.46194
+      "lat": -34.56665,
+      "lng": -58.45895
     },
     "horariosMisa": [
       {
@@ -2833,11 +2833,11 @@ const FALLBACK_PARISHES = [
     "nombre": "Parroquia Santa Julia",
     "tipo": "Parroquia",
     "region": "CABA",
-    "direccion": "Juan Bautista Alberdi 1195, Caballito, CABA",
+    "direccion": "Av. Juan Bautista Alberdi 1195, Caballito, CABA",
     "barrio": "Caballito",
     "coordenadas": {
-      "lat": -34.62483,
-      "lng": -58.44112
+      "lat": -34.62315,
+      "lng": -58.44265
     },
     "horariosMisa": [
       {
@@ -5700,7 +5700,6 @@ const FALLBACK_PARISHES = [
   }
 ];
 
-
 /* =====================================================================
    Utilidades, Clasificación Regional (CABA / GBA) e Indexación Masiva
    ===================================================================== */
@@ -5895,7 +5894,7 @@ const savedAdminParishes = Store.get("parishes_admin_data", null);
 let PARISHES = prepareDataset(
   Array.isArray(savedAdminParishes) && savedAdminParishes.length
     ? savedAdminParishes
-    : Store.get("parishes_cache_v6", FALLBACK_PARISHES)
+    : Store.get("parishes_cache_v7", FALLBACK_PARISHES)
 );
 
 const initialAdminRole = (function resolveInitialRole() {
@@ -6013,8 +6012,14 @@ function switchView(targetView, skipScroll = false) {
       panelEl.classList.toggle("is-active", active);
       panelEl.setAttribute("aria-hidden", String(!active));
       if (active) {
-        void panelEl.offsetWidth; // Reflow para disparar la animación de paso de página de libro
-        panelEl.classList.add(turnDirectionClass);
+        panelEl.hidden = false;
+        panelEl.style.display = v === "map" ? "flex" : "block";
+        if (v !== "map") {
+          void panelEl.offsetWidth;
+          panelEl.classList.add(turnDirectionClass);
+        }
+      } else {
+        panelEl.style.display = "none";
       }
     }
     if (tabEl) {
@@ -6035,32 +6040,41 @@ function switchView(targetView, skipScroll = false) {
     }
   }
 
-  if (targetView === "home") {
-    renderHome();
-  } else if (targetView === "map") {
-    initMap();
-    requestAnimationFrame(() => {
-      if (map) {
-        map.invalidateSize();
-        fitMapToBounds(filtered());
-      }
-    });
-  } else if (targetView === "list") {
-    renderList();
-  } else if (targetView === "spiritual" && SHOW_COMMUNITY) {
-    renderSpiritualView();
-  } else if (targetView === "liturgy") {
-    renderLiturgyView();
-  } else if (targetView === "bible") {
-    renderBibleView();
-  } else if (targetView === "reflections") {
-    renderReflectionsView();
-  } else if (targetView === "saints") {
-    renderSaintsView();
-  } else if (targetView === "community" && SHOW_COMMUNITY) {
-    renderCommunityView();
-  } else if (targetView === "profile") {
-    renderProfileView();
+  try {
+    if (targetView === "home") {
+      renderHome();
+    } else if (targetView === "map") {
+      initMap();
+      requestAnimationFrame(() => {
+        if (map) {
+          map.invalidateSize();
+          fitMapToBounds(filtered());
+        }
+      });
+      setTimeout(() => {
+        if (map) {
+          map.invalidateSize();
+        }
+      }, 220);
+    } else if (targetView === "list") {
+      renderList();
+    } else if (targetView === "spiritual" && SHOW_COMMUNITY) {
+      renderSpiritualView();
+    } else if (targetView === "liturgy") {
+      renderLiturgyView();
+    } else if (targetView === "bible") {
+      renderBibleView();
+    } else if (targetView === "reflections") {
+      renderReflectionsView();
+    } else if (targetView === "saints") {
+      renderSaintsView();
+    } else if (targetView === "community" && SHOW_COMMUNITY) {
+      renderCommunityView();
+    } else if (targetView === "profile") {
+      renderProfileView();
+    }
+  } catch (err) {
+    console.warn(`[switchView] Advertencia al renderizar vista ${targetView}:`, err);
   }
 }
 
@@ -7013,148 +7027,16 @@ function toggleMapTouchLock() {
   }
 }
 
-let overpassSyncInFlight = false;
-
-/**
- * Consulta la Overpass API de OpenStreetMap filtrando estrictamente por:
- * [amenity=place_of_worship][denomination=catholic] en el área de Buenos Aires.
- * Utiliza las coordenadas exactas de nodos y vías devueltas por OSM sin geocodificación de texto.
- */
-async function fetchOverpassCatholicPlaces(forceRefresh = false) {
-  if (overpassSyncInFlight) return;
-  const labelEl = document.getElementById("label-map-overpass");
-
-  if (!forceRefresh) {
-    const cachedOsm = Store.get(OVERPASS_CACHE_KEY, null);
-    if (cachedOsm && Array.isArray(cachedOsm.elements) && cachedOsm.elements.length > 0) {
-      mergeOverpassElements(cachedOsm.elements);
-      if (labelEl) labelEl.textContent = `OSM (${cachedOsm.elements.length})`;
-      return;
-    }
-  }
-
-  overpassSyncInFlight = true;
-  if (labelEl) labelEl.textContent = "Consultando OSM…";
-
-  const overpassQuery = `[out:json][timeout:25];(node["amenity"="place_of_worship"]["denomination"="catholic"](${OVERPASS_BBOX_BA});way["amenity"="place_of_worship"]["denomination"="catholic"](${OVERPASS_BBOX_BA}););out center tags;`;
-  const endpoints = [OVERPASS_API_URL, OVERPASS_FALLBACK_URL];
-
-  for (const endpoint of endpoints) {
-    try {
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 12000);
-      const res = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded;charset=UTF-8" },
-        body: "data=" + encodeURIComponent(overpassQuery),
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
-      if (!res.ok) continue;
-      const json = await res.json();
-      if (json && Array.isArray(json.elements) && json.elements.length > 0) {
-        Store.set(OVERPASS_CACHE_KEY, {
-          updatedAt: Date.now(),
-          elements: json.elements
-        });
-        const addedCount = mergeOverpassElements(json.elements);
-        if (labelEl) labelEl.textContent = `OSM (${json.elements.length})`;
-        if (forceRefresh) {
-          toast(`✝️ OpenStreetMap sincronizado: ${json.elements.length} templos católicos verificados (${addedCount} nuevos).`);
-        }
-        overpassSyncInFlight = false;
-        return;
-      }
-    } catch (err) {
-      console.warn("[Overpass API] Fallo en endpoint OSM:", endpoint, err);
-    }
-  }
-
-  overpassSyncInFlight = false;
-  if (labelEl) labelEl.textContent = `OSM (${PARISHES.length})`;
-  if (forceRefresh) {
-    toast(`✝️ Mostrando ${PARISHES.length} templos católicos con coordenadas exactas en caché local.`);
-  }
-}
-
-function mergeOverpassElements(elements) {
-  if (!Array.isArray(elements) || !elements.length) return 0;
-  let added = 0;
-
-  elements.forEach((el) => {
-    const lat = typeof el.lat === "number" ? el.lat : (el.center && typeof el.center.lat === "number" ? el.center.lat : null);
-    const lng = typeof el.lon === "number" ? el.lon : (el.center && typeof el.center.lon === "number" ? el.center.lon : null);
-    if (lat === null || lng === null) return;
-
-    const tags = el.tags || {};
-    const rawName = (tags.name || tags["name:es"] || "").trim();
-    if (!rawName) return;
-
-    // Verificar si ya existe por cercanía geográfica (< 90 metros) o nombre normalizado
-    const normName = norm(rawName);
-    const existing = PARISHES.find((p) => {
-      const c = getCoords(p);
-      if (c && haversineKm(lat, lng, c.lat, c.lng) < 0.09) return true;
-      return norm(p.nombre) === normName;
-    });
-
-    if (existing) {
-      // Actualizar con las coordenadas exactas del nodo/vía de OpenStreetMap
-      existing.coordenadas = { lat, lng };
-      existing.osmId = `${el.type}/${el.id}`;
-      return;
-    }
-
-    const street = tags["addr:street"] || "";
-    const houseNumber = tags["addr:housenumber"] || "";
-    const suburb = tags["addr:suburb"] || tags["addr:neighbourhood"] || tags["addr:city"] || "Buenos Aires";
-    const direccion = street
-      ? `${street}${houseNumber ? " " + houseNumber : ""}, ${suburb}`
-      : `${suburb}, Buenos Aires (OSM #${el.id})`;
-
-    const lower = normName;
-    let tipo = "Parroquia";
-    if (lower.includes("catedral")) tipo = "Catedral";
-    else if (lower.includes("basilica")) tipo = "Basílica";
-    else if (lower.includes("capilla") || lower.includes("oratorio")) tipo = "Capilla";
-
-    const newItem = {
-      id: `osm-${el.type}-${el.id}`,
-      osmId: `${el.type}/${el.id}`,
-      nombre: rawName,
-      tipo,
-      region: (lat >= -34.705 && lat <= -34.525 && lng >= -58.535 && lng <= -58.335) ? "CABA" : "Zona Norte",
-      direccion,
-      barrio: suburb,
-      coordenadas: { lat, lng },
-      horariosMisa: tags.opening_hours
-        ? [{ dia: "Horarios OSM", horarios: [tags.opening_hours] }]
-        : [{ dia: "Domingos", horarios: ["10:00", "19:00"] }],
-      horariosConfesiones: "Consultar en secretaría parroquial",
-      telefono: tags.phone || tags["contact:phone"] || "Sin teléfono registrado",
-      webOficial: tags.website || tags["contact:website"] || "",
-      etiquetas: ["OpenStreetMap", tipo, suburb]
-    };
-
-    PARISHES.push(newItem);
-    added++;
-  });
-
-  if (added > 0) {
-    PARISHES = prepareDataset(PARISHES);
-    if (state.userLoc) updateDistances(state.userLoc.lat, state.userLoc.lng);
-    renderChips();
-    renderList();
-  }
-  if (map && markersLayer) {
-    renderMapMarkers(filtered());
-  }
-  return added;
-}
-
 function initMap() {
   const mapEl = $("#map");
-  if (!mapEl || typeof L === "undefined" || map) return;
+  if (!mapEl || typeof L === "undefined") return;
+  if (map) {
+    try {
+      map.invalidateSize();
+      renderMapMarkers(filtered());
+    } catch (e) {}
+    return;
+  }
 
   map = L.map(mapEl, {
     center: CABA_CENTER,
@@ -7168,7 +7050,7 @@ function initMap() {
 
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
       maxZoom: 19,
-      attribution: '&copy; OpenStreetMap contributors · Overpass API'
+      attribution: '&copy; OpenStreetMap contributors'
   }).addTo(map);
 
   markersLayer = L.layerGroup().addTo(map);
@@ -7197,13 +7079,11 @@ function initMap() {
     }
   });
 
-  document.getElementById("btn-map-overpass-sync")?.addEventListener("click", () => {
-    fetchOverpassCatholicPlaces(true);
-  });
-
   renderMapMarkers(filtered());
   syncMapTouchLockUI();
-  fetchOverpassCatholicPlaces(false);
+  setTimeout(() => {
+    if (map) map.invalidateSize();
+  }, 120);
 }
 
 function createHierarchyIcon(p) {
@@ -7228,7 +7108,7 @@ function createHierarchyIcon(p) {
 
   return L.divIcon({
     className: "custom-pin-icon",
-    html: `<div class="${cls}" data-osm-cross="✝️" title="✝️ ${p.tipo}: ${p.nombre}">${innerHtml}</div>`,
+    html: `<div class="${cls}" title="${p.tipo}: ${p.nombre}">${innerHtml}</div>`,
     iconSize: [size, size],
     iconAnchor: [size / 2, size / 2],
     popupAnchor: [0, -(size / 2 + 4)]
@@ -8443,7 +8323,7 @@ function saveParishEditor(e) {
 
   const cleanList = getCleanExportableParishes();
   Store.set("parishes_admin_data", cleanList);
-  Store.set("parishes_cache_v6", cleanList);
+  Store.set("parishes_cache_v7", cleanList);
 
   closeParishEditor();
   renderChips();
@@ -9948,6 +9828,8 @@ const I18N_DICT = {
     nav_map: "Mapa",
     nav_spiritual: "Racha",
     nav_liturgy: "Liturgia",
+    nav_bible: "Libro del Pueblo de Dios",
+    nav_reflections: "Reflexiones del Papa",
     nav_saints: "Santos del Día",
     nav_community: "Comunidad",
     nav_profile: "Perfil",
@@ -9959,6 +9841,10 @@ const I18N_DICT = {
     spiritual_subheading: "",
     liturgy_heading: "Liturgia de la Palabra",
     liturgy_subheading: "Primera lectura, Salmo y evangelio del día.",
+    bible_heading: "El Libro del Pueblo de Dios",
+    bible_subheading: "Traducción oficial de la Conferencia Episcopal Argentina (CEA).",
+    reflections_heading: "Reflexiones del Papa",
+    reflections_subheading: "",
     saints_heading: "Santos del Día",
     saints_subheading: "",
     community_heading: "Comunidad y Ranking",
@@ -9981,6 +9867,8 @@ const I18N_DICT = {
     nav_map: "Map",
     nav_spiritual: "Streak & Notes",
     nav_liturgy: "Liturgy",
+    nav_bible: "Book of the People of God",
+    nav_reflections: "Pope's Reflections",
     nav_saints: "Saints of the Day",
     nav_community: "Community",
     nav_profile: "Profile",
@@ -9992,6 +9880,10 @@ const I18N_DICT = {
     spiritual_subheading: "Log your Masses and Adoration, save reflections and track prayer time.",
     liturgy_heading: "Liturgy of the Word",
     liturgy_subheading: "First Reading, Responsorial Psalm, Gospel of the Day and pastoral explanation.",
+    bible_heading: "The Book of the People of God",
+    bible_subheading: "Official Argentine Liturgical Translation (CEA).",
+    reflections_heading: "Pope's Reflections",
+    reflections_subheading: "",
     saints_heading: "Saints of the Day",
     saints_subheading: "Daily Catholic saints, inspiring biographies and spiritual quotes.",
     community_heading: "Community & Ranking",
@@ -10014,6 +9906,8 @@ const I18N_DICT = {
     nav_map: "Mapa",
     nav_spiritual: "Ofensiva / Notas",
     nav_liturgy: "Liturgia",
+    nav_bible: "Livro do Povo de Deus",
+    nav_reflections: "Reflexões do Papa",
     nav_saints: "Santos do Dia",
     nav_community: "Comunidade",
     nav_profile: "Perfil",
@@ -10025,6 +9919,10 @@ const I18N_DICT = {
     spiritual_subheading: "Registre suas missas e adorações, salve reflexões e veja suas estatísticas.",
     liturgy_heading: "Liturgia da Palavra",
     liturgy_subheading: "Primeira Leitura, Salmo Responsorial, Evangelho do dia e explicação pastoral.",
+    bible_heading: "O Livro do Povo de Deus",
+    bible_subheading: "Tradução oficial da Conferência Episcopal Argentina (CEA).",
+    reflections_heading: "Reflexões do Papa",
+    reflections_subheading: "",
     saints_heading: "Santos do Dia",
     saints_subheading: "Santoral católico diário, biografias inspiradoras e frases espirituais.",
     community_heading: "Comunidade e Ranking",
@@ -10047,6 +9945,8 @@ const I18N_DICT = {
     nav_map: "Mappa",
     nav_spiritual: "Costanza / Note",
     nav_liturgy: "Liturgia",
+    nav_bible: "Libro del Popolo di Dio",
+    nav_reflections: "Riflessioni del Papa",
     nav_saints: "Santi del Giorno",
     nav_community: "Comunità",
     nav_profile: "Account",
@@ -10058,6 +9958,10 @@ const I18N_DICT = {
     spiritual_subheading: "Registra Sante Messe e Adorazioni, salva riflessioni e statistiche.",
     liturgy_heading: "Liturgia della Parola",
     liturgy_subheading: "Prima Lettura, Salmo Responsoriale, Vangelo del giorno e spiegazione pastorale.",
+    bible_heading: "Il Libro del Popolo di Dio",
+    bible_subheading: "Traduzione ufficiale della Conferenza Episcopale Argentina (CEA).",
+    reflections_heading: "Riflessioni del Papa",
+    reflections_subheading: "",
     saints_heading: "Santi del Giorno",
     saints_subheading: "Santi del giorno, biografie edificanti e pensieri spirituali.",
     community_heading: "Comunità e Classifica",
@@ -11871,10 +11775,10 @@ function renderLiturgyView() {
       <div class="gospel-body-text">${g.gospelText.split("\n\n").map(p => `<p style="margin:0 0 12px">${p}</p>`).join("")}</div>
       <p style="margin:10px 0 0;font-size:0.82rem;font-weight:700;color:var(--brand)">— Palabra del Señor. / Gloria a Ti, Señor Jesús.</p>
 
-      <!-- Opción Interactiva: Reflexión Magisterial Verificada debajo del Evangelio (Cero Alucinación) -->
+      <!-- Opción Interactiva: Reflexión del Papa debajo del Evangelio -->
       <button type="button" class="btn-explain-gospel" id="btn-toggle-gospel-explain" aria-expanded="${state.liturgyExplainOpen}">
-        <span>Reflexión Magisterial Verificada (${g.citation})</span>
-        <span>${state.liturgyExplainOpen ? "▲ Ocultar" : "▼ Ver cita oficial verificada"}</span>
+        <span>Reflexión del Papa</span>
+        <span>${state.liturgyExplainOpen ? "▲ Ocultar" : "▼ Leer reflexión"}</span>
       </button>
 
       ${state.liturgyExplainOpen ? (() => {
@@ -11882,12 +11786,12 @@ function renderLiturgyView() {
         return `
         <div class="gospel-explanation-panel" id="gospel-explanation-panel">
           <div class="pastoral-why-box">
-            <span class="pastoral-cita-badge">${esc(verRef.source)} · ${esc(verRef.date)}</span>
-            <h4>${esc(verRef.document)}</h4>
+            <h4>Reflexión del Papa</h4>
+            <p style="margin:2px 0 10px;font-size:0.86rem;color:var(--muted)"><em>${esc(verRef.source)} · ${esc(verRef.document)}</em></p>
             <p class="reflection-quote-text">«${esc(verRef.quote)}»</p>
             <div style="margin-top:10px">
               <a href="${esc(verRef.url)}" target="_blank" rel="noopener noreferrer" class="reflection-official-link">
-                🔗 Fuente oficial verificada en Vatican.va ↗
+                Vatican.va ↗
               </a>
             </div>
           </div>
@@ -11901,9 +11805,9 @@ function renderLiturgyView() {
 }
 
 /* =====================================================================
-   MÓDULO 2: REFLEXIONES OFICIALES (CERO ALUCINACIÓN · ESQUEMA VERIFICADO)
+   MÓDULO 2: REFLEXIONES DEL PAPA
    ===================================================================== */
-let VERIFIED_REFLECTIONS = [
+var VERIFIED_REFLECTIONS = [
   {
     "id": 1,
     "date": "2026-06-05",
@@ -12022,33 +11926,28 @@ function renderReflectionsView() {
   const container = $("#reflections-content");
   if (!container) return;
 
-  container.innerHTML = `
-    <div class="reflection-verified-banner">
-      <span>📜 <strong>Cero Alucinaciones IA:</strong> Textos cargados exclusivamente desde fuentes magisteriales verificadas.</span>
-      <span>${VERIFIED_REFLECTIONS.length} documentos oficiales</span>
-    </div>
-    ${VERIFIED_REFLECTIONS.map(item => `
-      <article class="reflection-card" data-reflection-id="${esc(String(item.id))}">
-        <div class="reflection-meta-top">
-          <span class="reflection-source-badge">🏛️ ${esc(item.source)}</span>
-          <time class="reflection-date-badge" datetime="${esc(item.date)}">${esc(item.date)}</time>
-        </div>
-        <h3 class="reflection-doc-title">${esc(item.document)}</h3>
-        <blockquote class="reflection-quote-text">«${esc(item.quote)}»</blockquote>
-        <div class="reflection-card-footer">
-          <a href="${esc(item.url)}" target="_blank" rel="noopener noreferrer" class="reflection-official-link">
-            🔗 Verificar documento oficial en Vatican.va ↗
-          </a>
-        </div>
-      </article>
-    `).join("")}
-  `;
+  const list = Array.isArray(VERIFIED_REFLECTIONS) ? VERIFIED_REFLECTIONS : [];
+  container.innerHTML = list.map(item => `
+    <article class="reflection-card" data-reflection-id="${esc(String(item.id))}">
+      <div class="reflection-meta-top">
+        <h3 class="reflection-doc-title" style="margin:0">Reflexión del Papa</h3>
+        <time class="reflection-date-badge" datetime="${esc(item.date)}">${esc(item.date)}</time>
+      </div>
+      <p class="reflection-source-line" style="margin:0;font-size:0.9rem;color:var(--muted)"><em>${esc(item.source)} · ${esc(item.document)}</em></p>
+      <blockquote class="reflection-quote-text">«${esc(item.quote)}»</blockquote>
+      <div class="reflection-card-footer">
+        <a href="${esc(item.url)}" target="_blank" rel="noopener noreferrer" class="reflection-official-link">
+          Vatican.va ↗
+        </a>
+      </div>
+    </article>
+  `).join("");
 }
 
 /* =====================================================================
    MÓDULO 4: EL LIBRO DEL PUEBLO DE DIOS (TRADUCCIÓN OFICIAL ARGENTINA - CEA)
    ===================================================================== */
-let BIBLE_DATA = {
+var BIBLE_DATA = {
   "testaments": [
     {
       "id": "antiguo",
@@ -13916,7 +13815,18 @@ let appInitialized = false;
 
 function bindAppEvents() {
   $$("[data-target-view]").forEach(btn => {
-    btn.addEventListener("click", () => switchView(btn.dataset.targetView));
+    btn.addEventListener("click", (e) => {
+      e.preventDefault();
+      switchView(btn.dataset.targetView);
+    });
+  });
+
+  $("#top-nav")?.addEventListener("click", (e) => {
+    const tab = e.target.closest("[data-target-view]");
+    if (tab && tab.dataset.targetView) {
+      e.preventDefault();
+      switchView(tab.dataset.targetView);
+    }
   });
 
   $("#btn-map-fit")?.addEventListener("click", () => fitMapToBounds(filtered()));
@@ -14864,7 +14774,7 @@ function dismissSplashScreen() {
 function renderHome() {
   const set = (id, txt) => { const el = document.getElementById(id); if (el) el.textContent = txt; };
   set("bento-meta-list", `${PARISHES.length} templos · CABA y GBA`);
-  set("bento-meta-map", "OpenStreetMap · Overpass API");
+  set("bento-meta-map", "Templos por jerarquía");
   if (SHOW_COMMUNITY) {
     let streakTxt = "Registrá tu misa";
     try {
@@ -14877,7 +14787,7 @@ function renderHome() {
     set("bento-meta-liturgy", new Date().toLocaleDateString(appSettings.lang || "es-AR", { weekday: "long", day: "numeric", month: "long" }));
   } catch (e) { set("bento-meta-liturgy", "Lecturas de hoy"); }
   set("bento-meta-bible", "Antiguo y Nuevo Testamento (CEA)");
-  set("bento-meta-reflections", `${VERIFIED_REFLECTIONS.length} citas verificadas`);
+  set("bento-meta-reflections", "Audiencias y documentos");
   set("bento-meta-saints", "Santoral de hoy");
   set("bento-meta-settings", appSettings.darkMode ? "Modo noche activado" : "Modo claro · Idioma · Radio");
 }
@@ -15091,7 +15001,7 @@ async function loadParishes() {
     const list = Array.isArray(data) ? data : (data.parishes || []);
     if (list && list.length) {
       PARISHES = prepareDataset(list);
-      Store.set("parishes_cache_v6", list);
+      Store.set("parishes_cache_v7", list);
       if (state.userLoc) {
         updateDistances(state.userLoc.lat, state.userLoc.lng);
       }
