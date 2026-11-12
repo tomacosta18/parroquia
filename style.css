@@ -4428,14 +4428,202 @@ body.dark-mode .reflection-source-badge {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  font-size: 0.82rem;
-  font-weight: 600;
+  font-size: 0.85rem;
+  font-weight: 700;
   color: var(--brand);
   text-decoration: none;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  transition: transform 0.15s ease, opacity 0.15s ease;
 }
 body.dark-mode .reflection-official-link {
   color: #F3E5AB;
 }
 .reflection-official-link:hover {
   text-decoration: underline;
+  opacity: 0.92;
+}
+
+/* =====================================================================
+   MOTOR LITÚRGICO DINÁMICO (UTC-3) Y CONTROLES DEL LIBRO DEL PUEBLO DE DIOS
+   ===================================================================== */
+.liturgy-tz-pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 9px;
+  border-radius: 999px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  background: var(--brand-soft);
+  color: var(--brand);
+  letter-spacing: 0.01em;
+}
+body.dark-mode .liturgy-tz-pill {
+  color: #F3E5AB;
+}
+
+.liturgy-fallback-banner {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--gold);
+  color: var(--ink);
+  font-size: 0.82rem;
+  line-height: 1.45;
+}
+
+.bible-controls-bar {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  padding: 12px 14px;
+  margin-bottom: 10px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 16px;
+  box-shadow: var(--shadow-1);
+}
+
+.bible-search-box {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 12px;
+  height: 42px;
+  border-radius: 12px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  color: var(--muted);
+}
+.bible-search-box:focus-within {
+  border-color: var(--brand);
+}
+.bible-search-box input {
+  flex: 1;
+  border: 0;
+  background: transparent;
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.9rem;
+  outline: none;
+  min-width: 0;
+}
+.bible-search-clear-btn {
+  border: 0;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  font-size: 0.85rem;
+  padding: 4px 6px;
+  border-radius: 6px;
+}
+.bible-search-clear-btn:hover {
+  color: var(--ink);
+  background: var(--surface);
+}
+
+.bible-quick-selects {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 8px;
+}
+.bible-select-control {
+  height: 40px;
+  padding: 0 12px;
+  border-radius: 11px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.86rem;
+  font-weight: 600;
+  cursor: pointer;
+  min-width: 0;
+}
+.bible-select-control:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+.bible-select-chapter {
+  min-width: 120px;
+}
+
+.bible-search-results {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.bible-search-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 14px;
+  border-radius: 12px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  font-size: 0.85rem;
+  color: var(--ink-2);
+}
+.bible-verse-search-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.bible-search-verse-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 6px;
+  width: 100%;
+  text-align: left;
+  padding: 14px 16px;
+  border-radius: 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  color: var(--ink);
+  cursor: pointer;
+  transition: border-color 0.15s ease, background-color 0.15s ease;
+}
+.bible-search-verse-card:hover {
+  border-color: var(--brand);
+  background: var(--surface-2);
+}
+.bible-search-verse-ref {
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: var(--brand);
+}
+body.dark-mode .bible-search-verse-ref {
+  color: #F3E5AB;
+}
+.bible-search-verse-text {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 0.98rem;
+  line-height: 1.55;
+  color: var(--ink);
+}
+
+.bible-reader-footer-nav {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 20px;
+  padding-top: 14px;
+  border-top: 1px solid var(--line);
+}
+
+@media (max-width: 520px) {
+  .bible-quick-selects {
+    grid-template-columns: 1fr;
+  }
 }

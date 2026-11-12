@@ -2,12 +2,15 @@
    CONFIGURACIÓN, REGIONES AMBA (CABA + GBA) Y DATOS DE RESPALDO OFFLINE
    ===================================================================== */
 const DATA_SOURCE_URL = "./data/parroquias.json";
+const LITURGY_DATA_URL = "./data/liturgia.json";
 const REFLECTIONS_DATA_URL = "./data/reflexiones.json";
 const BIBLE_DATA_URL = "./data/libro_pueblo_de_dios.json";
 const SHOW_COMMUNITY = false; // Flag global para ocultar el módulo de Comunidad y Racha sin eliminar su código fuente
 try {
   localStorage.removeItem("osm_overpass_catholic_ba_v1");
   localStorage.removeItem("parishes_cache_v7");
+  localStorage.removeItem("ui_liturgy_date_v1");
+  localStorage.removeItem("ui_saints_date_v1");
 } catch (e) { /* modo privado */ }
 const ADMIN_MASTER_PIN = "1118";
 const ADMIN_COLLAB_PIN = "0000";
@@ -5706,6 +5709,15 @@ const FALLBACK_PARISHES = [
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => document.querySelectorAll(s);
 const norm = (s) => String(s || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase().trim();
+function esc(str) {
+  return String(str == null ? "" : str).replace(/[&<>"']/g, ch => ({
+    "&": "&amp;",
+    "<": "&lt;",
+    ">": "&gt;",
+    "\"": "&quot;",
+    "'": "&#39;"
+  }[ch]));
+}
 
 function toMinutes(hhmm) {
   const m = String(hhmm || "").match(/(\d{1,2}):(\d{2})/);
@@ -5879,12 +5891,28 @@ const Store = (() => {
   };
 })();
 
-function getLocalTodayIso() {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  const d = String(now.getDate()).padStart(2, "0");
+function getArgentinaTodayIso() {
+  try {
+    const parts = new Intl.DateTimeFormat("en-CA", {
+      timeZone: "America/Argentina/Buenos_Aires",
+      year: "numeric",
+      month: "2-digit",
+      day: "2-digit"
+    }).formatToParts(new Date());
+    const y = parts.find(p => p.type === "year")?.value;
+    const m = parts.find(p => p.type === "month")?.value;
+    const d = parts.find(p => p.type === "day")?.value;
+    if (y && m && d) return `${y}-${m}-${d}`;
+  } catch (e) { /* respaldo UTC-3 manual */ }
+  const arNow = new Date(Date.now() - 3 * 60 * 60 * 1000);
+  const y = arNow.getUTCFullYear();
+  const m = String(arNow.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(arNow.getUTCDate()).padStart(2, "0");
   return `${y}-${m}-${d}`;
+}
+
+function getLocalTodayIso() {
+  return getArgentinaTodayIso();
 }
 
 /* =====================================================================
@@ -5905,23 +5933,28 @@ const initialAdminRole = (function resolveInitialRole() {
 })();
 
 const VALID_APP_VIEWS = SHOW_COMMUNITY
-  ? ["home", "list", "map", "spiritual", "liturgy", "bible", "reflections", "saints", "community", "profile"]
-  : ["home", "list", "map", "liturgy", "bible", "reflections", "saints", "profile"];
-const savedActiveView = Store.get("ui_active_view_v1", "home");
+  ? ["home", "list", "map", "spiritual", "liturgy", "bible", "saints", "community", "profile"]
+  : ["home", "list", "map", "liturgy", "bible", "saints", "profile"];
+const rawSavedView = Store.get("ui_active_view_v1", "home");
+const savedActiveView = rawSavedView === "reflections" ? "liturgy" : rawSavedView;
 
 const state = {
   view: VALID_APP_VIEWS.includes(savedActiveView) ? savedActiveView : "home",
   commTab: Store.get("ui_comm_tab_v1", "all"), // 'all' | 'following' | 'ranking' | 'people'
   spirTab: Store.get("ui_spir_tab_v1", "streak"), // 'streak' | 'notes' | 'stats'
   checkinSlot: "Mañana", // 'Mañana' | 'Tarde' | 'Noche'
-  streakDate: getLocalTodayIso(),
+  streakDate: getArgentinaTodayIso(),
   editingNoteId: null,
-  liturgyDate: Store.get("ui_liturgy_date_v1", null) || getLocalTodayIso(),
-  saintsDate: Store.get("ui_saints_date_v1", null) || getLocalTodayIso(),
+  liturgyDate: getArgentinaTodayIso(),
+  saintsDate: getArgentinaTodayIso(),
+  liturgyFetchStatus: "synced", // 'loading' | 'synced' | 'fallback'
+  liturgyFetchNotice: "",
   bibleTestamentId: null, // 'antiguo' | 'nuevo' | null
   bibleCategoryId: null,  // 'pentateuco' | 'historicos' | 'sapienciales' | 'profeticos' | 'evangelios' | 'hechos' | 'cartas_paulinas' | 'cartas_catolicas' | 'apocalipsis' | null
   bibleBookId: null,      // 'gn' | 'mt' | ... | null
   bibleChapterNum: null,  // 1 | 2 | ... | null
+  bibleSearchQuery: "",
+  bibleFetchStatus: "ready",
   openFirstReading: false,
   openPsalm: false,
   liturgyExplainOpen: false,
@@ -5948,6 +5981,10 @@ const state = {
    Navegación Superior con Scroll Horizontal y Animación de Libro
    ===================================================================== */
 function switchView(targetView, skipScroll = false) {
+  if (targetView === "reflections") {
+    targetView = "liturgy";
+    state.liturgyExplainOpen = true;
+  }
   if (!SHOW_COMMUNITY && (targetView === "spiritual" || targetView === "community")) {
     targetView = "home";
   }
@@ -5970,7 +6007,6 @@ function switchView(targetView, skipScroll = false) {
     spiritual: $("#view-spiritual"),
     liturgy: $("#view-liturgy"),
     bible: $("#view-bible"),
-    reflections: $("#view-reflections"),
     saints: $("#view-saints"),
     community: $("#view-community"),
     profile: $("#view-profile")
@@ -5982,7 +6018,6 @@ function switchView(targetView, skipScroll = false) {
     spiritual: $("#tab-spiritual"),
     liturgy: $("#tab-liturgy"),
     bible: $("#tab-bible"),
-    reflections: $("#tab-reflections"),
     saints: $("#tab-saints"),
     community: $("#tab-community"),
     profile: $("#tab-profile")
@@ -6064,8 +6099,6 @@ function switchView(targetView, skipScroll = false) {
       renderLiturgyView();
     } else if (targetView === "bible") {
       renderBibleView();
-    } else if (targetView === "reflections") {
-      renderReflectionsView();
     } else if (targetView === "saints") {
       renderSaintsView();
     } else if (targetView === "community" && SHOW_COMMUNITY) {
@@ -10105,11 +10138,7 @@ const ACTIVITY_LABELS = {
 };
 
 function getTodayIsoDate() {
-  const now = new Date();
-  const y = now.getFullYear();
-  const m = String(now.getMonth() + 1).padStart(2, "0");
-  const d = String(now.getDate()).padStart(2, "0");
-  return `${y}-${m}-${d}`;
+  return getArgentinaTodayIso();
 }
 
 function addDaysIso(isoDateStr, deltaDays) {
@@ -11408,6 +11437,269 @@ Entonces Jesús, llamando a sus discípulos, les dijo: «Les aseguro que esta vi
       "¿Le doy a Dios y a mis hermanos sólo lo que me sobra de tiempo, o le entrego lo mejor de mi corazón?",
       "Participar hoy en la Misa dominical ofreciendo toda nuestra semana en el altar."
     ]
+  },
+  "11-09": {
+    citation: "Juan 2, 13-22",
+    firstReadingRef: "Ezequiel 47, 1-2. 8-9. 12",
+    firstReadingTitle: "Vi que manaba agua del lado derecho del Templo, y todos aquellos a quienes llegue esta agua vivirán",
+    firstReadingFullText: `Lectura de la profecía de Ezequiel.
+
+En aquellos días, el hombre me hizo volver a la entrada de la Casa del Señor, y vi que salía agua de debajo del umbral de la Casa, hacia el oriente, porque la fachada de la Casa miraba hacia el oriente. El agua bajaba de debajo del lado derecho de la Casa, al sur del altar.
+
+Él me dijo: «Estas aguas salen hacia la región oriental, bajan hasta la Arabá, desembocan en el mar de las aguas salobres, y las sanean. Todos los seres vivientes que se muevan por donde pase el torrente, vivirán; habrá peces en abundancia, porque apenas lleguen estas aguas, quedarán saneadas las aguas del mar, y habrá vida por todas partes adonde llegue el torrente.
+
+A orillas del torrente, sobre las dos márgenes, crecerán toda clase de árboles frutales: su follaje no se marchitará y sus frutos no se agotarán; darán nuevos frutos cada mes, porque sus aguas salen del Santuario; sus frutos servirán de alimento y sus hojas, de medicina».`,
+    psalmRef: "Salmo 45 (46), 2-3. 5-6. 8-9",
+    psalmResponse: "R. Un río alegra la Ciudad de Dios, la morada sagrada del Altísimo.",
+    psalmFullText: `Dios es nuestro refugio y nuestra fuerza,
+nuestro socorro siempre pronto en la angustia.
+Por eso no tememos aunque tiemble la tierra
+y las montañas se desplomen en el fondo del mar.
+R. Un río alegra la Ciudad de Dios, la morada sagrada del Altísimo.
+
+Un río y sus canales alegran la Ciudad de Dios,
+la más santa de las moradas del Altísimo.
+Dios está en medio de ella: nunca vacilará;
+Dios la socorrerá al despuntar la aurora.
+R. Un río alegra la Ciudad de Dios, la morada sagrada del Altísimo.
+
+El Señor del universo está con nosotros,
+nuestro baluarte es el Dios de Jacob.
+Vengan a contemplar las obras del Señor,
+las maravillas que realiza en la tierra.
+R. Un río alegra la Ciudad de Dios, la morada sagrada del Altísimo.`,
+    title: "Dedicación de la Basílica de San Juan de Letrán: «Él hablaba del Templo de su cuerpo»",
+    liturgicalSeason: "Fiesta de la Dedicación de San Juan de Letrán · Blanco Litúrgico · CEA",
+    gospelText: `Se acercaba la Pascua de los judíos, y Jesús subió a Jerusalén. Encontró en el Templo a los vendedores de bueyes, ovejas y palomas y a los cambistas sentados delante de sus mesas. Hizo un látigo de cuerdas y los echó a todos del Templo, con las ovejas y los bueyes; desparramó las monedas de los cambistas, derribó sus mesas y dijo a los vendedores de palomas: «Saquen esto de aquí y no hagan de la Casa de mi Padre una casa de comercio».
+
+Y sus discípulos recordaron las palabras de la Escritura: «El celo por tu Casa me consumirá».
+
+Entonces los judíos tomaron la palabra y le dijeron: «¿Qué signo nos das para obrar así?». Jesús les respondió: «Destruyan este templo y en tres días lo volveré a levantar». Los judíos le dijeron: «Han sido necesarios cuarenta y seis años para construir este Templo, ¿y tú lo vas a levantar en tres días?». Pero él hablaba del Templo de su cuerpo.
+
+Por eso, cuando resucitó de entre los muertos, sus discípulos recordaron que él había dicho esto, y creyeron en la Escritura y en la palabra que había pronunciado Jesús.`,
+    whyChosenToday: "En la Fiesta de la Dedicación de la Basílica de San Juan de Letrán, Catedral de Roma, la Iglesia proclama Juan 2, 13-22 porque revela que Cristo Resucitado es el verdadero Templo viviente del cual mana el agua del Espíritu (Ezequiel 47).",
+    popeQuote: "«Cada bautizado es piedra viva del templo espiritual de Dios, llamado a irradiar la misericordia que brota del corazón de Cristo» (Papa Francisco)."
+  },
+  "11-10": {
+    citation: "Lucas 17, 1-6",
+    firstReadingRef: "Tito 1, 1-9",
+    firstReadingTitle: "Establece presbíteros en cada ciudad, irreprochables y fieles a la Palabra",
+    firstReadingFullText: `Lectura de la carta del apóstol san Pablo a Tito.
+
+Pablo, servidor de Dios y Apóstol de Jesucristo para conducir a los elegidos de Dios a la fe y al pleno conocimiento de la verdad que es conforme a la piedad, con la esperanza de la Vida eterna, saluda a Tito, su verdadero hijo en la fe común. Te deseo la gracia y la paz que proceden de Dios, el Padre, y de Cristo Jesús, nuestro Salvador.
+
+Te dejé en Creta, para que terminaras de organizarlo todo y establecieras presbíteros en cada ciudad, de acuerdo con mis instrucciones. Porque el que preside la comunidad, en su calidad de administrador de Dios, debe ser irreprochable: hospitalario, amigo del bien, sensato, justo, piadoso, dueño de sí mismo. También debe estar firmemente adherido a la palabra cierta, la que es conforme a la enseñanza, para ser capaz de exhortar con la sana doctrina.`,
+    psalmRef: "Salmo 23 (24), 1-2. 3-4ab. 5-6",
+    psalmResponse: "R. Ésta es la generación de los que buscan tu rostro, Señor.",
+    psalmFullText: `Del Señor es la tierra y todo lo que hay en ella,
+el mundo y todos sus habitantes,
+porque él la fundó sobre los mares
+y la afirmó sobre las corrientes del océano.
+R. Ésta es la generación de los que buscan tu rostro, Señor.
+
+¿Quién podrá subir a la Montaña del Señor
+y permanecer en su recinto sagrado?
+El que tiene las manos limpias y puro el corazón,
+el que no rinde culto a los ídolos.
+R. Ésta es la generación de los que buscan tu rostro, Señor.
+
+Él recibirá la bendición del Señor,
+la recompensa de Dios, su salvador.
+Así son los que buscan al Señor,
+los que buscan tu rostro, Dios de Jacob.
+R. Ésta es la generación de los que buscan tu rostro, Señor.`,
+    title: "El perdón sin límites y la fuerza de la fe: «Señor, auméntanos la fe»",
+    liturgicalSeason: "Memoria de San León Magno, Papa y Doctor · Blanco Litúrgico · CEA",
+    gospelText: `En aquel tiempo, Jesús dijo a sus discípulos: «Es inevitable que haya escándalos, pero ¡ay de aquel que los ocasiona! Más le valdría que le ataran al cuello una piedra de moler y lo precipitaran al mar, antes que escandalizar a uno de estos pequeños. Por lo tanto, ¡tengan cuidado!
+
+Si tu hermano peca, repréndelo, y si se arrepiente, perdónalo. Y si peca contra ti siete veces en un día y siete veces vuelve a ti, diciendo: "Me arrepiento", perdónalo».
+
+Los Apóstoles dijeron al Señor: «Auméntanos la fe». Él respondió: «Si ustedes tuvieran fe del tamaño de un grano de mostaza, y dijeran a esa morera que está ahí: "Arráncate de raíz y plántate en el mar", ella les obedecería».`,
+    whyChosenToday: "En la Memoria de San León Magno, Lucas 17, 1-6 nos recuerda el cuidado pastoral por los más pequeños, la exigencia evangélica del perdón fraterno y la súplica humilde de los Apóstoles: «Auméntanos la fe».",
+    popeQuote: "«Basta una fe pequeña como un grano de mostaza, pero auténtica y confiada, para que el amor de Dios realice obras grandes en nuestra vida» (Papa Francisco)."
+  },
+  "11-11": {
+    citation: "Lucas 17, 11-19",
+    firstReadingRef: "Tito 3, 1-7",
+    firstReadingTitle: "Nos salvó no por nuestras obras de justicia, sino por su propia misericordia",
+    firstReadingFullText: `Lectura de la carta del apóstol san Pablo a Tito.
+
+Querido hermano: Recuerda a los fieles que se sometan a los magistrados y a las autoridades, que los obedezcan y estén siempre dispuestos para cualquier obra buena; que no hablen mal de nadie, que sean pacíficos y comprensivos, y que se muestren llenos de mansedumbre con todos los hombres.
+
+Porque también nosotros antes éramos insensatos, rebeldes, extraviados, esclavos de toda clase de pasiones y placeres; vivíamos en la maldad y en la envidia, éramos odiosos y nos odiábamos los unos a los otros.
+
+Pero cuando se manifestó la bondad de Dios, nuestro Salvador, y su amor a los hombres, no por las obras de justicia que habíamos realizado, sino solamente por su misericordia, él nos salvó, haciéndonos renacer por el bautismo y renovándonos por el Espíritu Santo. Y derramó abundantemente ese Espíritu sobre nosotros por medio de Jesucristo, nuestro Salvador, a fin de que, justificados por su gracia, seamos en esperanza herederos de la Vida eterna.`,
+    psalmRef: "Salmo 22 (23), 1-3a. 3b-4. 5. 6",
+    psalmResponse: "R. El Señor es mi pastor, nada me puede faltar.",
+    psalmFullText: `El Señor es mi pastor, nada me puede faltar.
+En praderas de hierba fresca me hace reposar,
+me conduce junto a aguas tranquilas
+y repara mis fuerzas.
+R. El Señor es mi pastor, nada me puede faltar.
+
+Me guía por el recto sendero, por amor de su Nombre.
+Aunque cruce por oscuras quebradas,
+no temeré ningún mal, porque tú estás conmigo:
+tu vara y tu bastón me infunden confianza.
+R. El Señor es mi pastor, nada me puede faltar.
+
+Preparas una mesa delante de mí,
+frente a mis enemigos;
+unges con óleo mi cabeza
+y mi copa rebosa.
+R. El Señor es mi pastor, nada me puede faltar.
+
+Tu bondad y tu gracia me acompañan
+a lo largo de mi vida;
+y habitaré en la Casa del Señor,
+por muy largo tiempo.
+R. El Señor es mi pastor, nada me puede faltar.`,
+    title: "La curación de los diez leprosos y la gratitud de la fe: «Levántate y vete, tu fe te ha salvado»",
+    liturgicalSeason: "San Martín de Tours, Obispo · Patrono de Buenos Aires · Blanco Litúrgico · CEA",
+    gospelText: `En aquel tiempo, mientras se dirigía a Jerusalén, Jesús pasaba a través de Samaría y de Galilea. Al entrar en un poblado, le salieron al encuentro diez leprosos, que se detuvieron a distancia y empezaron a gritarle: «¡Jesús, Maestro, ten compasión de nosotros!». Al verlos, Jesús les dijo: «Vayan a presentarse a los sacerdotes». Y en el camino quedaron purificados.
+
+Uno de ellos, al comprobar que estaba curado, volvió atrás alabando a Dios en voz alta y se arrojó a los pies de Jesús con el rostro en tierra, dándole gracias. Era un samaritano.
+
+Jesús tomó la palabra y dijo: «¿Cómo, no quedaron purificados los diez? Los otros nueve, ¿dónde están? ¿Ninguno volvió a dar gracias a Dios, sino este extranjero?». Y agregó: «Levántate y vete; tu fe te ha salvado».`,
+    whyChosenToday: "En la fiesta de San Martín de Tours, Patrono de la Ciudad de Buenos Aires, la liturgia proclama Lucas 17, 11-19 junto a Tito 3, 1-7 y el Salmo 22: nos recuerda que la salvación es don gratuito de la misericordia de Dios que despierta en nosotros la alabanza agradecida y la caridad concreta hacia el prójimo.",
+    popeQuote: "«El samaritano que vuelve para agradecer nos enseña que la gratitud abre el corazón al encuentro personal con Jesús: no basta recibir un favor de Dios, estamos llamados a reconocer Su amor y compartirlo con quien sufre» (Papa Francisco)."
+  },
+  "11-12": {
+    citation: "Lucas 17, 20-25",
+    firstReadingRef: "Filemón 7-20",
+    firstReadingTitle: "Recíbelo no ya como a un esclavo, sino como a un hermano muy querido",
+    firstReadingFullText: `Lectura de la carta del apóstol san Pablo a Filemón.
+
+Querido hermano: Tu caridad me ha llenado de alegría y de consuelo, porque gracias a ti, hermano, el corazón de los santos ha recibido un gran alivio. Por eso, aunque tengo plena libertad en Cristo para ordenarte lo que debes hacer, prefiero suplicarte en nombre de la caridad.
+
+Yo, Pablo, ya anciano y ahora prisionero a causa de Cristo Jesús, te suplico en favor de mi hijo Onésimo, al que engendré en la prisión. Antes, él no te prestó ningún servicio, pero ahora será muy útil para ti y para mí. Te lo envío como si fuera yo mismo: recíbelo como a mi propio corazón.
+
+Tal vez él se apartó de ti por un instante, a fin de que lo recuperaras para siempre, no ya como a un esclavo, sino como a algo mucho mejor: como a un hermano querido, importantísimo para mí, y más todavía para ti, tanto en lo humano como en el Señor.`,
+    psalmRef: "Salmo 145 (146), 7. 8-9a. 9bc-10",
+    psalmResponse: "R. Feliz el que tiene por ayuda al Dios de Jacob.",
+    psalmFullText: `El Señor mantiene su fidelidad para siempre,
+hace justicia a los oprimidos
+y da pan a los hambrientos.
+El Señor libera a los cautivos.
+R. Feliz el que tiene por ayuda al Dios de Jacob.
+
+El Señor abre los ojos de los ciegos,
+el Señor endereza a los que están encorvados,
+el Señor ama a los justos.
+El Señor protege a los extranjeros.
+R. Feliz el que tiene por ayuda al Dios de Jacob.
+
+Él sostiene al huérfano y a la viuda
+y entorpece el camino de los malvados.
+El Señor reina eternamente,
+reina tu Dios, Sión, a lo largo de las generaciones.
+R. Feliz el que tiene por ayuda al Dios de Jacob.`,
+    title: "La venida silenciosa del Reino: «El Reino de Dios ya está en medio de ustedes»",
+    liturgicalSeason: "Memoria de San Josafat, Obispo y Mártir · Rojo Litúrgico · CEA",
+    gospelText: `En aquel tiempo, habiéndole preguntado los fariseos cuándo llegaría el Reino de Dios, Jesús les respondió: «El Reino de Dios no viene ostensiblemente, y no se podrá decir: "Está aquí" o "Está allí". Porque el Reino de Dios está entre ustedes».
+
+Jesús dijo después a sus discípulos: «Vendrá el tiempo en que ustedes desearán ver uno solo de los días del Hijo del hombre y no lo verán. Les dirán: "Está aquí" o "Está allí", pero no corran a buscarlo.
+
+Como el fulgor del relámpago brilla de un extremo al otro del cielo, así será el Hijo del hombre cuando llegue su Día. Pero antes tendrá que sufrir mucho y será rechazado por esta generación».`,
+    whyChosenToday: "Lucas 17, 20-25 nos enseña que el Reino de Dios no llega como un espectáculo mundano, sino que germina silenciosamente allí donde se vive la fraternidad evangélica (Carta a Filemón).",
+    popeQuote: "«El Reino de Dios crece sin hacer ruido allí donde los cristianos aman, perdonan y construyen unidad» (Papa Francisco)."
+  },
+  "11-13": {
+    citation: "Lucas 17, 26-37",
+    firstReadingRef: "2 Juan 4-9",
+    firstReadingTitle: "El amor consiste en vivir según sus mandamientos",
+    firstReadingFullText: `Lectura de la segunda carta del apóstol san Juan.
+
+Elegida señora: Me alegré muchísimo al encontrar a algunos hijos tuyos que viven en la verdad, según el mandamiento que hemos recibido del Padre.
+
+Y ahora te ruego, Señora —no como si te escribiera un mandamiento nuevo, sino el que tenemos desde el principio— que nos amemos los unos a los otros. Y el amor consiste en vivir según sus mandamientos. El mandamiento que ustedes han oído desde el principio es que vivan en el amor.
+
+Todo el que se aventura más allá de la doctrina de Cristo y no permanece en ella, no está unido a Dios. En cambio, el que permanece en su doctrina está unido al Padre y también al Hijo.`,
+    psalmRef: "Salmo 118 (119), 1. 2. 10. 11. 17. 18",
+    psalmResponse: "R. Felices los que proceden según la voluntad del Señor.",
+    psalmFullText: `Felices los que van por un camino intachable,
+los que proceden según la Ley del Señor.
+Felices los que cumplen sus prescripciones
+y lo buscan de todo corazón.
+R. Felices los que proceden según la voluntad del Señor.
+
+Yo te busco de todo corazón:
+no permitas que me aparte de tus mandamientos.
+Conservo tu palabra en mi corazón,
+para no pecar contra ti.
+R. Felices los que proceden según la voluntad del Señor.`,
+    title: "Vigilancia ante el Día del Hijo del hombre: «El que pierda su vida la conservará»",
+    liturgicalSeason: "Viernes de la XXXII Semana durante el Año · Verde Litúrgico · CEA",
+    gospelText: `En aquel tiempo, Jesús dijo a sus discípulos: «Como sucedió en los días de Noé, así sucederá también en los días del Hijo del hombre. Comían y bebían, tomaban mujer o marido, hasta el día en que Noé entró en el arca y vino el diluvio, que los hizo perecer a todos.
+
+Sucederá también como en los días de Lot: se comía y se bebía, se compraba y se vendía, se plantaba y se construía. Pero el día en que Lot salió de Sodoma, cayó del cielo una lluvia de fuego y de azufre que los hizo perecer a todos. Lo mismo sucederá el Día en que se manifieste el Hijo del hombre.
+
+En aquel Día, el que esté en la azotea y tenga sus cosas en la casa, no baje a buscarlas. Igualmente, el que esté en el campo, no vuelva atrás. Acuérdense de la mujer de Lot. El que trate de salvar su vida, la perderá; y el que la pierda, la conservará».`,
+    whyChosenToday: "Lucas 17, 26-37 nos invita a no quedar atrapados en la rutina superficial y a vivir despiertos en la verdad y en el amor fraterno (2 Juan 4-9).",
+    popeQuote: "«Vivir despiertos en la fe significa no dejar que la rutina apague nuestra capacidad de amar a Dios y a los hermanos en el presente» (Papa Francisco)."
+  },
+  "11-14": {
+    citation: "Lucas 18, 1-8",
+    firstReadingRef: "3 Juan 5-8",
+    firstReadingTitle: "Debemos acoger a los hermanos para ser colaboradores de la verdad",
+    firstReadingFullText: `Lectura de la tercera carta del apóstol san Juan.
+
+Querido hermano: Te portas fielmente en todo lo que haces por los hermanos, incluso por los que están de paso, los cuales han dado testimonio de tu amor delante de la Iglesia. Harás bien en ayudarlos a proseguir su viaje de una manera digna de Dios, porque ellos se pusieron en camino por amor de su Nombre, sin aceptar nada de los paganos.
+
+Por eso, debemos acoger a personas como ellos, para ser colaboradores de la verdad.`,
+    psalmRef: "Salmo 111 (112), 1-2. 3-4. 5-6",
+    psalmResponse: "R. Feliz el hombre que teme al Señor.",
+    psalmFullText: `Feliz el hombre que teme al Señor
+y se complace en sus mandamientos.
+Su descendencia será fuerte en la tierra:
+la posteridad de los justos es bendecida.
+R. Feliz el hombre que teme al Señor.
+
+En su casa habrá abundancia y riqueza,
+su generosidad permanece para siempre.
+Para los buenos brilla una luz en las tinieblas:
+es el Bondadoso, el Compasivo y el Justo.
+R. Feliz el hombre que teme al Señor.`,
+    title: "La necesidad de orar siempre sin desanimarse: La parábola de la viuda perseverante",
+    liturgicalSeason: "Sábado de la XXXII Semana durante el Año · Verde Litúrgico · CEA",
+    gospelText: `En aquel tiempo, Jesús enseñó a sus discípulos con una parábola que era necesario orar siempre sin desanimarse: «En una ciudad había un juez que no temía a Dios ni le importaban los hombres; y en la misma ciudad vivía una viuda que recurría a él, diciéndole: "Te ruego que me hagas justicia contra mi adversario".
+
+Durante mucho tiempo el juez se negó, pero después dijo: "Yo no temo a Dios ni me importan los hombres, pero como esta viuda me molesta, le haré justicia para que no venga continuamente a fastidiarme"».
+
+Y el Señor dijo: «Oigan lo que dijo este juez injusto. Y Dios, ¿no hará justicia a sus elegidos, que claman a él día y noche, aunque los haga esperar? Les aseguro que en un instante les hará justicia. Pero cuando venga el Hijo del hombre, ¿encontrará fe sobre la tierra?».`,
+    whyChosenToday: "Lucas 18, 1-8 cierra la semana enseñándonos que la fe se sostiene mediante la oración perseverante y confiada.",
+    popeQuote: "«Orar siempre sin desanimarse es mantener encendido el deseo de Dios en el corazón, seguros de que el Padre escucha cada súplica» (Papa Francisco)."
+  },
+  "11-15": {
+    citation: "Marcos 13, 24-32",
+    firstReadingRef: "Daniel 12, 1-3",
+    firstReadingTitle: "Los sabios brillarán como el resplandor del firmamento",
+    firstReadingFullText: `Lectura de la profecía de Daniel.
+
+En aquel tiempo se alzará Miguel, el gran Príncipe que defiende a los hijos de tu pueblo. Entonces será un tiempo de tribulación como no lo hubo jamás, desde que existen las naciones hasta el tiempo presente. Pero en aquel tiempo será librado tu pueblo: todo el que se encuentre inscrito en el Libro.
+
+Y muchos de los que duermen en el suelo polvoriento se despertarán, unos para la vida eterna, y otros para la ignominia, para el horror eterno. Los hombres sabios brillarán como el resplandor del firmamento, y los que hayan enseñado a muchos la justicia, como las estrellas, por toda la eternidad.`,
+    psalmRef: "Salmo 15 (16), 5 y 8. 9-10. 11",
+    psalmResponse: "R. Protégeme, Dios mío, porque me refugio en ti.",
+    psalmFullText: `El Señor es la parte de mi herencia y mi cáliz,
+¡tú decides mi suerte!
+Tengo siempre presente al Señor:
+él está a mi derecha, jamás vacilaré.
+R. Protégeme, Dios mío, porque me refugio en ti.
+
+Me harás conocer el camino de la vida,
+saciándome de gozo en tu presencia,
+de felicidad eterna a tu derecha.
+R. Protégeme, Dios mío, porque me refugio en ti.`,
+    title: "El cielo y la tierra pasarán, pero mis palabras no pasarán",
+    liturgicalSeason: "XXXIII Domingo Durante el Año · Verde Litúrgico · CEA",
+    gospelText: `En aquel tiempo, Jesús dijo a sus discípulos: «En aquellos días, después de aquella tribulación, el sol se oscurecerá, la luna dejará de brillar, las estrellas caerán del cielo y los astros se conmoverán. Y se verá al Hijo del hombre venir sobre las nubes, lleno de poder y de gloria. Y él enviará a los ángeles para que reúnan a sus elegidos desde los cuatro vientos, de un extremo al otro de la tierra.
+
+Aprendan esta comparación, tomada de la higuera: cuando sus ramas se hacen flexibles y brotan las hojas, ustedes se dan cuenta de que se acerca el verano. Así también, cuando vean que suceden todas estas cosas, sepan que el fin está cerca, a la puerta.
+
+Les aseguro que no pasará esta generación, sin que suceda todo esto. El cielo y la tierra pasarán, pero mis palabras no pasarán. En cuanto a ese día y a esa hora, nadie los conoce, ni los ángeles del cielo, ni el Hijo, nadie sino el Padre».`,
+    whyChosenToday: "En el penúltimo domingo del Año Litúrgico, Marcos 13, 24-32 proclama la firmeza eterna de la Palabra de Cristo frente a todo lo pasajero.",
+    popeQuote: "«El cielo y la tierra pasarán, pero mis palabras no pasarán: Jesús es el punto firme en el que podemos apoyar toda nuestra esperanza» (Papa Francisco, Angelus)."
   }
 };
 
@@ -11650,6 +11942,74 @@ const SAINTS_BY_MMDD = {
         "«Señor, si todavía soy necesario a tu pueblo, no rehúso el trabajo: hágase tu voluntad»."
       ]
     }
+  ],
+  "11-12": [
+    {
+      name: "San Josafat, Obispo y Mártir",
+      feast: "Memoria Obligatoria · Martirologio Romano",
+      iconSvg: SVG_SAINT_HALO,
+      bio: "Arzobispo de Polotsk (1580-1623), incansable apóstol de la unidad de los cristianos que entregó su vida por la comunión eclesial con la Sede de Pedro.",
+      quote: "«Concédenos, Señor, el don precioso de la unidad y la paz».",
+      theologicalExplanation: "Su martirio actualiza la oración sacerdotal de Jesús: «Que todos sean uno, como tú, Padre, estás en mí y yo en ti» (Jn 17, 21).",
+      curiosities: [
+        "Monje basiliano nacido en Ucrania, promovió la renovación espiritual del clero y del pueblo mediante la predicación y la catequesis.",
+        "Entregó su vida perdonando a sus agresores y pidiendo por la reconciliación de los cristianos.",
+        "Sus reliquias descansan en la Basílica de San Pedro en el Vaticano."
+      ],
+      otherQuotes: [
+        "«Estoy dispuesto a dar mi vida por la santa unión y por la caridad fraterna»."
+      ]
+    }
+  ],
+  "11-13": [
+    {
+      name: "Santa Francisca Javier Cabrini, Virgen y Fundadora",
+      feast: "Memoria · Patrona de los Migrantes",
+      iconSvg: SVG_SAINT_HALO,
+      bio: "Fundadora de las Misioneras del Sagrado Corazón de Jesús (1850-1917). Cruzó el Atlántico más de veinte veces fundando escuelas, hospitales y hogares para los migrantes en América, incluyendo su histórica labor educativa en Buenos Aires.",
+      quote: "«Todo lo puedo en Aquel que me conforta» (Flp 4, 13).",
+      theologicalExplanation: "Encarnó el amor ardiente del Corazón de Jesús saliendo al encuentro de los migrantes, huérfanos y enfermos en las grandes ciudades.",
+      curiosities: [
+        "En Buenos Aires fundó el tradicional Colegio Santa Rosa en el barrio de Balvanera a fines del siglo XIX.",
+        "En 1950 Pío XII la proclamó Patrona Celestial de todos los Emigrantes."
+      ],
+      otherQuotes: [
+        "«El mundo es pequeño para quien desea llevar a todas partes el amor del Sagrado Corazón»."
+      ]
+    }
+  ],
+  "11-14": [
+    {
+      name: "San Nicolás Tavelic y Compañeros, Mártires",
+      feast: "Martirologio Romano · 14 de Noviembre",
+      iconSvg: SVG_SAINT_HALO,
+      bio: "Religiosos franciscanos que misionaron con humildad y dieron testimonio supremo de Cristo en Jerusalén en el año 1391.",
+      quote: "«En la cruz de Cristo está nuestra paz y nuestra fortaleza».",
+      theologicalExplanation: "Fieles al espíritu de San Francisco de Asís, anunciaron el Evangelio con entrega total de la propia vida.",
+      curiosities: [
+        "Nicolás Tavelic fue el primer santo canonizado originario de Croacia (canonizado por San Pablo VI en 1970)."
+      ],
+      otherQuotes: [
+        "«Permanezcan firmes en la fe y en la oración constante»."
+      ]
+    }
+  ],
+  "11-15": [
+    {
+      name: "San Alberto Magno, Obispo y Doctor de la Iglesia",
+      feast: "Memoria · Patrono de los Científicos",
+      iconSvg: SVG_SAINT_HALO,
+      bio: "Fraile dominico alemán (1200-1280), maestro de Santo Tomás de Aquino. Armonizó con sabiduría ejemplar la investigación de la naturaleza y las ciencias con la contemplación de la Sagrada Escritura y el amor a la Eucaristía.",
+      quote: "«La gracia no destruye la naturaleza, sino que la eleva y perfecciona».",
+      theologicalExplanation: "Mostró que la fe y la razón proceden de un mismo Dios Creador y se iluminan mutuamente en la búsqueda de la verdad.",
+      curiosities: [
+        "Llamado el «Doctor Universal» por la amplitud de sus conocimientos en teología, filosofía, botánica y astronomía.",
+        "Fue proclamado Patrono de los estudiantes de ciencias naturales por el Papa Pío XII en 1941."
+      ],
+      otherQuotes: [
+        "«El mayor conocimiento consiste en unirse a Dios por el amor y la humildad»."
+      ]
+    }
   ]
 };
 
@@ -11702,18 +12062,60 @@ function getSaintsForDate(isoDateStr) {
   return SAINTS_FALLBACK_CYCLE[idx];
 }
 
+async function fetchDailyLiturgyData() {
+  state.liturgyFetchStatus = "loading";
+  const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+  const timeoutId = controller ? setTimeout(() => controller.abort(), 4500) : null;
+  try {
+    const res = await fetch(LITURGY_DATA_URL, {
+      headers: { "Accept": "application/json" },
+      signal: controller ? controller.signal : undefined
+    });
+    if (timeoutId) clearTimeout(timeoutId);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    const data = await res.json();
+    if (data && data.readingsByMmdd && typeof data.readingsByMmdd === "object") {
+      Object.assign(OFFICIAL_GOSPELS_BY_MMDD, data.readingsByMmdd);
+    }
+    if (data && data.saintsByMmdd && typeof data.saintsByMmdd === "object") {
+      Object.assign(SAINTS_BY_MMDD, data.saintsByMmdd);
+    }
+    state.liturgyFetchStatus = "synced";
+    state.liturgyFetchNotice = "";
+  } catch (err) {
+    if (timeoutId) clearTimeout(timeoutId);
+    console.warn("[Motor Litúrgico] Red no disponible o fallo en fetch, activando fallback local verificado (UTC-3):", err);
+    state.liturgyFetchStatus = "fallback";
+    state.liturgyFetchNotice = "Sin conexión de red · Mostrando Leccionario y Martirologio local verificado (Argentina UTC-3).";
+  }
+  if (state.view === "liturgy") renderLiturgyView();
+  if (state.view === "saints") renderSaintsView();
+}
+
 function renderLiturgyView() {
   const container = $("#liturgy-content");
   if (!container) return;
 
   const g = getGospelForDate(state.liturgyDate);
+  const verRef = getVerifiedReflectionForDate(g.isoDate);
+  const vaticanNewsHref = verRef.vaticanNewsUrl || verRef.url || "https://www.vaticannews.va/es/papa.html";
+  const isTodayAr = g.isoDate === getArgentinaTodayIso();
+  const statusBannerHtml = state.liturgyFetchStatus === "fallback"
+    ? `<div class="liturgy-fallback-banner" role="status">
+         <span>⚠️ <strong>Modo Offline Activo:</strong> ${esc(state.liturgyFetchNotice || "Leccionario y santoral cargados desde el respaldo local verificado (UTC-3).")}</span>
+       </div>`
+    : "";
 
   container.innerHTML = `
+    ${statusBannerHtml}
     <!-- Barra de Selección de Fecha Litúrgica con Selector Estilizado Personalizado -->
     <div class="liturgy-toolbar">
       <div class="liturgy-toolbar-info">
-        <strong>${g.formattedLongDate}</strong>
-        <span>Primera lectura, Salmo y evangelio del día.</span>
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+          <strong>${esc(g.formattedLongDate)}</strong>
+          <span class="liturgy-tz-pill">${isTodayAr ? "Hoy · Argentina (UTC-3)" : "Argentina (UTC-3)"}</span>
+        </div>
+        <span>Primera lectura, Salmo responsorial y Evangelio del día</span>
       </div>
       <div class="liturgy-date-controls">
         ${renderCustomDatePickerHtml("liturgy", g.isoDate)}
@@ -11726,19 +12128,16 @@ function renderLiturgyView() {
       <article class="reading-interactive-card ${state.openFirstReading ? "is-expanded" : ""}">
         <button type="button" class="reading-toggle-btn" data-toggle-lit-reading="first" aria-expanded="${state.openFirstReading}">
           <div class="reading-toggle-info">
-            <span class="reading-kicker">📜 Primera Lectura · ${g.firstReadingRef}</span>
-            <span class="reading-title">«${g.firstReadingTitle}»</span>
+            <span class="reading-kicker">📜 Primera Lectura · ${esc(g.firstReadingRef)}</span>
+            <span class="reading-title">«${esc(g.firstReadingTitle)}»</span>
             <span class="reading-preview">${state.openFirstReading ? "Texto bíblico completo desplegado abajo" : "Tocá para desplegar el texto completo de la Primera Lectura"}</span>
           </div>
           <span class="reading-expand-pill">${state.openFirstReading ? "▲ Ocultar texto" : "▼ Leer completa"}</span>
         </button>
         ${state.openFirstReading ? `
           <div class="reading-full-body">
-            <div class="reading-scripture-text">${g.firstReadingFullText}</div>
+            <div class="reading-scripture-text">${esc(g.firstReadingFullText)}</div>
             <p class="reading-liturgical-footer">— Palabra de Dios. / Te alabamos, Señor.</p>
-            <div style="margin-top:12px;display:flex;justify-content:flex-end">
-              <button type="button" class="btn-sm" id="btn-save-first-to-notes">📓 Guardar Primera Lectura en Notas</button>
-            </div>
           </div>
         ` : ""}
       </article>
@@ -11747,65 +12146,58 @@ function renderLiturgyView() {
       <article class="reading-interactive-card ${state.openPsalm ? "is-expanded" : ""}">
         <button type="button" class="reading-toggle-btn" data-toggle-lit-reading="psalm" aria-expanded="${state.openPsalm}">
           <div class="reading-toggle-info">
-            <span class="reading-kicker">🎵 Salmo Responsorial · ${g.psalmRef}</span>
-            <span class="reading-title">${g.psalmResponse}</span>
+            <span class="reading-kicker">🎵 Salmo Responsorial · ${esc(g.psalmRef)}</span>
+            <span class="reading-title">${esc(g.psalmResponse)}</span>
             <span class="reading-preview">${state.openPsalm ? "Estrofas y antífona del Salmo desplegadas abajo" : "Tocá para desplegar todas las estrofas y respuesta del Salmo"}</span>
           </div>
           <span class="reading-expand-pill">${state.openPsalm ? "▲ Ocultar salmo" : "▼ Leer salmo"}</span>
         </button>
         ${state.openPsalm ? `
           <div class="reading-full-body">
-            <div class="reading-response-banner">🎵 Antífona: ${g.psalmResponse}</div>
-            <div class="reading-scripture-text">${g.psalmFullText}</div>
-            <div style="margin-top:12px;display:flex;justify-content:flex-end">
-              <button type="button" class="btn-sm" id="btn-save-psalm-to-notes">📓 Guardar Salmo en Notas</button>
-            </div>
+            <div class="reading-response-banner">🎵 Antífona: ${esc(g.psalmResponse)}</div>
+            <div class="reading-scripture-text">${esc(g.psalmFullText)}</div>
           </div>
         ` : ""}
       </article>
     </div>
 
-    <!-- 3. Ficha Principal del Evangelio Oficial del Día + Explicación Pastoral Interactiva -->
+    <!-- 3. Ficha Principal del Evangelio Oficial del Día + Tarjeta Integrada de Reflexión del Papa -->
     <article class="gospel-card">
       <div class="gospel-head">
-        <span class="gospel-tag">🇦🇷 ${g.liturgicalSeason}</span>
-        <h3>Evangelio según San ${g.citation}: «${g.title}»</h3>
+        <span class="gospel-tag">🇦🇷 ${esc(g.liturgicalSeason)}</span>
+        <h3>Evangelio según San ${esc(g.citation)}: «${esc(g.title)}»</h3>
       </div>
 
-      <div class="gospel-body-text">${g.gospelText.split("\n\n").map(p => `<p style="margin:0 0 12px">${p}</p>`).join("")}</div>
+      <div class="gospel-body-text">${g.gospelText.split("\n\n").map(p => `<p style="margin:0 0 12px">${esc(p)}</p>`).join("")}</div>
       <p style="margin:10px 0 0;font-size:0.82rem;font-weight:700;color:var(--brand)">— Palabra del Señor. / Gloria a Ti, Señor Jesús.</p>
 
-      <!-- Opción Interactiva: Reflexión del Papa debajo del Evangelio -->
-      <button type="button" class="btn-explain-gospel" id="btn-toggle-gospel-explain" aria-expanded="${state.liturgyExplainOpen}">
-        <span>Reflexión del Papa</span>
-        <span>${state.liturgyExplainOpen ? "▲ Ocultar" : "▼ Leer reflexión"}</span>
-      </button>
+      <!-- Tarjeta Desplegable Integrada: Reflexión del Papa vinculada al Evangelio y fecha -->
+      <div class="pope-reflection-integrated-wrap" style="margin-top:16px">
+        <button type="button" class="btn-explain-gospel" id="btn-toggle-gospel-explain" data-toggle-pope-reflection="true" aria-expanded="${state.liturgyExplainOpen}" aria-controls="gospel-explanation-panel">
+          <span>🇻🇦 Reflexión del Papa</span>
+          <span>${state.liturgyExplainOpen ? "▲ Ocultar reflexión" : "▼ Ver reflexión del Papa"}</span>
+        </button>
 
-      ${state.liturgyExplainOpen ? (() => {
-        const verRef = getVerifiedReflectionForDate(g.isoDate);
-        return `
+        ${state.liturgyExplainOpen ? `
         <div class="gospel-explanation-panel" id="gospel-explanation-panel">
           <div class="pastoral-why-box">
             <h4>Reflexión del Papa</h4>
             <p style="margin:2px 0 10px;font-size:0.86rem;color:var(--muted)"><em>${esc(verRef.source)} · ${esc(verRef.document)}</em></p>
-            <p class="reflection-quote-text">«${esc(verRef.quote)}»</p>
-            <div style="margin-top:10px">
-              <a href="${esc(verRef.url)}" target="_blank" rel="noopener noreferrer" class="reflection-official-link">
-                Vatican.va ↗
+            <blockquote class="reflection-quote-text">«${esc(verRef.quote)}»</blockquote>
+            ${g.popeQuote ? `<p style="margin:10px 0 0;font-size:0.9rem;color:var(--ink-2)">${esc(g.popeQuote)}</p>` : ""}
+            <div style="margin-top:14px;padding-top:10px;border-top:1px solid var(--line);display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px">
+              <a href="${esc(vaticanNewsHref)}" target="_blank" rel="noopener noreferrer" class="reflection-official-link">
+                Leer fuente oficial en Vatican News ↗
               </a>
             </div>
           </div>
-          ${SHOW_COMMUNITY ? `
-          <div style="margin-top:14px;display:flex;justify-content:flex-end">
-            <button type="button" class="btn-sm submit" id="btn-save-gospel-to-notes">Anotar reflexión en Notas</button>
-          </div>` : ""}
-        </div>`;
-      })() : ""}
+        </div>` : ""}
+      </div>
     </article>`;
 }
 
 /* =====================================================================
-   MÓDULO 2: REFLEXIONES DEL PAPA
+   MÓDULO: REFLEXIONES DEL PAPA (INTEGRADAS EN EL EVANGELIO DEL DÍA)
    ===================================================================== */
 var VERIFIED_REFLECTIONS = [
   {
@@ -11814,7 +12206,8 @@ var VERIFIED_REFLECTIONS = [
     "source": "Audiencia General",
     "document": "Catequesis sobre la esperanza",
     "quote": "La esperanza no defrauda, porque el amor de Dios ha sido derramado en nuestros corazones por el Espíritu Santo que nos ha sido dado (Rm 5,5). La esperanza cristiana no es optimismo ingenuo, sino certeza arraigada en la fidelidad de Dios.",
-    "url": "https://www.vatican.va/content/francesco/es/audiences.index.html"
+    "url": "https://www.vaticannews.va/es/papa.html",
+    "vaticanNewsUrl": "https://www.vaticannews.va/es/papa.html"
   },
   {
     "id": 2,
@@ -11822,7 +12215,8 @@ var VERIFIED_REFLECTIONS = [
     "source": "Bula de Convocación del Jubileo",
     "document": "Spes non confundit, n. 1",
     "quote": "«Spes non confundit», «la esperanza no defrauda» (Rm 5,5). Bajo el signo de la esperanza el apóstol Pablo infunde aliento a la comunidad cristiana de Roma. También hoy la esperanza es el mensaje central para sostener el camino de los creyentes.",
-    "url": "https://www.vatican.va/content/francesco/es/bulls/documents/20240509_spes-non-confundit_bolla-giubileo2025.html"
+    "url": "https://www.vaticannews.va/es/papa.html",
+    "vaticanNewsUrl": "https://www.vaticannews.va/es/papa.html"
   },
   {
     "id": 3,
@@ -11830,7 +12224,8 @@ var VERIFIED_REFLECTIONS = [
     "source": "Carta Encíclica",
     "document": "Dilexit Nos, n. 2",
     "quote": "El Corazón de Cristo es el centro vivo donde se unifican la verdad y la caridad. Volver al corazón significa recuperar la autenticidad de la fe frente a la dispersión superficial de nuestro tiempo.",
-    "url": "https://www.vatican.va/content/francesco/es/encyclicals/documents/20241024_enciclica-dilexit-nos.html"
+    "url": "https://www.vaticannews.va/es/papa.html",
+    "vaticanNewsUrl": "https://www.vaticannews.va/es/papa.html"
   },
   {
     "id": 4,
@@ -11838,7 +12233,8 @@ var VERIFIED_REFLECTIONS = [
     "source": "Exhortación Apostólica",
     "document": "Evangelii Gaudium, n. 1",
     "quote": "La alegría del Evangelio llena el corazón y la vida entera de los que se encuentran con Jesús. Quienes se dejan salvar por Él son liberados del pecado, de la tristeza, del vacío interior y del aislamiento.",
-    "url": "https://www.vatican.va/content/francesco/es/apost_exhortations/documents/papa-francesco_esortazione-ap_20131124_evangelii-gaudium.html"
+    "url": "https://www.vaticannews.va/es/papa.html",
+    "vaticanNewsUrl": "https://www.vaticannews.va/es/papa.html"
   },
   {
     "id": 5,
@@ -11846,7 +12242,8 @@ var VERIFIED_REFLECTIONS = [
     "source": "Carta Encíclica",
     "document": "Fratelli Tutti, n. 67",
     "quote": "La parábola del buen samaritano nos muestra con qué iniciativas se puede rehacer una comunidad a partir de hombres y mujeres que hacen propia la fragilidad de los demás y que no dejan que se erija una sociedad de exclusión.",
-    "url": "https://www.vatican.va/content/francesco/es/encyclicals/documents/papa-francesco_20201003_enciclica-fratelli-tutti.html"
+    "url": "https://www.vaticannews.va/es/papa.html",
+    "vaticanNewsUrl": "https://www.vaticannews.va/es/papa.html"
   },
   {
     "id": 6,
@@ -11854,7 +12251,8 @@ var VERIFIED_REFLECTIONS = [
     "source": "Exhortación Apostólica",
     "document": "Gaudete et Exsultate, n. 14",
     "quote": "Para ser santos no es necesario ser obispos, sacerdotes, religiosas o religiosos. Todos estamos llamados a ser santos viviendo con amor y ofreciendo el propio testimonio en las ocupaciones de cada día, allí donde cada uno se encuentra.",
-    "url": "https://www.vatican.va/content/francesco/es/apost_exhortations/documents/papa-francesco_esortazione-ap_20180319_gaudete-et-exsultate.html"
+    "url": "https://www.vaticannews.va/es/papa.html",
+    "vaticanNewsUrl": "https://www.vaticannews.va/es/papa.html"
   },
   {
     "id": 7,
@@ -11862,15 +12260,17 @@ var VERIFIED_REFLECTIONS = [
     "source": "Carta Encíclica",
     "document": "Deus Caritas Est, n. 1",
     "quote": "No se comienza a ser cristiano por una decisión ética o una gran idea, sino por el encuentro con un acontecimiento, con una Persona, que da un nuevo horizonte a la vida y, con ello, una orientación decisiva.",
-    "url": "https://www.vatican.va/content/benedict-xvi/es/encyclicals/documents/hf_ben-xvi_enc_20051225_deus-caritas-est.html"
+    "url": "https://www.vaticannews.va/es/papa.html",
+    "vaticanNewsUrl": "https://www.vaticannews.va/es/papa.html"
   },
   {
     "id": 8,
     "date": "2026-11-11",
-    "source": "Exhortación Apostólica Postsinodal",
-    "document": "Verbum Domini, n. 72",
-    "quote": "La Sagrada Escritura ha de ser proclamada, escuchada, leída, acogida y vivida como Palabra de Dios, en el surco de la Tradición apostólica, de la que es inseparable.",
-    "url": "https://www.vatican.va/content/benedict-xvi/es/apost_exhortations/documents/hf_ben-xvi_exh_20100930_verbum-domini.html"
+    "source": "Ángelus y Catequesis sobre el Evangelio de Lucas 17, 11-19",
+    "document": "La fe agradecida y la caridad de San Martín de Tours",
+    "quote": "El samaritano curado no se conforma con haber obtenido la salud, sino que vuelve atrás para dar gracias y postrarse a los pies de Jesús: así nace el encuentro personal que salva. Saber decir «gracias» a Dios y compartir el manto con el pobre, como hizo San Martín de Tours, abre el corazón a la verdadera alegría del Evangelio.",
+    "url": "https://www.vaticannews.va/es/papa.html",
+    "vaticanNewsUrl": "https://www.vaticannews.va/es/papa.html"
   },
   {
     "id": 9,
@@ -11878,15 +12278,35 @@ var VERIFIED_REFLECTIONS = [
     "source": "Carta Encíclica",
     "document": "Spe Salvi, n. 2",
     "quote": "El que tiene esperanza vive de otra manera; se le ha dado una vida nueva. El mensaje cristiano no es sólo «informativo», sino «performativo»: el Evangelio no es solamente una comunicación de cosas que se pueden saber, sino una comunicación que comporta hechos y cambia la vida.",
-    "url": "https://www.vatican.va/content/benedict-xvi/es/encyclicals/documents/hf_ben-xvi_enc_20071130_spe-salvi.html"
+    "url": "https://www.vaticannews.va/es/papa.html",
+    "vaticanNewsUrl": "https://www.vaticannews.va/es/papa.html"
   },
   {
     "id": 10,
     "date": "2026-11-13",
-    "source": "Catecismo de la Iglesia Católica",
+    "source": "Audiencia General",
     "document": "La Oración en la Vida Cristiana, CEC 2558",
     "quote": "«Para mí, la oración es un impulso del corazón, una sencilla mirada lanzada hacia el cielo, un grito de reconocimiento y de amor tanto desde dentro de la prueba como desde dentro de la alegría» (Santa Teresita del Niño Jesús).",
-    "url": "https://www.vatican.va/archive/catechism_sp/p4s1_sp.html"
+    "url": "https://www.vaticannews.va/es/papa.html",
+    "vaticanNewsUrl": "https://www.vaticannews.va/es/papa.html"
+  },
+  {
+    "id": 11,
+    "date": "2026-11-14",
+    "source": "Catequesis sobre la Oración",
+    "document": "Orar siempre sin desanimarse (Lucas 18, 1-8)",
+    "quote": "Jesús nos enseña con la parábola de la viuda que la oración verdadera es humilde, insistente y confiada: Dios Padre escucha siempre el clamor de sus hijos y no tarda en socorrerlos con su misericordia.",
+    "url": "https://www.vaticannews.va/es/papa.html",
+    "vaticanNewsUrl": "https://www.vaticannews.va/es/papa.html"
+  },
+  {
+    "id": 12,
+    "date": "2026-11-15",
+    "source": "Ángelus Dominical",
+    "document": "Esperanza firme en la Palabra del Señor (Marcos 13, 24-32)",
+    "quote": "«El cielo y la tierra pasarán, pero mis palabras no pasarán». En medio de las incertidumbres de la historia, la Palabra de Jesús permanece como roca firme y brújula segura que orienta nuestra vida hacia el amor que no termina.",
+    "url": "https://www.vaticannews.va/es/papa.html",
+    "vaticanNewsUrl": "https://www.vaticannews.va/es/papa.html"
   }
 ];
 
@@ -11897,7 +12317,7 @@ async function loadVerifiedReflections() {
     const data = await res.json();
     if (Array.isArray(data) && data.length > 0) {
       VERIFIED_REFLECTIONS = data;
-      if (state.view === "reflections") renderReflectionsView();
+      if (state.view === "liturgy") renderLiturgyView();
     }
   } catch (err) {
     console.warn("[Reflexiones] Usando arreglo estático verificado embebido:", err);
@@ -11908,40 +12328,22 @@ function getVerifiedReflectionForDate(isoDateStr) {
   if (!Array.isArray(VERIFIED_REFLECTIONS) || !VERIFIED_REFLECTIONS.length) {
     return {
       id: 1,
-      date: "2026-06-05",
-      source: "Audiencia General",
-      document: "Catequesis sobre la esperanza",
-      quote: "La esperanza no defrauda, porque el amor de Dios ha sido derramado en nuestros corazones...",
-      url: "https://www.vatican.va/content/francesco/es/audiences.index.html"
+      date: "2026-11-11",
+      source: "Ángelus y Catequesis del Papa",
+      document: "La fe agradecida y la esperanza cristiana",
+      quote: "La esperanza no defrauda, porque el amor de Dios ha sido derramado en nuestros corazones por el Espíritu Santo que nos ha sido dado.",
+      url: "https://www.vaticannews.va/es/papa.html",
+      vaticanNewsUrl: "https://www.vaticannews.va/es/papa.html"
     };
   }
   const exact = VERIFIED_REFLECTIONS.find(r => r.date === isoDateStr);
   if (exact) return exact;
+  const mmdd = String(isoDateStr || "").slice(5, 10);
+  const byMmdd = VERIFIED_REFLECTIONS.find(r => String(r.date || "").slice(5, 10) === mmdd);
+  if (byMmdd) return byMmdd;
   const parts = String(isoDateStr || "").split("-").map(Number);
   const idx = Math.abs((parts[1] || 1) * 31 + (parts[2] || 1)) % VERIFIED_REFLECTIONS.length;
   return VERIFIED_REFLECTIONS[idx];
-}
-
-function renderReflectionsView() {
-  const container = $("#reflections-content");
-  if (!container) return;
-
-  const list = Array.isArray(VERIFIED_REFLECTIONS) ? VERIFIED_REFLECTIONS : [];
-  container.innerHTML = list.map(item => `
-    <article class="reflection-card" data-reflection-id="${esc(String(item.id))}">
-      <div class="reflection-meta-top">
-        <h3 class="reflection-doc-title" style="margin:0">Reflexión del Papa</h3>
-        <time class="reflection-date-badge" datetime="${esc(item.date)}">${esc(item.date)}</time>
-      </div>
-      <p class="reflection-source-line" style="margin:0;font-size:0.9rem;color:var(--muted)"><em>${esc(item.source)} · ${esc(item.document)}</em></p>
-      <blockquote class="reflection-quote-text">«${esc(item.quote)}»</blockquote>
-      <div class="reflection-card-footer">
-        <a href="${esc(item.url)}" target="_blank" rel="noopener noreferrer" class="reflection-official-link">
-          Vatican.va ↗
-        </a>
-      </div>
-    </article>
-  `).join("");
 }
 
 /* =====================================================================
@@ -12992,17 +13394,48 @@ var BIBLE_DATA = {
 };
 
 async function loadBibleData() {
+  const controller = typeof AbortController !== "undefined" ? new AbortController() : null;
+  const timeoutId = controller ? setTimeout(() => controller.abort(), 4500) : null;
   try {
-    const res = await fetch(BIBLE_DATA_URL, { headers: { "Accept": "application/json" } });
-    if (!res.ok) return;
+    const res = await fetch(BIBLE_DATA_URL, {
+      headers: { "Accept": "application/json" },
+      signal: controller ? controller.signal : undefined
+    });
+    if (timeoutId) clearTimeout(timeoutId);
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
     const data = await res.json();
     if (data && Array.isArray(data.testaments) && data.testaments.length > 0) {
       BIBLE_DATA = data;
+      state.bibleFetchStatus = "synced";
       if (state.view === "bible") renderBibleView();
     }
   } catch (err) {
+    if (timeoutId) clearTimeout(timeoutId);
+    state.bibleFetchStatus = "fallback";
     console.warn("[Libro del Pueblo de Dios] Usando dataset oficial CEA embebido:", err);
+    if (state.view === "bible") renderBibleView();
   }
+}
+
+function getAllBibleBooksFlat() {
+  const list = [];
+  const testaments = Array.isArray(BIBLE_DATA.testaments) ? BIBLE_DATA.testaments : [];
+  testaments.forEach(t => {
+    const cats = Array.isArray(t.categories) ? t.categories : [];
+    cats.forEach(c => {
+      const books = Array.isArray(c.books) ? c.books : [];
+      books.forEach(b => {
+        list.push({
+          testamentId: t.id,
+          testamentName: t.name,
+          categoryId: c.id,
+          categoryName: c.name,
+          book: b
+        });
+      });
+    });
+  });
+  return list;
 }
 
 function renderBibleView() {
@@ -13010,6 +13443,17 @@ function renderBibleView() {
   if (!container) return;
 
   const testaments = Array.isArray(BIBLE_DATA.testaments) ? BIBLE_DATA.testaments : [];
+  const allBooksFlat = getAllBibleBooksFlat();
+
+  // Si hay un bibleBookId activo pero falta testamentId/categoryId, sincronizarlos automáticamente
+  if (state.bibleBookId && (!state.bibleTestamentId || !state.bibleCategoryId)) {
+    const foundEntry = allBooksFlat.find(item => item.book.id === state.bibleBookId);
+    if (foundEntry) {
+      state.bibleTestamentId = foundEntry.testamentId;
+      state.bibleCategoryId = foundEntry.categoryId;
+    }
+  }
+
   const selectedTestament = testaments.find(t => t.id === state.bibleTestamentId) || null;
   const categories = selectedTestament && Array.isArray(selectedTestament.categories) ? selectedTestament.categories : [];
   const selectedCategory = categories.find(c => c.id === state.bibleCategoryId) || null;
@@ -13017,10 +13461,11 @@ function renderBibleView() {
   const selectedBook = books.find(b => b.id === state.bibleBookId) || null;
   const chapters = selectedBook && Array.isArray(selectedBook.chapters) ? selectedBook.chapters : [];
   const selectedChapter = chapters.find(ch => Number(ch.number) === Number(state.bibleChapterNum)) || chapters[0] || null;
+  const activeChapNum = selectedChapter ? Number(selectedChapter.number) : null;
 
   // Construcción de barra de migas de pan (Breadcrumbs) para navegación jerárquica limpia
   const crumbs = [
-    `<button type="button" class="bible-crumb-btn ${!selectedTestament ? "is-current" : ""}" data-bible-nav="root">📖 Testamentos</button>`
+    `<button type="button" class="bible-crumb-btn ${!selectedTestament && !state.bibleSearchQuery ? "is-current" : ""}" data-bible-nav="root">📖 Testamentos</button>`
   ];
   if (selectedTestament) {
     crumbs.push(`<span>›</span><button type="button" class="bible-crumb-btn ${!selectedCategory ? "is-current" : ""}" data-bible-nav="testament" data-testament-id="${esc(selectedTestament.id)}">${esc(selectedTestament.name)}</button>`);
@@ -13032,10 +13477,99 @@ function renderBibleView() {
     crumbs.push(`<span>›</span><button type="button" class="bible-crumb-btn is-current" data-bible-nav="book" data-book-id="${esc(selectedBook.id)}">${esc(selectedBook.name)}</button>`);
   }
 
+  // Selector directo de Libro y Capítulo + Buscador de pasajes/versículos
+  const bookOptionsHtml = testaments.map(t => {
+    const cats = Array.isArray(t.categories) ? t.categories : [];
+    return cats.map(c => {
+      const bks = Array.isArray(c.books) ? c.books : [];
+      return `<optgroup label="${esc(t.name)} · ${esc(c.name)}">
+        ${bks.map(b => `<option value="${esc(b.id)}" ${selectedBook && selectedBook.id === b.id ? "selected" : ""}>${esc(b.name)}</option>`).join("")}
+      </optgroup>`;
+    }).join("");
+  }).join("");
+
+  const chapterOptionsHtml = selectedBook
+    ? chapters.map(ch => `<option value="${esc(String(ch.number))}" ${Number(ch.number) === Number(activeChapNum) ? "selected" : ""}>Capítulo ${esc(String(ch.number))}</option>`).join("")
+    : `<option value="">Cap.</option>`;
+
+  const rawQuery = String(state.bibleSearchQuery || "").trim();
+  const qNorm = norm(rawQuery);
+
   let bodyHtml = "";
 
+  // MODO BÚSQUEDA RÁPIDA (por libro, capítulo o palabra clave en versículos)
+  if (qNorm.length >= 2) {
+    const matchedBooks = allBooksFlat.filter(entry =>
+      norm(entry.book.name).includes(qNorm) ||
+      norm(entry.book.id).includes(qNorm) ||
+      norm(entry.categoryName).includes(qNorm)
+    );
+
+    const matchedVerses = [];
+    for (let i = 0; i < allBooksFlat.length && matchedVerses.length < 24; i++) {
+      const entry = allBooksFlat[i];
+      const chList = Array.isArray(entry.book.chapters) ? entry.book.chapters : [];
+      for (let j = 0; j < chList.length && matchedVerses.length < 24; j++) {
+        const ch = chList[j];
+        const vList = Array.isArray(ch.verses) ? ch.verses : [];
+        for (let k = 0; k < vList.length && matchedVerses.length < 24; k++) {
+          const vText = String(vList[k]);
+          if (norm(vText).includes(qNorm) || norm(`${entry.book.name} ${ch.number}`).includes(qNorm)) {
+            matchedVerses.push({
+              testamentId: entry.testamentId,
+              categoryId: entry.categoryId,
+              bookId: entry.book.id,
+              bookName: entry.book.name,
+              chapterNum: ch.number,
+              verseText: vText
+            });
+          }
+        }
+      }
+    }
+
+    bodyHtml = `
+      <div class="bible-search-results">
+        <div class="bible-search-header">
+          <span>Resultados para <strong>«${esc(rawQuery)}»</strong> (${matchedBooks.length} ${matchedBooks.length === 1 ? "libro" : "libros"}, ${matchedVerses.length} ${matchedVerses.length === 1 ? "pasaje" : "pasajes"})</span>
+          <button type="button" class="btn-sm ghost" data-bible-clear-search="true">✕ Limpiar búsqueda</button>
+        </div>
+
+        ${matchedBooks.length > 0 ? `
+          <div class="bible-book-grid" style="margin-bottom:14px">
+            ${matchedBooks.map(entry => `
+              <button type="button" class="bible-book-btn" data-jump-book="${esc(entry.book.id)}">
+                <span>${esc(entry.book.name)} <small style="display:block;font-weight:500;color:var(--muted);font-size:0.75rem">${esc(entry.testamentName)} · ${esc(entry.categoryName)}</small></span>
+                <span class="bible-book-abbr">${esc(entry.book.id)}</span>
+              </button>
+            `).join("")}
+          </div>
+        ` : ""}
+
+        ${matchedVerses.length > 0 ? `
+          <div class="bible-verse-search-list">
+            ${matchedVerses.map(mv => {
+              const match = String(mv.verseText).match(/^(\d+:\d+)\s+(.*)$/);
+              const vNum = match ? match[1] : `${mv.chapterNum}:1`;
+              const vBody = match ? match[2] : mv.verseText;
+              return `
+                <button type="button" class="bible-search-verse-card" data-jump-book="${esc(mv.bookId)}" data-jump-chapter="${esc(String(mv.chapterNum))}">
+                  <span class="bible-search-verse-ref">📖 ${esc(mv.bookName)} · Cap. ${esc(String(mv.chapterNum))} (${esc(vNum)})</span>
+                  <p class="bible-search-verse-text">${esc(vBody)}</p>
+                </button>
+              `;
+            }).join("")}
+          </div>
+        ` : (matchedBooks.length === 0 ? `
+          <div class="empty-state" style="padding:24px 16px">
+            <p style="margin:0;color:var(--muted)">No se encontraron libros ni versículos para «${esc(rawQuery)}».</p>
+          </div>
+        ` : "")}
+      </div>
+    `;
+  }
   // NIVEL 1: Selección de Testamento (Antiguo Testamento / Nuevo Testamento)
-  if (!selectedTestament) {
+  else if (!selectedTestament) {
     bodyHtml = `
       <div class="bible-testament-grid">
         ${testaments.map(t => {
@@ -13086,22 +13620,25 @@ function renderBibleView() {
   }
   // NIVEL 4: Interfaz de lectura limpia tipo libro (Capítulos y Versículos)
   else {
-    const activeChapNum = selectedChapter ? selectedChapter.number : 1;
+    const chapNumToRender = selectedChapter ? selectedChapter.number : 1;
     const verses = selectedChapter && Array.isArray(selectedChapter.verses) ? selectedChapter.verses : [];
+    const curChapIdx = chapters.findIndex(ch => Number(ch.number) === Number(chapNumToRender));
+    const prevChap = curChapIdx > 0 ? chapters[curChapIdx - 1] : null;
+    const nextChap = curChapIdx >= 0 && curChapIdx < chapters.length - 1 ? chapters[curChapIdx + 1] : null;
 
     bodyHtml = `
       <article class="bible-reader-card">
         <div class="bible-reader-header">
           <div class="bible-reader-title-group">
             <span class="bible-testament-kicker">${esc(selectedTestament.name)} · ${esc(selectedCategory.name)}</span>
-            <h2>${esc(selectedBook.name)} — Capítulo ${esc(String(activeChapNum))}</h2>
+            <h2>${esc(selectedBook.name)} — Capítulo ${esc(String(chapNumToRender))}</h2>
           </div>
           <button type="button" class="btn-sm ghost" data-bible-nav="category" data-category-id="${esc(selectedCategory.id)}">← Cambiar libro</button>
         </div>
 
         <div class="bible-chapter-bar" role="tablist" aria-label="Capítulos de ${esc(selectedBook.name)}">
           ${chapters.map(ch => `
-            <button type="button" class="bible-chapter-pill ${Number(ch.number) === Number(activeChapNum) ? "is-active" : ""}" data-select-chapter="${esc(String(ch.number))}">
+            <button type="button" class="bible-chapter-pill ${Number(ch.number) === Number(chapNumToRender) ? "is-active" : ""}" data-select-chapter="${esc(String(ch.number))}">
               Cap. ${esc(String(ch.number))}
             </button>
           `).join("")}
@@ -13116,24 +13653,127 @@ function renderBibleView() {
             return `<p class="bible-verse-line">${esc(String(v))}</p>`;
           }).join("")}
         </div>
-        <p class="reading-liturgical-footer" style="margin-top:18px;font-size:0.84rem;font-weight:700;color:var(--brand)">
-          — Palabra de Dios. / Te alabamos, Señor. (El Libro del Pueblo de Dios · CEA)
-        </p>
+
+        <div class="bible-reader-footer-nav">
+          ${prevChap
+            ? `<button type="button" class="btn-sm ghost" data-select-chapter="${esc(String(prevChap.number))}">← Cap. ${esc(String(prevChap.number))}</button>`
+            : `<span></span>`}
+          <span class="reading-liturgical-footer" style="margin:0;font-size:0.82rem;font-weight:700;color:var(--brand);text-align:center">
+            — Palabra de Dios. / Te alabamos, Señor. (CEA)
+          </span>
+          ${nextChap
+            ? `<button type="button" class="btn-sm ghost" data-select-chapter="${esc(String(nextChap.number))}">Cap. ${esc(String(nextChap.number))} →</button>`
+            : `<span></span>`}
+        </div>
       </article>
     `;
   }
 
   container.innerHTML = `
+    <div class="bible-controls-bar" role="region" aria-label="Selector y buscador del Libro del Pueblo de Dios">
+      <div class="bible-search-box">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <input type="search" id="bible-search-input" value="${esc(state.bibleSearchQuery || "")}" placeholder="Buscar libro, palabra o versículo (ej: Salmos, amor, Juan)..." autocomplete="off" aria-label="Buscar en el Libro del Pueblo de Dios" />
+        ${state.bibleSearchQuery ? `<button type="button" class="bible-search-clear-btn" data-bible-clear-search="true" aria-label="Limpiar búsqueda">✕</button>` : ""}
+      </div>
+      <div class="bible-quick-selects">
+        <select id="bible-quick-book" class="bible-select-control" aria-label="Seleccionar libro bíblico">
+          <option value="">📚 Ir a un libro (73 libros)...</option>
+          ${bookOptionsHtml}
+        </select>
+        <select id="bible-quick-chapter" class="bible-select-control bible-select-chapter" aria-label="Seleccionar capítulo" ${selectedBook ? "" : "disabled"}>
+          ${chapterOptionsHtml}
+        </select>
+      </div>
+    </div>
+
     <nav class="bible-nav-bar" aria-label="Navegación del Libro del Pueblo de Dios">
       <div class="bible-breadcrumbs">${crumbs.join("")}</div>
     </nav>
     ${bodyHtml}
   `;
 
+  // Enlace del buscador en tiempo real manteniendo el foco y posición del cursor
+  const searchInput = container.querySelector("#bible-search-input");
+  if (searchInput) {
+    searchInput.oninput = (ev) => {
+      const val = ev.target.value || "";
+      const pos = ev.target.selectionStart || val.length;
+      state.bibleSearchQuery = val;
+      renderBibleView();
+      const newInput = $("#bible-search-input");
+      if (newInput) {
+        newInput.focus();
+        try { newInput.setSelectionRange(pos, pos); } catch (e) {}
+      }
+    };
+  }
+
+  // Enlace de los selectores directos de Libro y Capítulo
+  const quickBookSel = container.querySelector("#bible-quick-book");
+  if (quickBookSel) {
+    quickBookSel.onchange = (ev) => {
+      const bookId = ev.target.value;
+      state.bibleSearchQuery = "";
+      if (!bookId) {
+        state.bibleTestamentId = null;
+        state.bibleCategoryId = null;
+        state.bibleBookId = null;
+        state.bibleChapterNum = null;
+      } else {
+        const entry = allBooksFlat.find(item => item.book.id === bookId);
+        if (entry) {
+          state.bibleTestamentId = entry.testamentId;
+          state.bibleCategoryId = entry.categoryId;
+          state.bibleBookId = entry.book.id;
+          const firstCh = Array.isArray(entry.book.chapters) && entry.book.chapters[0] ? entry.book.chapters[0].number : 1;
+          state.bibleChapterNum = firstCh;
+        }
+      }
+      renderBibleView();
+    };
+  }
+
+  const quickChapSel = container.querySelector("#bible-quick-chapter");
+  if (quickChapSel) {
+    quickChapSel.onchange = (ev) => {
+      const chNum = Number(ev.target.value);
+      if (chNum) {
+        state.bibleSearchQuery = "";
+        state.bibleChapterNum = chNum;
+        renderBibleView();
+      }
+    };
+  }
+
   // Delegación de eventos de navegación del Libro del Pueblo de Dios
   container.onclick = (e) => {
+    const clearBtn = e.target.closest("[data-bible-clear-search]");
+    if (clearBtn) {
+      state.bibleSearchQuery = "";
+      renderBibleView();
+      return;
+    }
+
+    const jumpBtn = e.target.closest("[data-jump-book]");
+    if (jumpBtn) {
+      const bId = jumpBtn.getAttribute("data-jump-book");
+      const chAttr = jumpBtn.getAttribute("data-jump-chapter");
+      const entry = allBooksFlat.find(item => item.book.id === bId);
+      if (entry) {
+        state.bibleSearchQuery = "";
+        state.bibleTestamentId = entry.testamentId;
+        state.bibleCategoryId = entry.categoryId;
+        state.bibleBookId = entry.book.id;
+        state.bibleChapterNum = chAttr ? Number(chAttr) : (entry.book.chapters?.[0]?.number || 1);
+        renderBibleView();
+      }
+      return;
+    }
+
     const tBtn = e.target.closest("[data-select-testament]");
     if (tBtn) {
+      state.bibleSearchQuery = "";
       state.bibleTestamentId = tBtn.getAttribute("data-select-testament");
       state.bibleCategoryId = null;
       state.bibleBookId = null;
@@ -13144,6 +13784,7 @@ function renderBibleView() {
 
     const cBtn = e.target.closest("[data-select-category]");
     if (cBtn) {
+      state.bibleSearchQuery = "";
       state.bibleCategoryId = cBtn.getAttribute("data-select-category");
       state.bibleBookId = null;
       state.bibleChapterNum = null;
@@ -13153,6 +13794,7 @@ function renderBibleView() {
 
     const bBtn = e.target.closest("[data-select-book]");
     if (bBtn) {
+      state.bibleSearchQuery = "";
       state.bibleBookId = bBtn.getAttribute("data-select-book");
       state.bibleChapterNum = null;
       renderBibleView();
@@ -13161,6 +13803,7 @@ function renderBibleView() {
 
     const chBtn = e.target.closest("[data-select-chapter]");
     if (chBtn) {
+      state.bibleSearchQuery = "";
       state.bibleChapterNum = Number(chBtn.getAttribute("data-select-chapter"));
       renderBibleView();
       return;
@@ -13168,6 +13811,7 @@ function renderBibleView() {
 
     const navBtn = e.target.closest("[data-bible-nav]");
     if (navBtn) {
+      state.bibleSearchQuery = "";
       const level = navBtn.getAttribute("data-bible-nav");
       if (level === "root") {
         state.bibleTestamentId = null;
@@ -13193,15 +13837,24 @@ function renderSaintsView() {
 
   const g = getGospelForDate(state.saintsDate);
   const saints = getSaintsForDate(state.saintsDate);
+  const isTodayAr = g.isoDate === getArgentinaTodayIso();
+  const statusBannerHtml = state.liturgyFetchStatus === "fallback"
+    ? `<div class="liturgy-fallback-banner" role="status">
+         <span>⚠️ <strong>Modo Offline Activo:</strong> ${esc(state.liturgyFetchNotice || "Martirologio Romano cargado desde el respaldo local verificado (UTC-3).")}</span>
+       </div>`
+    : "";
 
   container.innerHTML = `
+    ${statusBannerHtml}
     <!-- Barra de Selección de Fecha del Santoral con Selector Estilizado Personalizado -->
     <div class="liturgy-toolbar">
       <div class="liturgy-toolbar-info">
-        <div style="display:flex;align-items:center;gap:6px">
+        <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
           <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="8" r="4"/><ellipse cx="12" cy="3.5" rx="5" ry="1.2"/><path d="M6 21v-2a6 6 0 0 1 12 0v2"/></svg>
-          <strong>Santoral del ${g.formattedLongDate}</strong>
+          <strong>Santoral del ${esc(g.formattedLongDate)}</strong>
+          <span class="liturgy-tz-pill">${isTodayAr ? "Hoy · Argentina (UTC-3)" : "Argentina (UTC-3)"}</span>
         </div>
+        <span>Martirologio Romano y santos celebrados en Argentina</span>
       </div>
       <div class="liturgy-date-controls">
         ${renderCustomDatePickerHtml("saints", g.isoDate)}
@@ -13210,7 +13863,7 @@ function renderSaintsView() {
 
     <section class="saints-section-card" aria-label="Santos del Día">
       <div class="gospel-head" style="margin-bottom:8px">
-        <h3>Santos del Día · ${g.formattedLongDate}</h3>
+        <h3>Santos del Día · ${esc(g.formattedLongDate)}</h3>
       </div>
 
       ${saints.map((st, idx) => `
@@ -13219,20 +13872,20 @@ function renderSaintsView() {
             <div class="saint-title-wrap">
               <span class="saint-halo-icon" aria-hidden="true">${st.iconSvg || SVG_SAINT_HALO}</span>
               <div>
-                <h4>${st.name}</h4>
-                <span class="saint-feast-badge">${st.feast}</span>
+                <h4>${esc(st.name)}</h4>
+                <span class="saint-feast-badge">${esc(st.feast)}</span>
               </div>
             </div>
             <div class="saint-actions">
-              <button type="button" class="btn-saint-more" data-saint-idx="${idx}" aria-label="Saber más sobre ${st.name}">
+              <button type="button" class="btn-saint-more" data-saint-idx="${idx}" aria-label="Saber más sobre ${esc(st.name)}">
                 <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
                 Saber Más
               </button>
-              <button type="button" class="btn-sm ghost" style="flex:none" data-save-saint-idx="${idx}">📓 Guardar en Notas</button>
+              ${SHOW_COMMUNITY ? `<button type="button" class="btn-sm ghost" style="flex:none" data-save-saint-idx="${idx}">📓 Guardar en Notas</button>` : ""}
             </div>
           </div>
-          <p class="saint-bio">${st.bio}</p>
-          <div class="saint-quote">${st.quote}</div>
+          <p class="saint-bio">${esc(st.bio)}</p>
+          <div class="saint-quote">${esc(st.quote)}</div>
         </article>
       `).join("")}
     </section>`;
@@ -13258,7 +13911,7 @@ function openSaintMoreModal(idx) {
         <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M7 8h10"/></svg>
         Conexión Teológica y Frase del Día
       </div>
-      <p class="saint-theology-text">${st.theologicalExplanation}</p>
+      <p class="saint-theology-text">${esc(st.theologicalExplanation)}</p>
     </div>
   ` : "";
 
@@ -13272,7 +13925,7 @@ function openSaintMoreModal(idx) {
         ${st.curiosities.map(c => `
           <li class="saint-curiosity-item">
             <span class="saint-curiosity-bullet">✦</span>
-            <span>${c}</span>
+            <span>${esc(c)}</span>
           </li>
         `).join("")}
       </ul>
@@ -13287,7 +13940,7 @@ function openSaintMoreModal(idx) {
       </div>
       <div class="saint-quotes-grid">
         ${st.otherQuotes.map(q => `
-          <div class="saint-quote-card">${q}</div>
+          <div class="saint-quote-card">${esc(q)}</div>
         `).join("")}
       </div>
     </div>
@@ -13298,7 +13951,7 @@ function openSaintMoreModal(idx) {
     ${curiositiesHtml}
     ${otherQuotesHtml}
     <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:8px">
-      <button type="button" class="btn-sm primary" id="btn-modal-save-saint-note">📓 Guardar en mis Notas</button>
+      ${SHOW_COMMUNITY ? `<button type="button" class="btn-sm primary" id="btn-modal-save-saint-note">📓 Guardar en mis Notas</button>` : ""}
       <button type="button" class="btn-sm ghost" id="btn-modal-close-saint">Cerrar</button>
     </div>
   `;
@@ -14784,11 +15437,17 @@ function renderHome() {
     set("bento-meta-spiritual", streakTxt);
   }
   try {
-    set("bento-meta-liturgy", new Date().toLocaleDateString(appSettings.lang || "es-AR", { weekday: "long", day: "numeric", month: "long" }));
-  } catch (e) { set("bento-meta-liturgy", "Lecturas de hoy"); }
+    const arIso = getArgentinaTodayIso();
+    const parts = arIso.split("-").map(Number);
+    const arDate = new Date(parts[0] || 2026, (parts[1] || 11) - 1, parts[2] || 11, 12, 0, 0);
+    set("bento-meta-liturgy", arDate.toLocaleDateString(appSettings.lang || "es-AR", { weekday: "long", day: "numeric", month: "long" }));
+    const todaySaints = getSaintsForDate(arIso);
+    set("bento-meta-saints", todaySaints && todaySaints[0] ? todaySaints[0].name : "Santoral de hoy");
+  } catch (e) {
+    set("bento-meta-liturgy", "Lecturas de hoy");
+    set("bento-meta-saints", "Santoral de hoy");
+  }
   set("bento-meta-bible", "Antiguo y Nuevo Testamento (CEA)");
-  set("bento-meta-reflections", "Audiencias y documentos");
-  set("bento-meta-saints", "Santoral de hoy");
   set("bento-meta-settings", appSettings.darkMode ? "Modo noche activado" : "Modo claro · Idioma · Radio");
 }
 
@@ -14938,7 +15597,6 @@ function bootstrapApp() {
     ["renderList", renderList],
     ["renderLiturgyView", renderLiturgyView],
     ["renderBibleView", renderBibleView],
-    ["renderReflectionsView", renderReflectionsView],
     ["renderSaintsView", renderSaintsView],
     ["initGlobalRadio", initGlobalRadio],
     ["initSwipeGestures", initSwipeGestures],
@@ -14966,6 +15624,7 @@ function bootstrapApp() {
 
   try {
     loadParishes();
+    fetchDailyLiturgyData();
     loadVerifiedReflections();
     loadBibleData();
   } catch (err) {
