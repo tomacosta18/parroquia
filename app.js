@@ -5964,6 +5964,17 @@ const state = {
     codigo_derecho_canonico: false
   },
   docsSearchQuery: "",
+  selectedPopeId: null,
+  popeDocCategoryFilter: "ALL",
+  homilySourceBySection: {
+    first: "vatican",
+    psalm: "vatican",
+    gospel: "vatican",
+    saint_0: "vaticannews",
+    modal_saint: "vaticannews"
+  },
+  ttsActiveId: null,
+  ttsPaused: false,
   openFirstReading: false,
   openPsalm: false,
   liturgyExplainOpen: false,
@@ -12108,19 +12119,446 @@ async function fetchDailyLiturgyData() {
   if (state.view === "saints") renderSaintsView();
 }
 
+/* =====================================================================
+   MOTOR DE NARRACIÓN POR VOZ (TEXT-TO-SPEECH · WEB SPEECH API)
+   Controles de Reproducir, Pausar y Detener en Español (es-AR / es-ES)
+   ===================================================================== */
+var ttsTextRegistry = {};
+
+function getSpanishVoice() {
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) return null;
+  try {
+    const voices = window.speechSynthesis.getVoices() || [];
+    return (
+      voices.find(v => /es[-_](AR|419|LA|MX|ES)/i.test(v.lang)) ||
+      voices.find(v => /^es/i.test(v.lang)) ||
+      null
+    );
+  } catch (e) {
+    return null;
+  }
+}
+
+function refreshCurrentTtsUi() {
+  if (state.view === "liturgy") renderLiturgyView();
+  else if (state.view === "saints") renderSaintsView();
+  else if (state.view === "bible") renderBibleView();
+}
+
+function stopTtsNarration(silent = false) {
+  if (typeof window !== "undefined" && "speechSynthesis" in window) {
+    try {
+      window.speechSynthesis.cancel();
+    } catch (e) {}
+  }
+  const hadActive = Boolean(state.ttsActiveId);
+  state.ttsActiveId = null;
+  state.ttsPaused = false;
+  if (hadActive && !silent) refreshCurrentTtsUi();
+}
+
+function startTtsNarration(ttsId, rawText) {
+  if (typeof window === "undefined" || !("speechSynthesis" in window) || typeof window.SpeechSynthesisUtterance === "undefined") {
+    toast("Tu navegador no soporta lectura por voz (Web Speech API).");
+    return;
+  }
+  const cleanText = String(rawText || ttsTextRegistry[ttsId] || "").replace(/\s+/g, " ").trim();
+  if (!cleanText) return;
+
+  try {
+    // Si estaba en pausa el mismo pasaje, reanudar
+    if (state.ttsActiveId === ttsId && state.ttsPaused) {
+      window.speechSynthesis.resume();
+      state.ttsPaused = false;
+      refreshCurrentTtsUi();
+      return;
+    }
+
+    window.speechSynthesis.cancel();
+    const utterance = new window.SpeechSynthesisUtterance(cleanText);
+    utterance.lang = "es-AR";
+    utterance.rate = 0.97;
+    utterance.pitch = 1.0;
+    const voice = getSpanishVoice();
+    if (voice) utterance.voice = voice;
+
+    state.ttsActiveId = ttsId;
+    state.ttsPaused = false;
+
+    utterance.onend = () => {
+      if (state.ttsActiveId === ttsId) {
+        state.ttsActiveId = null;
+        state.ttsPaused = false;
+        refreshCurrentTtsUi();
+      }
+    };
+    utterance.onerror = () => {
+      if (state.ttsActiveId === ttsId) {
+        state.ttsActiveId = null;
+        state.ttsPaused = false;
+        refreshCurrentTtsUi();
+      }
+    };
+
+    window.speechSynthesis.speak(utterance);
+    refreshCurrentTtsUi();
+  } catch (err) {
+    console.warn("[TTS] Error al iniciar síntesis de voz:", err);
+    toast("No se pudo iniciar la narración por voz en este dispositivo.");
+  }
+}
+
+function pauseOrResumeTts(ttsId) {
+  if (typeof window === "undefined" || !("speechSynthesis" in window)) return;
+  try {
+    if (state.ttsActiveId !== ttsId) return;
+    if (state.ttsPaused) {
+      window.speechSynthesis.resume();
+      state.ttsPaused = false;
+    } else {
+      window.speechSynthesis.pause();
+      state.ttsPaused = true;
+    }
+    refreshCurrentTtsUi();
+  } catch (e) {}
+}
+
+function renderTtsBarHtml(ttsId, rawText, buttonLabel = "Escuchar pasaje") {
+  ttsTextRegistry[ttsId] = String(rawText || "").replace(/\s+/g, " ").trim();
+  const isActive = state.ttsActiveId === ttsId;
+  const isPaused = isActive && state.ttsPaused;
+
+  return `
+    <div class="tts-controls-bar ${isActive ? "is-playing" : ""}" role="region" aria-label="Narración por voz: ${esc(buttonLabel)}">
+      ${!isActive ? `
+        <button type="button" class="tts-btn tts-btn-play" data-tts-play="${esc(ttsId)}" aria-label="${esc(buttonLabel)}">
+          <span aria-hidden="true">🔊</span>
+          <span>${esc(buttonLabel)}</span>
+        </button>
+      ` : `
+        <span class="tts-status-pill">
+          <span class="tts-wave-dot" aria-hidden="true"></span>
+          ${isPaused ? "En pausa" : "Reproduciendo audio..."}
+        </span>
+        <div class="tts-active-actions">
+          <button type="button" class="tts-btn tts-btn-pause" data-tts-pause="${esc(ttsId)}" aria-label="${isPaused ? "Reanudar" : "Pausar"}">
+            ${isPaused ? "▶️ Reanudar" : "⏸️ Pausar"}
+          </button>
+          <button type="button" class="tts-btn tts-btn-stop" data-tts-stop="${esc(ttsId)}" aria-label="Detener">
+            ⏹️ Detener
+          </button>
+        </div>
+      `}
+    </div>
+  `;
+}
+
+/* =====================================================================
+   MOTOR MULTI-FUENTE PARA REFLEXIONES, HOMILÍAS Y SANTOS DEL DÍA
+   Carga dinámica de extractos dentro de la tarjeta + link oficial externo
+   ===================================================================== */
+function getMultiSourceHomilyEntries(sectionKey, g, verRef, saintObj) {
+  const safeG = g || getGospelForDate(state.liturgyDate);
+  const safeRef = verRef || getVerifiedReflectionForDate(safeG.isoDate);
+  const vaticanNewsHref = safeRef.vaticanNewsUrl || safeRef.url || "https://www.vaticannews.va/es/evangelio-de-hoy.html";
+
+  if (sectionKey === "first") {
+    return [
+      {
+        id: "vatican",
+        label: "La Santa Sede (vatican.va)",
+        shortLabel: "🇻🇦 Santa Sede",
+        authority: "Magisterio Pontificio · Directorio Homilético (Congregación para el Culto Divino)",
+        title: `Unidad de la Historia de la Salvación en ${safeG.firstReadingRef}`,
+        excerpt: safeG.whyChosenToday || `En la enseñanza del Directorio Homilético de la Santa Sede (nn. 16-22) y la Constitución Dogmática Dei Verbum (n. 16), la Primera Lectura (${safeG.firstReadingRef}: «${safeG.firstReadingTitle}») prepara pedagógicamente el anuncio del Evangelio del día. Dios, inspirador y autor de ambos Testamentos, dispuso la Antigua Alianza de modo que anunciara proféticamente la venida de Cristo y su Reino.`,
+        url: "https://www.vatican.va/roman_curia/congregations/ccdds/documents/rc_con_ccdds_doc_20140629_direttorio-omiletico_sp.html"
+      },
+      {
+        id: "catholicnet",
+        label: "Catholic.net",
+        shortLabel: "📘 Catholic.net",
+        authority: "Catholic.net · Meditación Bíblico-Litúrgica de la Primera Lectura",
+        title: `Aplicación espiritual de ${safeG.firstReadingRef} para la vida cotidiana`,
+        excerpt: `Lectura meditada de ${safeG.firstReadingRef} («${safeG.firstReadingTitle}»): La Palabra proclamada en esta primera lectura invita al creyente a escuchar con docilidad la voz de Dios en las circunstancias concretas de cada jornada. Como recuerda la meditación pastoral de Catholic.net, cuando la comunidad cristiana acoge la promesa divina con fe perseverante, descubre que la fidelidad del Señor sostiene nuestras luchas y abre caminos de esperanza.`,
+        url: "https://es.catholic.net/op/articulos/1842/lecturas-de-la-misa-de-hoy.html"
+      },
+      {
+        id: "corazones",
+        label: "Corazones.org",
+        shortLabel: "❤️ Corazones.org",
+        authority: "Corazones.org · Comentario Teológico y Bíblico de la Liturgia Diaria",
+        title: `Clave exegética y espiritual de «${safeG.firstReadingTitle}»`,
+        excerpt: `En el comentario litúrgico de Corazones.org sobre ${safeG.firstReadingRef}, se destaca cómo este pasaje revela la pedagogía del corazón de Dios hacia su pueblo: el Señor no permanece distante, sino que sale al encuentro del ser humano, purifica su fe y lo prepara para recibir la gracia plena que se manifiesta en Jesucristo.`,
+        url: "https://www.corazones.org/biblia_y_liturgia/liturgia/liturgia_diaria.htm"
+      },
+      {
+        id: "aleteia",
+        label: "Aleteia",
+        shortLabel: "✨ Aleteia",
+        authority: "Aleteia Español · Reflexión Pastoral de las Lecturas del Día",
+        title: `Luz de la Primera Lectura (${safeG.firstReadingRef}) para hoy`,
+        excerpt: `La reflexión de Aleteia sobre ${safeG.firstReadingRef} («${safeG.firstReadingTitle}») subraya tres actitudes interiores para vivir hoy esta Palabra: 1) Silencio interior para reconocer el paso de Dios; 2) Confianza filial frente a las pruebas diarias; y 3) Caridad concreta hacia el prójimo como fruto de una fe viva.`,
+        url: "https://es.aleteia.org/tag/evangelio-del-dia/"
+      }
+    ];
+  }
+
+  if (sectionKey === "psalm") {
+    return [
+      {
+        id: "vatican",
+        label: "La Santa Sede (vatican.va)",
+        shortLabel: "🇻🇦 Santa Sede",
+        authority: "Catequesis de San Juan Pablo II y Benedicto XVI sobre los Salmos",
+        title: `Cristo Orante en el ${safeG.psalmRef}`,
+        excerpt: `En las Audiencias Generales del Magisterio Pontificio sobre el Salterio, los Papas enseñan que el Salmo Responsorial (${safeG.psalmRef}) es la voz misma de Cristo y de la Iglesia Esposa que responde a la Palabra de Dios. Al proclamar la antífona «${safeG.psalmResponse}», los fieles hacen suya la oración inspirada por el Espíritu Santo y transforman la escucha bíblica en alabanza, súplica y confianza filial.`,
+        url: "https://www.vatican.va/content/benedict-xvi/es/audiences/2005.index.html"
+      },
+      {
+        id: "rezandovoy",
+        label: "Rezandovoy",
+        shortLabel: "🙏 Rezandovoy",
+        authority: "Rezandovoy (Compañía de Jesús) · Oración Contemplativa con el Salmo",
+        title: `Rezar pausadamente con la antífona: «${safeG.psalmResponse}»`,
+        excerpt: `Propuesta contemplativa de Rezandovoy para el ${safeG.psalmRef}: Respirá hondo y repetí en tu corazón la respuesta de hoy: «${safeG.psalmResponse}». Dejá que cada estrofa del salmo resuene en tu historia personal, entregando al Señor tus cansancios, tus agradecimientos y las personas que hoy necesitan consuelo.`,
+        url: "https://rezandovoy.org/"
+      },
+      {
+        id: "ewtn",
+        label: "EWTN Español",
+        shortLabel: "📺 EWTN",
+        authority: "EWTN Español · Liturgia de la Palabra y Meditación Salmódica",
+        title: `Sentido litúrgico del ${safeG.psalmRef} en la Santa Misa`,
+        excerpt: `En la guía litúrgica de EWTN, el ${safeG.psalmRef} actúa como puente espiritual entre la profecía del Antiguo Testamento y la Buena Noticia del Evangelio. Meditar su antífona («${safeG.psalmResponse}») durante el día ayuda a mantener la presencia de Dios en medio del trabajo y la vida familiar.`,
+        url: "https://www.ewtn.com/es/catolicismo/lecturas-del-dia"
+      },
+      {
+        id: "catholicnet",
+        label: "Catholic.net",
+        shortLabel: "📘 Catholic.net",
+        authority: "Catholic.net · Escuela de Oración con los Salmos",
+        title: `Cómo convertir el ${safeG.psalmRef} en oración personal`,
+        excerpt: `Catholic.net destaca que los Salmos son el libro de oración por excelencia del Pueblo de Dios. Al meditar hoy el ${safeG.psalmRef} («${safeG.psalmResponse}»), aprendemos a hablar con Dios con total sinceridad, uniendo nuestra voz a la de toda la Iglesia universal.`,
+        url: "https://es.catholic.net/op/articulos/1842/lecturas-de-la-misa-de-hoy.html"
+      }
+    ];
+  }
+
+  if (sectionKey === "gospel") {
+    return [
+      {
+        id: "vatican",
+        label: "La Santa Sede (vatican.va)",
+        shortLabel: "🇻🇦 Santa Sede",
+        authority: `${safeRef.source} · ${safeRef.document}`,
+        title: `Magisterio Pontificio sobre San ${safeG.citation} («${safeG.title}»)`,
+        excerpt: `«${safeRef.quote}» ${safeG.popeQuote ? "\n\n" + safeG.popeQuote : ""} ${safeG.priestCommentary ? "\n\nSíntesis homilética: " + safeG.priestCommentary : ""}`.trim(),
+        url: "https://www.vatican.va/content/francesco/es/cotidie.index.html"
+      },
+      {
+        id: "vaticannews",
+        label: "Vatican News",
+        shortLabel: "📰 Vatican News",
+        authority: "Vatican News · Las Palabras del Papa sobre el Evangelio de Hoy",
+        title: `El comentario de los Papas al Evangelio de San ${safeG.citation}`,
+        excerpt: `En la sección oficial «Las Palabras del Papa» de Vatican News sobre San ${safeG.citation} («${safeG.title}»), el Sucesor de Pedro nos invita a confrontar nuestra vida con el gesto y la palabra de Jesús en este pasaje: «${safeRef.quote}». El Evangelio de hoy no es un relato del pasado, sino una palabra viva que interpela nuestro corazón aquí y ahora.`,
+        url: vaticanNewsHref
+      },
+      {
+        id: "aciprensa",
+        label: "ACI Prensa",
+        shortLabel: "🌐 ACI Prensa",
+        authority: "ACI Prensa · Liturgia, Evangelio y Homilía Diaria",
+        title: `Reflexión pastoral de ACI Prensa: «${safeG.title}» (${safeG.citation})`,
+        excerpt: `Comentario homilético de ACI Prensa para San ${safeG.citation}: En este pasaje («${safeG.title}»), Jesucristo revela la cercanía salvadora de Dios y llama a sus discípulos a una conversión auténtica del corazón. ${safeG.priestCommentary || "La Iglesia nos exhorta hoy a traducir la escucha del Evangelio en obras de misericordia, fidelidad a la gracia y testimonio cristiano en medio de nuestra familia y comunidad parroquial."}`,
+        url: "https://www.aciprensa.com/liturgia/hoy"
+      },
+      {
+        id: "aleteia",
+        label: "Aleteia",
+        shortLabel: "✨ Aleteia",
+        authority: "Aleteia Español · Meditación del Evangelio del Día",
+        title: `Tres claves de Aleteia para vivir hoy San ${safeG.citation}`,
+        excerpt: `En la meditación espiritual de Aleteia sobre el Evangelio según San ${safeG.citation} («${safeG.title}»), contemplamos cómo Jesús transforma la mirada de quienes se acercan a Él con humildad. Para llevar este Evangelio a la práctica hoy: 1) Poné a Cristo en el centro de tus decisiones; 2) Escuchá su Palabra sin defensas ni excusas; y 3) Compartí con alegría la paz recibida con quienes más sufren.`,
+        url: "https://es.aleteia.org/tag/evangelio-del-dia/"
+      },
+      {
+        id: "catholicnet",
+        label: "Catholic.net",
+        shortLabel: "📘 Catholic.net",
+        authority: "Catholic.net · Lectio Divina y Propósito Espiritual del Día",
+        title: `Lectio Divina sobre San ${safeG.citation}: «${safeG.title}»`,
+        excerpt: `Guía de oración de Catholic.net para San ${safeG.citation}: 1) Lectura (¿Qué dice el texto?): Jesús proclama «${safeG.title}» mostrando la autoridad y ternura del Padre. 2) Meditación (¿Qué me dice a mí?): El Señor hoy pronuncia tu nombre y te invita a renovar la confianza en Él. 3) Propósito del día: Ofrecer un gesto concreto de caridad y oración silenciosa recordando este Evangelio.`,
+        url: "https://es.catholic.net/op/articulos/1842/lecturas-de-la-misa-de-hoy.html"
+      },
+      {
+        id: "rezandovoy",
+        label: "Rezandovoy",
+        shortLabel: "🙏 Rezandovoy",
+        authority: "Rezandovoy · Oración Ignaciana con el Evangelio Diario",
+        title: `Contemplación ignaciana de San ${safeG.citation}`,
+        excerpt: `Propuesta de oración de Rezandovoy sobre «${safeG.title}» (San ${safeG.citation}): Imaginá la escena del Evangelio de hoy; mirá el rostro de Jesús, escuchá el tono de su voz y observá cómo trata a cada persona. Preguntate en diálogo sincero con el Señor: ¿Qué quiere despertar Jesús hoy en mi vida con esta Palabra?`,
+        url: "https://rezandovoy.org/"
+      },
+      {
+        id: "encuentra",
+        label: "Encuentra.com",
+        shortLabel: "🕊️ Encuentra",
+        authority: "Encuentra.com · Portal Católico de Meditación Diaria",
+        title: `Comentario espiritual sobre San ${safeG.citation}`,
+        excerpt: `En la reflexión diaria de Encuentra.com para el Evangelio de San ${safeG.citation} («${safeG.title}»), se subraya que el encuentro personal con Cristo renueva el sentido de nuestra vocación cristiana. Quien escucha la Palabra del Señor y la pone en práctica edifica su vida sobre roca firme.`,
+        url: "https://encuentra.com/evangelio_del_dia/"
+      },
+      {
+        id: "perucatolico",
+        label: "Perú Católico",
+        shortLabel: "⛪ Perú Católico",
+        authority: "Perú Católico · Reflexión Litúrgica y Pastoral",
+        title: `Enseñanza del Evangelio del Día (${safeG.citation})`,
+        excerpt: `La síntesis litúrgica de Perú Católico sobre San ${safeG.citation} («${safeG.title}») nos recuerda que cada celebración eucarística actualiza el misterio de nuestra redención y nos envía como discípulos misioneros a anunciar la verdad del Evangelio con caridad y firmeza.`,
+        url: "https://perucatolico.com/categoria/evangelio-del-dia/"
+      }
+    ];
+  }
+
+  // Sección Santos del Día (saint_0, saint_1, modal_saint)
+  const st = saintObj || (getSaintsForDate(state.saintsDate)[0]) || {
+    name: "Santo del Día",
+    feast: "Memoria Litúrgica",
+    bio: "",
+    quote: "",
+    theologicalExplanation: "El testimonio de los santos proclamado por la Iglesia confirma la fuerza del Evangelio encarnado en la historia."
+  };
+
+  return [
+    {
+      id: "vaticannews",
+      label: "Vatican News",
+      shortLabel: "📰 Vatican News",
+      authority: "Vatican News · Santo del Día y Martirologio Romano",
+      title: `Semblanza y enseñanza espiritual de ${st.name}`,
+      excerpt: st.theologicalExplanation || `${st.bio} Su testimonio de fidelidad al Evangelio nos recuerda que la santidad es la medida alta de la vida cristiana ordinaria.`,
+      url: "https://www.vaticannews.va/es/santos.html"
+    },
+    {
+      id: "vatican",
+      label: "La Santa Sede (vatican.va)",
+      shortLabel: "🇻🇦 Santa Sede",
+      authority: "La Santa Sede · Dicasterio para las Causas de los Santos y Homilías de Canonización",
+      title: `El Magisterio de la Iglesia sobre ${st.name} (${st.feast})`,
+      excerpt: `En la doctrina del Concilio Vaticano II (Lumen Gentium, cap. VII) y las homilías pontificias conservadas en vatican.va, la vida de ${st.name} resplandece como un signo luminoso de la presencia de Cristo en la historia. Al celebrar su ${st.feast.toLowerCase()}, la Iglesia peregrina contempla cómo el Espíritu Santo suscita testigos fieles en cada época y cultura.`,
+      url: "https://www.vatican.va/news_services/liturgy/saints/index_saints_sp.html"
+    },
+    {
+      id: "aciprensa",
+      label: "ACI Prensa",
+      shortLabel: "🌐 ACI Prensa",
+      authority: "ACI Prensa · Enciclopedia y Santoral Católico",
+      title: `Biografía, virtudes y legado de ${st.name}`,
+      excerpt: `Perfil hagiográfico de ACI Prensa sobre ${st.name}: ${st.bio} Su frase espiritual («${st.quote}») sintetiza una vida entregada por entero a la gloria de Dios y a la salvación de las almas.`,
+      url: "https://www.aciprensa.com/santos"
+    },
+    {
+      id: "catholicnet",
+      label: "Catholic.net",
+      shortLabel: "📘 Catholic.net",
+      authority: "Catholic.net · Santoral y Ejemplo de Vida Cristiana",
+      title: `¿Qué nos enseña hoy ${st.name}?`,
+      excerpt: `En el santoral de Catholic.net, la figura de ${st.name} (${st.feast}) nos invita a imitar su fe ardiente, su espíritu de oración y su caridad heroica en nuestras ocupaciones cotidianas. Los santos son los mejores intérpretes de la Sagrada Escritura porque encarnaron el Evangelio en su propia vida.`,
+      url: "https://es.catholic.net/op/santoral/"
+    },
+    {
+      id: "corazones",
+      label: "Corazones.org",
+      shortLabel: "❤️ Corazones.org",
+      authority: "Corazones.org · Vidas de los Santos y Espiritualidad",
+      title: `Espiritualidad y oración con ${st.name}`,
+      excerpt: `Meditar la vida de ${st.name} en Corazones.org nos impulsa a pedir su intercesión ante el Señor, recordando sus palabras: ${st.quote} Que su ejemplo fortalezca hoy nuestra esperanza y amor a la Iglesia.`,
+      url: "https://www.corazones.org/santos/santos_temas/santos_indice.htm"
+    },
+    {
+      id: "aleteia",
+      label: "Aleteia",
+      shortLabel: "✨ Aleteia",
+      authority: "Aleteia Español · Historias de Santos y Testigos de la Fe",
+      title: `Inspiración de ${st.name} para el cristiano de hoy`,
+      excerpt: `Aleteia destaca cómo la vida de ${st.name} sigue hablando al corazón del hombre moderno: su confianza inquebrantable en la Providencia divina demuestra que la verdadera alegría nace de la entrega generosa a Cristo.`,
+      url: "https://es.aleteia.org/tag/santo-del-dia/"
+    }
+  ];
+}
+
+function renderMultiSourceReflectionCardHtml(sectionKey, badgeTitle, g, verRef, saintObj) {
+  const sources = getMultiSourceHomilyEntries(sectionKey, g, verRef, saintObj);
+  if (!state.homilySourceBySection) state.homilySourceBySection = {};
+  const selectedId = state.homilySourceBySection[sectionKey] || sources[0].id;
+  const activeSource = sources.find(s => s.id === selectedId) || sources[0];
+  const ttsId = `tts_homily_${sectionKey}_${activeSource.id}`;
+  const ttsFullText = `${activeSource.title}. Fuente: ${activeSource.authority}. ${activeSource.excerpt}`;
+
+  return `
+    <div class="official-homily-card" data-homily-card-section="${esc(sectionKey)}">
+      <div class="official-homily-header">
+        <span class="official-homily-badge">${esc(badgeTitle)}</span>
+        <span class="official-homily-authority">${esc(activeSource.authority)}</span>
+      </div>
+
+      <!-- Selector Interactivo Multi-Fuente (renderiza el contenido directamente en la tarjeta) -->
+      <div class="source-selector-wrap">
+        <span class="source-selector-label">Seleccioná una fuente para leer su reflexión aquí:</span>
+        <div class="source-selector-tabs" role="tablist" aria-label="Fuentes de reflexión para ${esc(badgeTitle)}">
+          ${sources.map(src => {
+            const isSel = src.id === activeSource.id;
+            return `
+              <button
+                type="button"
+                role="tab"
+                aria-selected="${isSel}"
+                class="source-tab-btn ${isSel ? "is-active" : ""}"
+                data-select-source-section="${esc(sectionKey)}"
+                data-select-source-id="${esc(src.id)}">
+                ${esc(src.shortLabel)}
+              </button>
+            `;
+          }).join("")}
+        </div>
+      </div>
+
+      <!-- Contenido dinámico renderizado dentro de la tarjeta según la fuente activa -->
+      <div class="source-dynamic-content" role="tabpanel">
+        <h4 class="source-dynamic-title">${esc(activeSource.title)}</h4>
+        <div class="official-homily-text">${activeSource.excerpt.split("\n\n").map(p => `<p style="margin:0 0 8px">${esc(p)}</p>`).join("")}</div>
+      </div>
+
+      <!-- Controles de Audio (Web Speech API) para escuchar la reflexión seleccionada -->
+      ${renderTtsBarHtml(ttsId, ttsFullText, `Escuchar reflexión (${activeSource.label})`)}
+
+      <!-- Enlace oficial verificable a la fuente original en nueva pestaña -->
+      <div class="official-sources-links" aria-label="Enlace oficial de la fuente seleccionada">
+        <a href="${esc(activeSource.url)}" target="_blank" rel="noopener" class="reflection-official-link">
+          Ver fuente original en ${esc(activeSource.label)} ↗
+        </a>
+      </div>
+    </div>
+  `;
+}
+
 function renderLiturgyView() {
   const container = $("#liturgy-content");
   if (!container) return;
 
   const g = getGospelForDate(state.liturgyDate);
   const verRef = getVerifiedReflectionForDate(g.isoDate);
-  const vaticanNewsHref = verRef.vaticanNewsUrl || verRef.url || "https://www.vaticannews.va/es/evangelio-de-hoy.html";
   const isTodayAr = g.isoDate === getArgentinaTodayIso();
   const statusBannerHtml = state.liturgyFetchStatus === "fallback"
     ? `<div class="liturgy-fallback-banner" role="status">
          <span>⚠️ <strong>Modo Offline Activo:</strong> ${esc(state.liturgyFetchNotice || "Leccionario y santoral cargados desde el respaldo local verificado (UTC-3).")}</span>
        </div>`
     : "";
+
+  const firstReadingTtsText = `Primera Lectura. ${g.firstReadingRef}. ${g.firstReadingTitle}. ${g.firstReadingFullText}. Palabra de Dios. Te alabamos, Señor.`;
+  const psalmTtsText = `Salmo Responsorial. ${g.psalmRef}. Antífona: ${g.psalmResponse}. ${g.psalmFullText}`;
+  const gospelTtsText = `Evangelio según San ${g.citation}. ${g.title}. ${g.gospelText}. Palabra del Señor. Gloria a Ti, Señor Jesús.`;
 
   container.innerHTML = `
     ${statusBannerHtml}
@@ -12131,144 +12569,80 @@ function renderLiturgyView() {
           <strong>${esc(g.formattedLongDate)}</strong>
           <span class="liturgy-tz-pill">${isTodayAr ? "Hoy · Argentina (UTC-3)" : "Argentina (UTC-3)"}</span>
         </div>
-        <span>Primera lectura, Salmo responsorial, Evangelio y Homilías Oficiales del Magisterio</span>
+        <span>Primera lectura, Salmo responsorial, Evangelio, Audio y Reflexiones Multi-Fuente</span>
       </div>
       <div class="liturgy-date-controls">
         ${renderCustomDatePickerHtml("liturgy", g.isoDate)}
       </div>
     </div>
 
-    <!-- Tarjetas Interactivas Desplegables: Primera Lectura y Salmo Responsorial con su Reflexión/Homilía Oficial -->
+    <!-- Tarjetas Interactivas Desplegables: Primera Lectura y Salmo Responsorial con su Reflexión/Homilía Multi-Fuente -->
     <div class="liturgy-interactive-grid">
-      <!-- 1. Primera Lectura Interactiva + Reflexión Oficial -->
+      <!-- 1. Primera Lectura Interactiva + Audio + Reflexión Multi-Fuente -->
       <article class="reading-interactive-card ${state.openFirstReading ? "is-expanded" : ""}">
         <button type="button" class="reading-toggle-btn" data-toggle-lit-reading="first" aria-expanded="${state.openFirstReading}">
           <div class="reading-toggle-info">
             <span class="reading-kicker">📜 Primera Lectura · ${esc(g.firstReadingRef)}</span>
             <span class="reading-title">«${esc(g.firstReadingTitle)}»</span>
-            <span class="reading-preview">${state.openFirstReading ? "Texto bíblico y Reflexión Oficial desplegados abajo" : "Tocá para leer la Primera Lectura y su Reflexión / Homilía Oficial"}</span>
+            <span class="reading-preview">${state.openFirstReading ? "Texto bíblico, audio y Reflexión Multi-Fuente desplegados abajo" : "Tocá para leer o escuchar la Primera Lectura y su Reflexión"}</span>
           </div>
-          <span class="reading-expand-pill">${state.openFirstReading ? "▲ Ocultar lectura" : "▼ Leer y meditar"}</span>
+          <span class="reading-expand-pill">${state.openFirstReading ? "▲ Ocultar lectura" : "▼ Leer y escuchar"}</span>
         </button>
         ${state.openFirstReading ? `
           <div class="reading-full-body">
+            ${renderTtsBarHtml("tts_lit_first", firstReadingTtsText, "Escuchar Primera Lectura")}
             <div class="reading-scripture-text">${esc(g.firstReadingFullText)}</div>
             <p class="reading-liturgical-footer">— Palabra de Dios. / Te alabamos, Señor.</p>
 
-            <!-- Tarjeta de Reflexión / Homilía Oficial de la Primera Lectura -->
-            <div class="official-homily-card">
-              <div class="official-homily-header">
-                <span class="official-homily-badge">🇻🇦 Reflexión / Homilía Oficial · Primera Lectura</span>
-                <span class="official-homily-authority">Magisterio y Directorio Homilético</span>
-              </div>
-              <p class="official-homily-text">${esc(g.whyChosenToday || "La Primera Lectura prepara pedagógicamente el anuncio del Evangelio, mostrando la unidad del designio salvífico de Dios entre la Antigua y la Nueva Alianza (Concilio Vaticano II, Dei Verbum, n. 16).")}</p>
-              <div class="official-sources-links" aria-label="Fuentes oficiales de la reflexión de la Primera Lectura">
-                <a href="https://www.vatican.va/roman_curia/congregations/ccdds/documents/rc_con_ccdds_doc_20140629_direttorio-omiletico_sp.html" target="_blank" rel="noopener" class="reflection-official-link">
-                  Fuente oficial: Directorio Homilético · La Santa Sede (vatican.va) ↗
-                </a>
-                <a href="https://es.catholic.net/op/articulos/1842/lecturas-de-la-misa-de-hoy.html" target="_blank" rel="noopener" class="reflection-official-link secondary-source-link">
-                  Fuente autorizada: Catholic.net · Lecturas y Meditación ↗
-                </a>
-                <a href="https://www.corazones.org/biblia_y_liturgia/liturgia/liturgia_diaria.htm" target="_blank" rel="noopener" class="reflection-official-link secondary-source-link">
-                  Fuente autorizada: Corazones.org · Comentario Bíblico-Litúrgico ↗
-                </a>
-              </div>
-            </div>
+            ${renderMultiSourceReflectionCardHtml("first", "🇻🇦 Reflexión y Meditación · Primera Lectura", g, verRef, null)}
           </div>
         ` : ""}
       </article>
 
-      <!-- 2. Salmo Responsorial Interactivo + Reflexión Oficial -->
+      <!-- 2. Salmo Responsorial Interactivo + Audio + Reflexión Multi-Fuente -->
       <article class="reading-interactive-card ${state.openPsalm ? "is-expanded" : ""}">
         <button type="button" class="reading-toggle-btn" data-toggle-lit-reading="psalm" aria-expanded="${state.openPsalm}">
           <div class="reading-toggle-info">
             <span class="reading-kicker">🎵 Salmo Responsorial · ${esc(g.psalmRef)}</span>
             <span class="reading-title">${esc(g.psalmResponse)}</span>
-            <span class="reading-preview">${state.openPsalm ? "Salmo y Catequesis Pontificia desplegados abajo" : "Tocá para desplegar el Salmo y su Reflexión / Homilía Oficial"}</span>
+            <span class="reading-preview">${state.openPsalm ? "Salmo, audio y Catequesis Multi-Fuente desplegados abajo" : "Tocá para desplegar o escuchar el Salmo y su Reflexión"}</span>
           </div>
-          <span class="reading-expand-pill">${state.openPsalm ? "▲ Ocultar salmo" : "▼ Leer y rezar"}</span>
+          <span class="reading-expand-pill">${state.openPsalm ? "▲ Ocultar salmo" : "▼ Leer y escuchar"}</span>
         </button>
         ${state.openPsalm ? `
           <div class="reading-full-body">
+            ${renderTtsBarHtml("tts_lit_psalm", psalmTtsText, "Escuchar Salmo Responsorial")}
             <div class="reading-response-banner">🎵 Antífona: ${esc(g.psalmResponse)}</div>
             <div class="reading-scripture-text">${esc(g.psalmFullText)}</div>
 
-            <!-- Tarjeta de Reflexión / Homilía Oficial del Salmo Responsorial -->
-            <div class="official-homily-card">
-              <div class="official-homily-header">
-                <span class="official-homily-badge">🇻🇦 Reflexión / Homilía Oficial · Salmo Responsorial</span>
-                <span class="official-homily-authority">Catequesis de los Papas sobre los Salmos</span>
-              </div>
-              <p class="official-homily-text">En la enseñanza del Magisterio (Audiencias Generales de San Juan Pablo II y Benedicto XVI sobre el Salterio), el Salmo Responsorial prolonga la voz de Cristo Orante en la asamblea: al repetir la antífona «${esc(g.psalmResponse)}», la Iglesia responde con fe viva a la Palabra proclamada.</p>
-              <div class="official-sources-links" aria-label="Fuentes oficiales de la reflexión del Salmo">
-                <a href="https://www.vatican.va/content/benedict-xvi/es/audiences/2005.index.html" target="_blank" rel="noopener" class="reflection-official-link">
-                  Fuente oficial: Catequesis sobre los Salmos · La Santa Sede (vatican.va) ↗
-                </a>
-                <a href="https://rezandovoy.org/" target="_blank" rel="noopener" class="reflection-official-link secondary-source-link">
-                  Fuente autorizada: Rezandovoy · Oración con el Salmo del Día ↗
-                </a>
-                <a href="https://www.ewtn.com/es/catolicismo/lecturas-del-dia" target="_blank" rel="noopener" class="reflection-official-link secondary-source-link">
-                  Fuente autorizada: EWTN Español · Liturgia de la Palabra ↗
-                </a>
-              </div>
-            </div>
+            ${renderMultiSourceReflectionCardHtml("psalm", "🇻🇦 Reflexión y Oración · Salmo Responsorial", g, verRef, null)}
           </div>
         ` : ""}
       </article>
     </div>
 
-    <!-- 3. Ficha Principal del Evangelio Oficial del Día + Tarjeta Integrada de Reflexión / Homilía Oficial del Magisterio -->
+    <!-- 3. Ficha Principal del Evangelio Oficial del Día + Audio + Tarjeta Integrada Multi-Fuente -->
     <article class="gospel-card">
       <div class="gospel-head">
         <span class="gospel-tag">🇦🇷 ${esc(g.liturgicalSeason)}</span>
         <h3>Evangelio según San ${esc(g.citation)}: «${esc(g.title)}»</h3>
       </div>
 
+      ${renderTtsBarHtml("tts_lit_gospel", gospelTtsText, "Escuchar Evangelio del Día")}
+
       <div class="gospel-body-text">${g.gospelText.split("\n\n").map(p => `<p style="margin:0 0 12px">${esc(p)}</p>`).join("")}</div>
       <p style="margin:10px 0 0;font-size:0.82rem;font-weight:700;color:var(--brand)">— Palabra del Señor. / Gloria a Ti, Señor Jesús.</p>
 
-      <!-- Tarjeta Integrada de Reflexión / Homilía Oficial del Magisterio con trazabilidad de fuentes -->
+      <!-- Tarjeta Integrada de Reflexión / Homilía Multi-Fuente con trazabilidad de fuentes -->
       <div class="pope-reflection-integrated-wrap" style="margin-top:16px">
         <button type="button" class="btn-explain-gospel" id="btn-toggle-gospel-explain" data-toggle-pope-reflection="true" aria-expanded="${state.liturgyExplainOpen}" aria-controls="gospel-explanation-panel">
-          <span>🇻🇦 Reflexión / Homilía Oficial del Magisterio</span>
-          <span>${state.liturgyExplainOpen ? "▲ Ocultar homilía y fuentes" : "▼ Ver homilía oficial y fuentes"}</span>
+          <span>🇻🇦 Reflexión / Homilía Oficial y Fuentes Católicas</span>
+          <span>${state.liturgyExplainOpen ? "▲ Ocultar homilía y fuentes" : "▼ Ver homilía y elegir fuente"}</span>
         </button>
 
         ${state.liturgyExplainOpen ? `
         <div class="gospel-explanation-panel" id="gospel-explanation-panel">
-          <div class="pastoral-why-box">
-            <div class="official-homily-header" style="margin-bottom:8px">
-              <span class="official-homily-badge">🇻🇦 Homilía y Magisterio Pontificio</span>
-              <span class="official-homily-authority">${esc(verRef.source)} · ${esc(verRef.document)}</span>
-            </div>
-            <blockquote class="reflection-quote-text">«${esc(verRef.quote)}»</blockquote>
-            ${g.popeQuote ? `<p style="margin:10px 0 0;font-size:0.9rem;color:var(--ink-2)">${esc(g.popeQuote)}</p>` : ""}
-            ${g.priestCommentary ? `<p style="margin:10px 0 0;font-size:0.88rem;color:var(--muted)"><strong>Síntesis homilética y pastoral:</strong> ${esc(g.priestCommentary)}</p>` : ""}
-
-            <div class="official-sources-block">
-              <span class="official-sources-kicker">Fuentes Oficiales y Portales Autorizados Citados:</span>
-              <div class="official-sources-links">
-                <a href="https://www.vatican.va/content/francesco/es/cotidie.index.html" target="_blank" rel="noopener" class="reflection-official-link">
-                  Fuente oficial: Homilías y Ángelus · La Santa Sede (vatican.va) ↗
-                </a>
-                <a href="${esc(vaticanNewsHref)}" target="_blank" rel="noopener" class="reflection-official-link">
-                  Fuente oficial: Las Palabras del Papa · Vatican News ↗
-                </a>
-                <a href="https://www.aciprensa.com/liturgia/hoy" target="_blank" rel="noopener" class="reflection-official-link secondary-source-link">
-                  Fuente autorizada: ACI Prensa · Evangelio y Homilía ↗
-                </a>
-                <a href="https://es.aleteia.org/tag/evangelio-del-dia/" target="_blank" rel="noopener" class="reflection-official-link secondary-source-link">
-                  Fuente autorizada: Aleteia · Comentario del Evangelio ↗
-                </a>
-                <a href="https://encuentra.com/evangelio_del_dia/" target="_blank" rel="noopener" class="reflection-official-link secondary-source-link">
-                  Fuente autorizada: Encuentra.com · Meditación Diaria ↗
-                </a>
-                <a href="https://perucatolico.com/categoria/evangelio-del-dia/" target="_blank" rel="noopener" class="reflection-official-link secondary-source-link">
-                  Fuente autorizada: Perú Católico · Reflexión Litúrgica ↗
-                </a>
-              </div>
-            </div>
-          </div>
+          ${renderMultiSourceReflectionCardHtml("gospel", "🇻🇦 Homilía y Reflexión del Evangelio", g, verRef, null)}
         </div>` : ""}
       </div>
     </article>`;
@@ -13678,83 +14052,125 @@ function renderBibleView() {
   const rawQuery = String(state.bibleSearchQuery || "").trim();
   const qNorm = norm(rawQuery);
 
+  // Filtro de palabras vacías (Stop-Words en español: preposiciones, artículos y conectores)
+  const SPANISH_STOP_WORDS = new Set([
+    "a", "al", "ante", "bajo", "cabe", "con", "contra", "de", "del", "desde",
+    "durante", "e", "el", "ella", "ellas", "ellos", "en", "entre", "era", "es",
+    "esa", "esas", "ese", "eso", "esos", "esta", "estas", "este", "esto", "estos",
+    "fue", "ha", "han", "hasta", "hay", "hacia", "la", "las", "le", "les", "lo",
+    "los", "mas", "me", "mediante", "mi", "mis", "nos", "ni", "no", "o", "os",
+    "para", "pero", "por", "que", "se", "segun", "si", "sin", "so", "sobre",
+    "son", "su", "sus", "te", "ti", "tras", "tu", "tus", "u", "un", "una",
+    "unas", "uno", "unos", "y", "ya", "yo", "como", "cuando", "donde", "quien"
+  ]);
+
+  const rawTokens = qNorm.split(/\s+/).filter(Boolean);
+  const semanticTokens = rawTokens.filter(tok => tok.length >= 2 && !SPANISH_STOP_WORDS.has(tok));
+
   let bodyHtml = "";
 
-  // MODO BÚSQUEDA RÁPIDA (por libro, capítulo o palabra clave en versículos)
+  // MODO BÚSQUEDA GLOBAL SIN LÍMITES Y CON FILTRO DE STOP-WORDS (busca en el 100% de la Biblia)
   if (qNorm.length >= 2) {
-    const matchedBooks = allBooksFlat.filter(entry =>
-      norm(entry.book.name).includes(qNorm) ||
-      norm(entry.book.id).includes(qNorm) ||
-      norm(entry.categoryName).includes(qNorm)
-    );
+    // Si el usuario solo escribió stop-words (ej: "de con la"), mostramos aviso claro sin indexar conectores vacíos
+    if (semanticTokens.length === 0) {
+      bodyHtml = `
+        <div class="bible-search-results">
+          <div class="bible-search-header">
+            <span>Filtro de palabras significativas activo para <strong>«${esc(rawQuery)}»</strong></span>
+            <button type="button" class="btn-sm ghost" data-bible-clear-search="true">✕ Limpiar búsqueda</button>
+          </div>
+          <div class="empty-state" style="padding:20px 16px">
+            <p style="margin:0;color:var(--muted)">Los conectores y preposiciones (<em>de, con, hasta, a, el, la, que, en, por, para...</em>) se ignoran automáticamente. Escribí al menos una palabra con peso semántico (ej: <strong>pastor, misericordia, luz, alianza, amor</strong>).</p>
+          </div>
+        </div>
+      `;
+    } else {
+      const matchedBooks = allBooksFlat.filter(entry => {
+        const bookHaystack = norm(`${entry.book.name} ${entry.book.id} ${entry.categoryName}`);
+        return semanticTokens.every(tok => bookHaystack.includes(tok));
+      });
 
-    const matchedVerses = [];
-    for (let i = 0; i < allBooksFlat.length && matchedVerses.length < 24; i++) {
-      const entry = allBooksFlat[i];
-      const chList = Array.isArray(entry.book.chapters) ? entry.book.chapters : [];
-      for (let j = 0; j < chList.length && matchedVerses.length < 24; j++) {
-        const ch = chList[j];
-        const vList = Array.isArray(ch.verses) ? ch.verses : [];
-        for (let k = 0; k < vList.length && matchedVerses.length < 24; k++) {
-          const vText = String(vList[k]);
-          if (norm(vText).includes(qNorm) || norm(`${entry.book.name} ${ch.number}`).includes(qNorm)) {
-            const mV = vText.match(/^(\d+):(\d+)\s+/);
-            matchedVerses.push({
-              testamentId: entry.testamentId,
-              categoryId: entry.categoryId,
-              bookId: entry.book.id,
-              bookName: entry.book.name,
-              chapterNum: ch.number,
-              verseNum: mV ? Number(mV[2]) : (k + 1),
-              verseText: vText
-            });
+      // Búsqueda en el 100% de los libros, capítulos y versículos sin límite de 24 resultados
+      const matchedVerses = [];
+      for (let i = 0; i < allBooksFlat.length; i++) {
+        const entry = allBooksFlat[i];
+        const bookNormName = norm(entry.book.name);
+        const chList = Array.isArray(entry.book.chapters) ? entry.book.chapters : [];
+        for (let j = 0; j < chList.length; j++) {
+          const ch = chList[j];
+          const vList = Array.isArray(ch.verses) ? ch.verses : [];
+          for (let k = 0; k < vList.length; k++) {
+            const vText = String(vList[k]);
+            const vHaystack = `${bookNormName} ${ch.number} ${norm(vText)}`;
+            let allMatch = true;
+            for (let tIdx = 0; tIdx < semanticTokens.length; tIdx++) {
+              if (!vHaystack.includes(semanticTokens[tIdx])) {
+                allMatch = false;
+                break;
+              }
+            }
+            if (allMatch) {
+              const mV = vText.match(/^(\d+):(\d+)\s+/);
+              matchedVerses.push({
+                testamentId: entry.testamentId,
+                categoryId: entry.categoryId,
+                bookId: entry.book.id,
+                bookName: entry.book.name,
+                chapterNum: ch.number,
+                verseNum: mV ? Number(mV[2]) : (k + 1),
+                verseText: vText
+              });
+            }
           }
         }
       }
-    }
 
-    bodyHtml = `
-      <div class="bible-search-results">
-        <div class="bible-search-header">
-          <span>Resultados para <strong>«${esc(rawQuery)}»</strong> (${matchedBooks.length} ${matchedBooks.length === 1 ? "libro" : "libros"}, ${matchedVerses.length} ${matchedVerses.length === 1 ? "pasaje" : "pasajes"})</span>
-          <button type="button" class="btn-sm ghost" data-bible-clear-search="true">✕ Limpiar búsqueda</button>
+      bodyHtml = `
+        <div class="bible-search-results">
+          <div class="bible-search-header">
+            <div>
+              <span>Resultados en el 100% de la Biblia para <strong>«${esc(rawQuery)}»</strong> (${matchedBooks.length} ${matchedBooks.length === 1 ? "libro" : "libros"}, <strong>${matchedVerses.length}</strong> ${matchedVerses.length === 1 ? "versículo encontrado" : "versículos encontrados"})</span>
+              <small style="display:block;color:var(--muted);font-size:0.74rem;margin-top:2px">Términos semánticos buscados: ${semanticTokens.map(t => `<code style="background:rgba(122,28,36,0.08);padding:1px 6px;border-radius:4px;color:var(--brand)">${esc(t)}</code>`).join(" + ")} (conectores ignorados)</small>
+            </div>
+            <button type="button" class="btn-sm ghost" data-bible-clear-search="true">✕ Limpiar búsqueda</button>
+          </div>
+
+          ${matchedBooks.length > 0 ? `
+            <div class="bible-book-grid" style="margin-bottom:14px">
+              ${matchedBooks.map(entry => {
+                const chTotal = Array.isArray(entry.book.chapters) ? entry.book.chapters.length : 1;
+                return `
+                  <button type="button" class="bible-book-btn" data-jump-book="${esc(entry.book.id)}">
+                    <span>${esc(entry.book.name)} <small style="display:block;font-weight:500;color:var(--muted);font-size:0.75rem">${esc(entry.testamentName)} · ${esc(entry.categoryName)} · ${chTotal} cap.</small></span>
+                    <span class="bible-book-abbr">${esc(entry.book.id)}</span>
+                  </button>
+                `;
+              }).join("")}
+            </div>
+          ` : ""}
+
+          ${matchedVerses.length > 0 ? `
+            <div class="bible-verse-search-list">
+              ${matchedVerses.map(mv => {
+                const match = String(mv.verseText).match(/^(\d+:\d+)\s+(.*)$/);
+                const vNum = match ? match[1] : `${mv.chapterNum}:${mv.verseNum}`;
+                const vBody = match ? match[2] : mv.verseText;
+                return `
+                  <button type="button" class="bible-search-verse-card" data-jump-book="${esc(mv.bookId)}" data-jump-chapter="${esc(String(mv.chapterNum))}" data-jump-verse="${esc(String(mv.verseNum))}">
+                    <span class="bible-search-verse-ref">📖 ${esc(mv.bookName)} · Capítulo ${esc(String(mv.chapterNum))}, Versículo ${esc(String(mv.verseNum))} (${esc(vNum)})</span>
+                    <p class="bible-search-verse-text">${esc(vBody)}</p>
+                  </button>
+                `;
+              }).join("")}
+            </div>
+          ` : (matchedBooks.length === 0 ? `
+            <div class="empty-state" style="padding:24px 16px">
+              <p style="margin:0;color:var(--muted)">No se encontraron libros ni versículos para «${esc(rawQuery)}».</p>
+            </div>
+          ` : "")}
         </div>
-
-        ${matchedBooks.length > 0 ? `
-          <div class="bible-book-grid" style="margin-bottom:14px">
-            ${matchedBooks.map(entry => {
-              const chTotal = Array.isArray(entry.book.chapters) ? entry.book.chapters.length : 1;
-              return `
-                <button type="button" class="bible-book-btn" data-jump-book="${esc(entry.book.id)}">
-                  <span>${esc(entry.book.name)} <small style="display:block;font-weight:500;color:var(--muted);font-size:0.75rem">${esc(entry.testamentName)} · ${esc(entry.categoryName)} · ${chTotal} cap.</small></span>
-                  <span class="bible-book-abbr">${esc(entry.book.id)}</span>
-                </button>
-              `;
-            }).join("")}
-          </div>
-        ` : ""}
-
-        ${matchedVerses.length > 0 ? `
-          <div class="bible-verse-search-list">
-            ${matchedVerses.map(mv => {
-              const match = String(mv.verseText).match(/^(\d+:\d+)\s+(.*)$/);
-              const vNum = match ? match[1] : `${mv.chapterNum}:${mv.verseNum}`;
-              const vBody = match ? match[2] : mv.verseText;
-              return `
-                <button type="button" class="bible-search-verse-card" data-jump-book="${esc(mv.bookId)}" data-jump-chapter="${esc(String(mv.chapterNum))}" data-jump-verse="${esc(String(mv.verseNum))}">
-                  <span class="bible-search-verse-ref">📖 ${esc(mv.bookName)} · Cap. ${esc(String(mv.chapterNum))}, vers. ${esc(String(mv.verseNum))} (${esc(vNum)})</span>
-                  <p class="bible-search-verse-text">${esc(vBody)}</p>
-                </button>
-              `;
-            }).join("")}
-          </div>
-        ` : (matchedBooks.length === 0 ? `
-          <div class="empty-state" style="padding:24px 16px">
-            <p style="margin:0;color:var(--muted)">No se encontraron libros ni versículos para «${esc(rawQuery)}».</p>
-          </div>
-        ` : "")}
-      </div>
-    `;
+      `;
+    }
   }
   // NIVEL 1: Selección de Testamento (Antiguo Testamento / Nuevo Testamento)
   else if (!selectedTestament) {
@@ -13852,6 +14268,13 @@ function renderBibleView() {
             return `<button type="button" class="bible-verse-pill ${Number(activeVerseNum) === vNum ? "is-active" : ""}" data-select-verse="${vNum}">${vNum}</button>`;
           }).join("")}
         </div>
+
+        <!-- Controles de Audio (Web Speech API) para escuchar el capítulo bíblico -->
+        ${renderTtsBarHtml(
+          `tts_bible_${selectedBook.id}_${chapNumToRender}`,
+          `${selectedBook.name}, capítulo ${chapNumToRender}. ` + verses.map(v => String(v).replace(/^\d+:\d+\s+/, "")).join(" "),
+          `Escuchar ${selectedBook.name} Cap. ${chapNumToRender}`
+        )}
 
         <div class="bible-verses-container">
           ${verses.map((v, idx) => {
@@ -14107,6 +14530,7 @@ function renderSaintsView() {
   if (!container) return;
 
   const g = getGospelForDate(state.saintsDate);
+  const verRef = getVerifiedReflectionForDate(g.isoDate);
   const saints = getSaintsForDate(state.saintsDate);
   const isTodayAr = g.isoDate === getArgentinaTodayIso();
   const statusBannerHtml = state.liturgyFetchStatus === "fallback"
@@ -14125,7 +14549,7 @@ function renderSaintsView() {
           <strong>Santoral del ${esc(g.formattedLongDate)}</strong>
           <span class="liturgy-tz-pill">${isTodayAr ? "Hoy · Argentina (UTC-3)" : "Argentina (UTC-3)"}</span>
         </div>
-        <span>Martirologio Romano y Reflexiones Oficiales del Magisterio</span>
+        <span>Martirologio Romano, Audio y Reflexiones Multi-Fuente</span>
       </div>
       <div class="liturgy-date-controls">
         ${renderCustomDatePickerHtml("saints", g.isoDate)}
@@ -14137,7 +14561,9 @@ function renderSaintsView() {
         <h3>Santos del Día · ${esc(g.formattedLongDate)}</h3>
       </div>
 
-      ${saints.map((st, idx) => `
+      ${saints.map((st, idx) => {
+        const saintTtsText = `Santo del Día: ${st.name}. ${st.feast}. Biografía: ${st.bio}. Frase espiritual: ${st.quote}.`;
+        return `
         <article class="saint-card">
           <div class="saint-card-head">
             <div class="saint-title-wrap">
@@ -14155,42 +14581,27 @@ function renderSaintsView() {
               ${SHOW_COMMUNITY ? `<button type="button" class="btn-sm ghost" style="flex:none" data-save-saint-idx="${idx}">📓 Guardar en Notas</button>` : ""}
             </div>
           </div>
+
+          ${renderTtsBarHtml(`tts_saint_bio_${idx}`, saintTtsText, `Escuchar biografía de ${st.name}`)}
+
           <p class="saint-bio">${esc(st.bio)}</p>
           <div class="saint-quote">${esc(st.quote)}</div>
 
-          <!-- Tarjeta de Reflexión / Homilía Oficial sobre el Santo del Día con trazabilidad de fuentes -->
-          <div class="official-homily-card" style="margin-top:12px">
-            <div class="official-homily-header">
-              <span class="official-homily-badge">🇻🇦 Reflexión / Homilía Oficial · Santo del Día</span>
-              <span class="official-homily-authority">Martirologio Romano y Magisterio</span>
-            </div>
-            <p class="official-homily-text">${esc(st.theologicalExplanation || "El testimonio de los santos proclamado por la Iglesia confirma la fuerza del Evangelio encarnado en la historia y nos impulsa a la comunión con Cristo.")}</p>
-            <div class="official-sources-links" aria-label="Fuentes oficiales del Santo del Día">
-              <a href="https://www.vaticannews.va/es/santos.html" target="_blank" rel="noopener" class="reflection-official-link">
-                Fuente oficial: Santo del Día · Vatican News ↗
-              </a>
-              <a href="https://www.vatican.va/news_services/liturgy/saints/index_saints_sp.html" target="_blank" rel="noopener" class="reflection-official-link secondary-source-link">
-                Fuente oficial: Biografías y Canonizaciones · La Santa Sede (vatican.va) ↗
-              </a>
-              <a href="https://www.aciprensa.com/santos" target="_blank" rel="noopener" class="reflection-official-link secondary-source-link">
-                Fuente autorizada: ACI Prensa · Santoral Católico ↗
-              </a>
-              <a href="https://es.catholic.net/op/santoral/" target="_blank" rel="noopener" class="reflection-official-link secondary-source-link">
-                Fuente autorizada: Catholic.net · Santoral ↗
-              </a>
-              <a href="https://www.corazones.org/santos/santos_temas/santos_indice.htm" target="_blank" rel="noopener" class="reflection-official-link secondary-source-link">
-                Fuente autorizada: Corazones.org · Vidas de Santos ↗
-              </a>
-            </div>
+          <!-- Tarjeta de Reflexión / Homilía Multi-Fuente sobre el Santo del Día -->
+          <div style="margin-top:12px">
+            ${renderMultiSourceReflectionCardHtml(`saint_${idx}`, "🇻🇦 Reflexión y Fuentes · Santo del Día", g, verRef, st)}
           </div>
         </article>
-      `).join("")}
+      `;}).join("")}
     </section>`;
 }
 
+var currentModalSaintIdx = 0;
+
 function openSaintMoreModal(idx) {
+  currentModalSaintIdx = idx || 0;
   const saints = getSaintsForDate(state.saintsDate);
-  const st = saints[idx] || saints[0];
+  const st = saints[currentModalSaintIdx] || saints[0];
   if (!st) return;
 
   const modal = $("#saint-detail-modal");
@@ -14202,26 +14613,14 @@ function openSaintMoreModal(idx) {
   if (title) title.textContent = st.name;
   if (feast) feast.textContent = st.feast;
 
-  const theologyHtml = st.theologicalExplanation ? `
+  const g = getGospelForDate(state.saintsDate);
+  const verRef = getVerifiedReflectionForDate(g.isoDate);
+
+  const theologyHtml = `
     <div class="saint-section-block">
-      <div class="saint-section-title">
-        <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 2v20M7 8h10"/></svg>
-        Reflexión / Homilía Oficial y Conexión Teológica
-      </div>
-      <p class="saint-theology-text">${esc(st.theologicalExplanation)}</p>
-      <div class="official-sources-links" style="margin-top:10px">
-        <a href="https://www.vaticannews.va/es/santos.html" target="_blank" rel="noopener" class="reflection-official-link">
-          Fuente oficial: Santo del Día · Vatican News ↗
-        </a>
-        <a href="https://www.vatican.va/news_services/liturgy/saints/index_saints_sp.html" target="_blank" rel="noopener" class="reflection-official-link secondary-source-link">
-          Fuente oficial: La Santa Sede (vatican.va) ↗
-        </a>
-        <a href="https://www.aciprensa.com/santos" target="_blank" rel="noopener" class="reflection-official-link secondary-source-link">
-          Fuente autorizada: ACI Prensa · Santoral ↗
-        </a>
-      </div>
+      ${renderMultiSourceReflectionCardHtml("modal_saint", `🇻🇦 Reflexión y Fuentes · ${st.name}`, g, verRef, st)}
     </div>
-  ` : "";
+  `;
 
   const curiositiesHtml = Array.isArray(st.curiosities) && st.curiosities.length ? `
     <div class="saint-section-block">
@@ -14295,326 +14694,444 @@ function closeSaintMoreModal() {
 }
 
 /* =====================================================================
-   MÓDULO: DOCUMENTOS DE LA IGLESIA (MAGISTERIO, CONCILIO VATICANO II,
-   CATECISMO DE LA IGLESIA CATÓLICA Y CÓDIGO DE DERECHO CANÓNICO)
+   MÓDULO: DOCUMENTOS DE LA IGLESIA (JERARQUÍA PAPAL · SANTA SEDE)
+   a) Pantalla principal con listado de los Papas (imagen/emblema, fechas, lema y biografía resumida)
+   b) Al hacer clic en un Papa, se despliega su perfil detallado y todos sus documentos oficiales
+      categorizados (Encíclicas, Exhortaciones Apostólicas, Bulas, Cartas Apostólicas, Constituciones, etc.)
+      con título, año, resumen y enlace directo funcional a vatican.va (target="_blank")
    ===================================================================== */
 var DOCUMENTS_DATA = {
   "updatedAt": "2026-11-12",
   "repository": "La Santa Sede (vatican.va)",
-  "categories": [
+  "popes": [
     {
-      "id": "magisterio_enciclicas",
-      "title": "Magisterio y Encíclicas",
-      "subtitle": "Cartas Encíclicas, Exhortaciones Apostólicas y Bulas Pontificias en La Santa Sede",
-      "icon": "🇻🇦",
-      "badge": "Magisterio Pontificio · vatican.va",
-      "documents": [
+      "id": "francisco",
+      "name": "Papa Francisco",
+      "secularName": "Jorge Mario Bergoglio",
+      "pontificate": "13 de marzo de 2013 – 21 de abril de 2025",
+      "motto": "Miserando atque eligendo («Lo miró con misericordia y lo eligió»)",
+      "origin": "Buenos Aires, Argentina 🇦🇷",
+      "avatarMonogram": "PF",
+      "avatarColor": "#6E1420",
+      "vaticanProfileUrl": "https://www.vatican.va/content/francesco/es.html",
+      "shortBio": "266.º Papa de la Iglesia Católica y primer Pontífice argentino, latinoamericano y jesuita. Fue Arzobispo de Buenos Aires y Primado de la Argentina. Impulsó una Iglesia en salida misionera, centrada en la misericordia, la fraternidad universal y el cuidado de los pobres y de la casa común.",
+      "fullBio": "Nacido en el barrio de Flores (Buenos Aires) el 17 de diciembre de 1936, ingresó en la Compañía de Jesús en 1958 y fue ordenado sacerdote en 1969. Nombrado Obispo Auxiliar de Buenos Aires en 1992, Arzobispo Primado en 1998 y Cardenal en 2001. Elegido Sucesor de Pedro el 13 de marzo de 2013, su magisterio destacó por el anuncio de la alegría del Evangelio, el Jubileo Extraordinario de la Misericordia, la fraternidad social y la devoción al Sagrado Corazón de Jesús.",
+      "documentCategories": [
         {
-          "id": "dilexit-nos",
-          "title": "Dilexit Nos (Nos amó)",
-          "type": "Carta Encíclica",
-          "author": "Papa Francisco",
-          "year": "2024",
-          "summary": "Sobre el amor humano y divino del Corazón de Jesucristo como centro vivo de la fe y de la misión evangelizadora.",
-          "sourceName": "La Santa Sede (vatican.va)",
-          "url": "https://www.vatican.va/content/francesco/es/encyclicals/documents/20241024-enciclica-dilexit-nos.html"
+          "category": "Encíclicas",
+          "items": [
+            {
+              "title": "Dilexit Nos (Nos amó)",
+              "year": "2024",
+              "summary": "Carta Encíclica sobre el amor humano y divino del Corazón de Jesucristo como síntesis viva del Evangelio.",
+              "url": "https://www.vatican.va/content/francesco/es/encyclicals/documents/20241024-enciclica-dilexit-nos.html"
+            },
+            {
+              "title": "Fratelli Tutti",
+              "year": "2020",
+              "summary": "Carta Encíclica sobre la fraternidad y la amistad social inspirada en San Francisco de Asís y la parábola del Buen Samaritano.",
+              "url": "https://www.vatican.va/content/francesco/es/encyclicals/documents/papa-francesco_20201003_enciclica-fratelli-tutti.html"
+            },
+            {
+              "title": "Laudato Si'",
+              "year": "2015",
+              "summary": "Carta Encíclica sobre el cuidado de la casa común, la ecología integral y la dignidad humana.",
+              "url": "https://www.vatican.va/content/francesco/es/encyclicals/documents/papa-francesco_20150524_enciclica-laudato-si.html"
+            },
+            {
+              "title": "Lumen Fidei (La luz de la fe)",
+              "year": "2013",
+              "summary": "Primera Carta Encíclica del pontificado (iniciada por Benedicto XVI) sobre la fe como luz que ilumina toda la existencia del hombre.",
+              "url": "https://www.vatican.va/content/francesco/es/encyclicals/documents/papa-francesco_20130629_enciclica-lumen-fidei.html"
+            }
+          ]
         },
         {
-          "id": "spes-non-confundit",
-          "title": "Spes Non Confundit (La esperanza no defrauda)",
-          "type": "Bula de Convocación del Jubileo Ordinario",
-          "author": "Papa Francisco",
-          "year": "2024–2025",
-          "summary": "Documento pontificio que convoca a toda la Iglesia a ser peregrina de esperanza en medio de los desafíos del mundo actual.",
-          "sourceName": "La Santa Sede (vatican.va)",
-          "url": "https://www.vatican.va/content/francesco/es/bulls/documents/20240509_spes-non-confundit_bolla-giubileo2025.html"
+          "category": "Exhortaciones Apostólicas",
+          "items": [
+            {
+              "title": "C'est la Confiance (Es la confianza)",
+              "year": "2023",
+              "summary": "Exhortación Apostólica sobre la confianza en el amor misericordioso de Dios en el 150.º aniversario del nacimiento de Santa Teresita del Niño Jesús.",
+              "url": "https://www.vatican.va/content/francesco/es/apost_exhortations/documents/20231015-santateresa-delbambinogesu.html"
+            },
+            {
+              "title": "Laudate Deum",
+              "year": "2023",
+              "summary": "Exhortación Apostólica a todas las personas de buena voluntad sobre la crisis climática y la responsabilidad común.",
+              "url": "https://www.vatican.va/content/francesco/es/apost_exhortations/documents/20231004-laudate-deum.html"
+            },
+            {
+              "title": "Christus Vivit (Cristo vive)",
+              "year": "2019",
+              "summary": "Exhortación Apostólica postsinodal a los jóvenes y a todo el Pueblo de Dios sobre la vocación y la juventud.",
+              "url": "https://www.vatican.va/content/francesco/es/apost_exhortations/documents/papa-francesco_esortazione-ap_20190325_christus-vivit.html"
+            },
+            {
+              "title": "Gaudete et Exsultate (Alégrense y regocíjense)",
+              "year": "2018",
+              "summary": "Exhortación Apostólica sobre el llamado a la santidad en el mundo actual y los «santos de la puerta de al lado».",
+              "url": "https://www.vatican.va/content/francesco/es/apost_exhortations/documents/papa-francesco_esortazione-ap_20180319_gaudete-et-exsultate.html"
+            },
+            {
+              "title": "Amoris Laetitia (La alegría del amor)",
+              "year": "2016",
+              "summary": "Exhortación Apostólica postsinodal sobre el amor en la familia, la vocación matrimonial y la pastoral familiar.",
+              "url": "https://www.vatican.va/content/francesco/es/apost_exhortations/documents/papa-francesco_esortazione-ap_20160319_amoris-laetitia.html"
+            },
+            {
+              "title": "Evangelii Gaudium (La alegría del Evangelio)",
+              "year": "2013",
+              "summary": "Exhortación Apostólica programática sobre el anuncio del Evangelio en el mundo actual.",
+              "url": "https://www.vatican.va/content/francesco/es/apost_exhortations/documents/papa-francesco_esortazione-ap_20131124_evangelii-gaudium.html"
+            }
+          ]
         },
         {
-          "id": "fratelli-tutti",
-          "title": "Fratelli Tutti",
-          "type": "Carta Encíclica",
-          "author": "Papa Francisco",
-          "year": "2020",
-          "summary": "Sobre la fraternidad y la amistad social inspirada en San Francisco de Asís y la parábola del Buen Samaritano.",
-          "sourceName": "La Santa Sede (vatican.va)",
-          "url": "https://www.vatican.va/content/francesco/es/encyclicals/documents/papa-francesco_20201003_enciclica-fratelli-tutti.html"
-        },
-        {
-          "id": "laudato-si",
-          "title": "Laudato Si'",
-          "type": "Carta Encíclica",
-          "author": "Papa Francisco",
-          "year": "2015",
-          "summary": "Sobre el cuidado de la casa común, la ecología integral y la dignidad de cada criatura.",
-          "sourceName": "La Santa Sede (vatican.va)",
-          "url": "https://www.vatican.va/content/francesco/es/encyclicals/documents/papa-francesco_20150524_enciclica-laudato-si.html"
-        },
-        {
-          "id": "evangelii-gaudium",
-          "title": "Evangelii Gaudium (La alegría del Evangelio)",
-          "type": "Exhortación Apostólica",
-          "author": "Papa Francisco",
-          "year": "2013",
-          "summary": "Sobre el anuncio del Evangelio en el mundo actual y la conversión pastoral y misionera de la Iglesia.",
-          "sourceName": "La Santa Sede (vatican.va)",
-          "url": "https://www.vatican.va/content/francesco/es/apost_exhortations/documents/papa-francesco_esortazione-ap_20131124_evangelii-gaudium.html"
-        },
-        {
-          "id": "gaudete-et-exsultate",
-          "title": "Gaudete et Exsultate",
-          "type": "Exhortación Apostólica",
-          "author": "Papa Francisco",
-          "year": "2018",
-          "summary": "Sobre el llamado universal a la santidad en el mundo contemporáneo y la vivencia de las Bienaventuranzas.",
-          "sourceName": "La Santa Sede (vatican.va)",
-          "url": "https://www.vatican.va/content/francesco/es/apost_exhortations/documents/papa-francesco_esortazione-ap_20180319_gaudete-et-exsultate.html"
-        },
-        {
-          "id": "deus-caritas-est",
-          "title": "Deus Caritas Est (Dios es Amor)",
-          "type": "Carta Encíclica",
-          "author": "Papa Benedicto XVI",
-          "year": "2005",
-          "summary": "Sobre el amor cristiano como encuentro vivo con la persona de Jesucristo y el ejercicio eclesial de la caridad.",
-          "sourceName": "La Santa Sede (vatican.va)",
-          "url": "https://www.vatican.va/content/benedict-xvi/es/encyclicals/documents/hf_ben-xvi_enc_20051225_deus-caritas-est.html"
-        },
-        {
-          "id": "spe-salvi",
-          "title": "Spe Salvi (Salvados en la esperanza)",
-          "type": "Carta Encíclica",
-          "author": "Papa Benedicto XVI",
-          "year": "2007",
-          "summary": "Sobre la esperanza cristiana que transforma el presente desde la certeza de la vida eterna en Cristo.",
-          "sourceName": "La Santa Sede (vatican.va)",
-          "url": "https://www.vatican.va/content/benedict-xvi/es/encyclicals/documents/hf_ben-xvi_enc_20071130_spe-salvi.html"
-        },
-        {
-          "id": "fides-et-ratio",
-          "title": "Fides et Ratio (Fe y Razón)",
-          "type": "Carta Encíclica",
-          "author": "San Juan Pablo II",
-          "year": "1998",
-          "summary": "Sobre las relaciones entre la fe y la razón como las dos alas con las cuales el espíritu humano se eleva hacia la contemplación de la verdad.",
-          "sourceName": "La Santa Sede (vatican.va)",
-          "url": "https://www.vatican.va/content/john-paul-ii/es/encyclicals/documents/hf_jp-ii_enc_14091998_fides-et-ratio.html"
-        },
-        {
-          "id": "evangelium-vitae",
-          "title": "Evangelium Vitae (El Evangelio de la Vida)",
-          "type": "Carta Encíclica",
-          "author": "San Juan Pablo II",
-          "year": "1995",
-          "summary": "Sobre el valor y el carácter inviolable de toda vida humana desde su concepción hasta su término natural.",
-          "sourceName": "La Santa Sede (vatican.va)",
-          "url": "https://www.vatican.va/content/john-paul-ii/es/encyclicals/documents/hf_jp-ii_enc_25031995_evangelium-vitae.html"
+          "category": "Bulas y Cartas Apostólicas",
+          "items": [
+            {
+              "title": "Spes Non Confundit (La esperanza no defrauda)",
+              "year": "2024",
+              "summary": "Bula de convocación del Jubileo Ordinario del Año 2025.",
+              "url": "https://www.vatican.va/content/francesco/es/bulls/documents/20240509_spes-non-confundit_bolla-giubileo2025.html"
+            },
+            {
+              "title": "Desiderio Desideravi",
+              "year": "2022",
+              "summary": "Carta Apostólica sobre la formación litúrgica del Pueblo de Dios y la belleza de celebrar el Misterio Pascual.",
+              "url": "https://www.vatican.va/content/francesco/es/apost_letters/documents/20220629-lettera-ap-desiderio-desideravi.html"
+            },
+            {
+              "title": "Patris Corde (Con corazón de padre)",
+              "year": "2020",
+              "summary": "Carta Apostólica con motivo del 150.º aniversario de la declaración de San José como Patrono de la Iglesia Universal.",
+              "url": "https://www.vatican.va/content/francesco/es/apost_letters/documents/papa-francesco-lettera-ap_20201208_patris-corde.html"
+            },
+            {
+              "title": "Misericordiae Vultus (El rostro de la misericordia)",
+              "year": "2015",
+              "summary": "Bula de convocación del Jubileo Extraordinario de la Misericordia.",
+              "url": "https://www.vatican.va/content/francesco/es/bulls/documents/papa-francesco_bolla_20150411_misericordiae-vultus.html"
+            }
+          ]
         }
       ]
     },
     {
-      "id": "concilio_vaticano_ii",
-      "title": "Concilio Vaticano II",
-      "subtitle": "Las 4 Constituciones principales, Decretos y Declaraciones Conciliares (1962–1965)",
-      "icon": "🏛️",
-      "badge": "Documentos Conciliares · vatican.va",
-      "documents": [
+      "id": "benedicto-xvi",
+      "name": "Papa Benedicto XVI",
+      "secularName": "Joseph Aloisius Ratzinger",
+      "pontificate": "19 de abril de 2005 – 28 de febrero de 2013",
+      "motto": "Cooperatores veritatis («Colaboradores de la verdad»)",
+      "origin": "Marktl am Inn, Baviera, Alemania 🇩🇪",
+      "avatarMonogram": "BXVI",
+      "avatarColor": "#243B8F",
+      "vaticanProfileUrl": "https://www.vatican.va/content/benedict-xvi/es.html",
+      "shortBio": "265.º Papa de la Iglesia Católica y uno de los grandes teólogos de la historia contemporánea. Perito en el Concilio Vaticano II y Prefecto de la Congregación para la Doctrina de la Fe. Su magisterio iluminó la armonía entre fe, razón, caridad y esperanza.",
+      "fullBio": "Nacido el 16 de abril de 1927 en Baviera (Alemania), fue ordenado sacerdote en 1951 y destacó como catedrático de teología dogmática y perito del Concilio Vaticano II. Nombrado Arzobispo de Múnich y Cardenal en 1977, en 1981 San Juan Pablo II lo llamó a Roma como Prefecto de la Congregación para la Doctrina de la Fe y presidente de la comisión redactora del Catecismo. Elegido Papa en 2005, legó tres luminosas encíclicas sobre las virtudes teologales.",
+      "documentCategories": [
         {
-          "id": "dei-verbum",
-          "title": "Dei Verbum",
-          "type": "Constitución Dogmática sobre la Divina Revelación",
-          "author": "Concilio Vaticano II · San Pablo VI",
-          "year": "1965",
-          "summary": "Expone la doctrina sobre la Revelación divina, la Sagrada Escritura y la Sagrada Tradición como fuente única de la Palabra de Dios.",
-          "sourceName": "La Santa Sede (vatican.va)",
-          "url": "https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/vat-ii_const_19651118_dei-verbum_sp.html"
+          "category": "Encíclicas",
+          "items": [
+            {
+              "title": "Caritas in Veritate (La caridad en la verdad)",
+              "year": "2009",
+              "summary": "Carta Encíclica sobre el desarrollo humano integral en la caridad y en la verdad.",
+              "url": "https://www.vatican.va/content/benedict-xvi/es/encyclicals/documents/hf_ben-xvi_enc_20090629_caritas-in-veritate.html"
+            },
+            {
+              "title": "Spe Salvi (Salvados en la esperanza)",
+              "year": "2007",
+              "summary": "Carta Encíclica sobre la esperanza cristiana que redime y transforma el presente del ser humano.",
+              "url": "https://www.vatican.va/content/benedict-xvi/es/encyclicals/documents/hf_ben-xvi_enc_20071130_spe-salvi.html"
+            },
+            {
+              "title": "Deus Caritas Est (Dios es amor)",
+              "year": "2005",
+              "summary": "Carta Encíclica sobre el amor cristiano como encuentro con una Persona viva y el servicio caritativo de la Iglesia.",
+              "url": "https://www.vatican.va/content/benedict-xvi/es/encyclicals/documents/hf_ben-xvi_enc_20051225_deus-caritas-est.html"
+            }
+          ]
         },
         {
-          "id": "lumen-gentium",
-          "title": "Lumen Gentium",
-          "type": "Constitución Dogmática sobre la Iglesia",
-          "author": "Concilio Vaticano II · San Pablo VI",
-          "year": "1964",
-          "summary": "Presenta a la Iglesia como misterio y Pueblo de Dios, la vocación universal a la santidad y el lugar de la Santísima Virgen María.",
-          "sourceName": "La Santa Sede (vatican.va)",
-          "url": "https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/vat-ii_const_19641121_lumen-gentium_sp.html"
+          "category": "Exhortaciones Apostólicas",
+          "items": [
+            {
+              "title": "Verbum Domini (La Palabra del Señor)",
+              "year": "2010",
+              "summary": "Exhortación Apostólica postsinodal sobre la Palabra de Dios en la vida y en la misión de la Iglesia y la práctica de la Lectio Divina.",
+              "url": "https://www.vatican.va/content/benedict-xvi/es/apost_exhortations/documents/hf_ben-xvi_exh_20100930_verbum-domini.html"
+            },
+            {
+              "title": "Sacramentum Caritatis (El Sacramento de la Caridad)",
+              "year": "2007",
+              "summary": "Exhortación Apostólica postsinodal sobre la Eucaristía como fuente y culmen de la vida y de la misión de la Iglesia.",
+              "url": "https://www.vatican.va/content/benedict-xvi/es/apost_exhortations/documents/hf_ben-xvi_exh_20070222_sacramentum-caritatis.html"
+            }
+          ]
         },
         {
-          "id": "sacrosanctum-concilium",
-          "title": "Sacrosanctum Concilium",
-          "type": "Constitución sobre la Sagrada Liturgia",
-          "author": "Concilio Vaticano II · San Pablo VI",
-          "year": "1963",
-          "summary": "Establece la renovación litúrgica y la participación plena, consciente y activa de los fieles en el Misterio Pascual y la Eucaristía.",
-          "sourceName": "La Santa Sede (vatican.va)",
-          "url": "https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/vat-ii_const_19631204_sacrosanctum-concilium_sp.html"
-        },
-        {
-          "id": "gaudium-et-spes",
-          "title": "Gaudium et Spes",
-          "type": "Constitución Pastoral sobre la Iglesia en el Mundo Actual",
-          "author": "Concilio Vaticano II · San Pablo VI",
-          "year": "1965",
-          "summary": "Aborda el diálogo de la Iglesia con la familia humana, la dignidad de la persona, la cultura, la paz y el bien común.",
-          "sourceName": "La Santa Sede (vatican.va)",
-          "url": "https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/vat-ii_const_19651207_gaudium-et-spes_sp.html"
-        },
-        {
-          "id": "unitatis-redintegratio",
-          "title": "Unitatis Redintegratio",
-          "type": "Decreto sobre el Ecumenismo",
-          "author": "Concilio Vaticano II · San Pablo VI",
-          "year": "1964",
-          "summary": "Principios católicos sobre la promoción de la unidad de todos los cristianos según la oración del Señor.",
-          "sourceName": "La Santa Sede (vatican.va)",
-          "url": "https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/vat-ii_decree_19641121_unitatis-redintegratio_sp.html"
-        },
-        {
-          "id": "dignitatis-humanae",
-          "title": "Dignitatis Humanae",
-          "type": "Declaración sobre la Libertad Religiosa",
-          "author": "Concilio Vaticano II · San Pablo VI",
-          "year": "1965",
-          "summary": "Reconoce el derecho de la persona y de las comunidades a la libertad social y civil en materia religiosa.",
-          "sourceName": "La Santa Sede (vatican.va)",
-          "url": "https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/vat-ii_decl_19651207_dignitatis-humanae_sp.html"
+          "category": "Cartas Apostólicas y Compendio",
+          "items": [
+            {
+              "title": "Porta Fidei (La puerta de la fe)",
+              "year": "2011",
+              "summary": "Carta Apostólica en forma de Motu Proprio con la que se convocó el Año de la Fe en el 50.º aniversario del Concilio Vaticano II.",
+              "url": "https://www.vatican.va/content/benedict-xvi/es/motu_proprio/documents/hf_ben-xvi_motu-proprio_20111011_porta-fidei.html"
+            },
+            {
+              "title": "Compendio del Catecismo de la Iglesia Católica",
+              "year": "2005",
+              "summary": "Síntesis oficial dialogada del Catecismo promulgada por el Papa Benedicto XVI.",
+              "url": "https://www.vatican.va/archive/compendium_ccc/documents/archive_2005_compendium-ccc_sp.html"
+            }
+          ]
         }
       ]
     },
     {
-      "id": "catecismo_iglesia",
-      "title": "Catecismo de la Iglesia Católica",
-      "subtitle": "Exposición orgánica e íntegra de la fe católica y de la moral cristiana",
-      "icon": "📖",
-      "badge": "Doctrina de la Fe · vatican.va",
-      "documents": [
+      "id": "juan-pablo-ii",
+      "name": "San Juan Pablo II",
+      "secularName": "Karol Józef Wojtyła",
+      "pontificate": "16 de octubre de 1978 – 2 de abril de 2005",
+      "motto": "Totus Tuus («Todo tuyo, María»)",
+      "origin": "Wadowice, Polonia 🇵🇱",
+      "avatarMonogram": "JPII",
+      "avatarColor": "#B45309",
+      "vaticanProfileUrl": "https://www.vatican.va/content/john-paul-ii/es.html",
+      "shortBio": "264.º Papa de la Iglesia Católica, canonizado en 2014. Promulgó el Catecismo de la Iglesia Católica (1992) y el Código de Derecho Canónico (1983), creó las Jornadas Mundiales de la Juventud y visitó dos veces la Argentina (1982 y 1987).",
+      "fullBio": "Nacido en Wadowice (Polonia) el 18 de mayo de 1920, fue ordenado sacerdote en 1946 y nombrado Arzobispo de Cracovia en 1964. Elegido Papa el 16 de octubre de 1978, su pontificado de casi 27 años fue uno de los más extensos y fecundos de la historia: publicó 14 encíclicas, guió a la Iglesia hacia el Gran Jubileo del Año 2000 y proclamó incansablemente «¡No tengan miedo! ¡Abran de par en par las puertas a Cristo!».",
+      "documentCategories": [
         {
-          "id": "cec-indice-general",
-          "title": "Catecismo de la Iglesia Católica — Texto Íntegro e Índice General",
-          "type": "Texto Oficial Promulgado (Constitución Fidei Depositum)",
-          "author": "San Juan Pablo II",
-          "year": "1992 / 1997",
-          "summary": "Acceso completo a los 2.865 numerales del Catecismo divididos en cuatro pilares: el Credo, los Sacramentos, los Mandamientos y la Oración.",
-          "sourceName": "La Santa Sede (vatican.va)",
-          "url": "https://www.vatican.va/archive/catechism_sp/index_sp.html"
+          "category": "Encíclicas",
+          "items": [
+            {
+              "title": "Ecclesia de Eucharistia (La Iglesia vive de la Eucaristía)",
+              "year": "2003",
+              "summary": "Carta Encíclica sobre la Sagrada Eucaristía en su relación vital con la Iglesia.",
+              "url": "https://www.vatican.va/content/john-paul-ii/es/encyclicals/documents/hf_jp-ii_enc_20030417_eccl-de-euch.html"
+            },
+            {
+              "title": "Fides et Ratio (Fe y Razón)",
+              "year": "1998",
+              "summary": "Carta Encíclica sobre las relaciones entre la fe y la razón en la búsqueda de la verdad.",
+              "url": "https://www.vatican.va/content/john-paul-ii/es/encyclicals/documents/hf_jp-ii_enc_14091998_fides-et-ratio.html"
+            },
+            {
+              "title": "Evangelium Vitae (El Evangelio de la Vida)",
+              "year": "1995",
+              "summary": "Carta Encíclica sobre el valor y el carácter inviolable de la vida humana.",
+              "url": "https://www.vatican.va/content/john-paul-ii/es/encyclicals/documents/hf_jp-ii_enc_25031995_evangelium-vitae.html"
+            },
+            {
+              "title": "Veritatis Splendor (El esplendor de la verdad)",
+              "year": "1993",
+              "summary": "Carta Encíclica sobre las cuestiones fundamentales de la enseñanza moral de la Iglesia.",
+              "url": "https://www.vatican.va/content/john-paul-ii/es/encyclicals/documents/hf_jp-ii_enc_06081993_veritatis-splendor.html"
+            },
+            {
+              "title": "Centesimus Annus",
+              "year": "1991",
+              "summary": "Carta Encíclica en el centenario de la Rerum Novarum sobre la Doctrina Social de la Iglesia.",
+              "url": "https://www.vatican.va/content/john-paul-ii/es/encyclicals/documents/hf_jp-ii_enc_01051991_centesimus-annus.html"
+            },
+            {
+              "title": "Redemptoris Mater (La Madre del Redentor)",
+              "year": "1987",
+              "summary": "Carta Encíclica sobre la bienaventurada Virgen María en la vida de la Iglesia peregrina.",
+              "url": "https://www.vatican.va/content/john-paul-ii/es/encyclicals/documents/hf_jp-ii_enc_25031987_redemptoris-mater.html"
+            },
+            {
+              "title": "Dives in Misericordia (Rico en misericordia)",
+              "year": "1980",
+              "summary": "Carta Encíclica sobre la misericordia divina revelada en Jesucristo.",
+              "url": "https://www.vatican.va/content/john-paul-ii/es/encyclicals/documents/hf_jp-ii_enc_30111980_dives-in-misericordia.html"
+            },
+            {
+              "title": "Redemptor Hominis (El Redentor del hombre)",
+              "year": "1979",
+              "summary": "Primera Carta Encíclica de San Juan Pablo II al inicio de su ministerio pontificio.",
+              "url": "https://www.vatican.va/content/john-paul-ii/es/encyclicals/documents/hf_jp-ii_enc_04031979_redemptor-hominis.html"
+            }
+          ]
         },
         {
-          "id": "cec-parte-1",
-          "title": "Primera Parte: La Profesión de la Fe (El Símbolo Apostólico / Credo)",
-          "type": "Catecismo de la Iglesia Católica (nn. 26–1065)",
-          "author": "Magisterio de la Iglesia",
-          "year": "1992",
-          "summary": "Desarrolla la fe en Dios Padre Creador, en Jesucristo Hijo Único y Redentor, y en el Espíritu Santo y la Santa Iglesia Católica.",
-          "sourceName": "La Santa Sede (vatican.va)",
-          "url": "https://www.vatican.va/archive/catechism_sp/p1s1c1_sp.html"
+          "category": "Exhortaciones y Cartas Apostólicas",
+          "items": [
+            {
+              "title": "Rosarium Virginis Mariae (El Rosario de la Virgen María)",
+              "year": "2002",
+              "summary": "Carta Apostólica sobre el Santo Rosario en la que instituyó los Misterios Luminosos.",
+              "url": "https://www.vatican.va/content/john-paul-ii/es/apost_letters/2002/documents/hf_jp-ii_apl_20021016_rosarium-virginis-mariae.html"
+            },
+            {
+              "title": "Novo Millennio Ineunte (Al inicio del nuevo milenio)",
+              "year": "2001",
+              "summary": "Carta Apostólica al concluir el Gran Jubileo del Año 2000: «¡Duc in altum! (Navega mar adentro)».",
+              "url": "https://www.vatican.va/content/john-paul-ii/es/apost_letters/2001/documents/hf_jp-ii_apl_20010106_novo-millennio-ineunte.html"
+            },
+            {
+              "title": "Christifideles Laici",
+              "year": "1988",
+              "summary": "Exhortación Apostólica postsinodal sobre la vocación y misión de los fieles laicos en la Iglesia y en el mundo.",
+              "url": "https://www.vatican.va/content/john-paul-ii/es/apost_exhortations/documents/hf_jp-ii_exh_30121988_christifideles-laici.html"
+            },
+            {
+              "title": "Familiaris Consortio",
+              "year": "1981",
+              "summary": "Exhortación Apostólica sobre la misión de la familia cristiana en el mundo contemporáneo.",
+              "url": "https://www.vatican.va/content/john-paul-ii/es/apost_exhortations/documents/hf_jp-ii_exh_19811122_familiaris-consortio.html"
+            }
+          ]
         },
         {
-          "id": "cec-parte-2",
-          "title": "Segunda Parte: La Celebración del Misterio Cristiano (Los Siete Sacramentos)",
-          "type": "Catecismo de la Iglesia Católica (nn. 1066–1690)",
-          "author": "Magisterio de la Iglesia",
-          "year": "1992",
-          "summary": "La economía sacramental, la Liturgia y los siete sacramentos de la Nueva Alianza instituidos por Cristo.",
-          "sourceName": "La Santa Sede (vatican.va)",
-          "url": "https://www.vatican.va/archive/catechism_sp/p2s1c1a1_sp.html"
-        },
-        {
-          "id": "cec-parte-3",
-          "title": "Tercera Parte: La Vida en Cristo (Bienaventuranzas y Diez Mandamientos)",
-          "type": "Catecismo de la Iglesia Católica (nn. 1691–2557)",
-          "author": "Magisterio de la Iglesia",
-          "year": "1992",
-          "summary": "La vocación del hombre a la vida en el Espíritu, la libertad, la ley moral, la gracia y los Diez Mandamientos.",
-          "sourceName": "La Santa Sede (vatican.va)",
-          "url": "https://www.vatican.va/archive/catechism_sp/p3s1c1_sp.html"
-        },
-        {
-          "id": "cec-parte-4",
-          "title": "Cuarta Parte: La Oración Cristiana (El Padre Nuestro)",
-          "type": "Catecismo de la Iglesia Católica (nn. 2558–2865)",
-          "author": "Magisterio de la Iglesia",
-          "year": "1992",
-          "summary": "El sentido y las fuentes de la oración en la vida cristiana y el comentario teológico de las siete peticiones del Padre Nuestro.",
-          "sourceName": "La Santa Sede (vatican.va)",
-          "url": "https://www.vatican.va/archive/catechism_sp/p4s1_sp.html"
-        },
-        {
-          "id": "compendio-cec",
-          "title": "Compendio del Catecismo de la Iglesia Católica",
-          "type": "Síntesis Dialogada y Oraciones Comunes",
-          "author": "Papa Benedicto XVI",
-          "year": "2005",
-          "summary": "Síntesis fiel y segura del Catecismo en 598 preguntas y respuestas concisas, junto con el apéndice de oraciones cristianas.",
-          "sourceName": "La Santa Sede (vatican.va)",
-          "url": "https://www.vatican.va/archive/compendium_ccc/documents/archive_2005_compendium-ccc_sp.html"
+          "category": "Catecismo y Código de Derecho Canónico",
+          "items": [
+            {
+              "title": "Catecismo de la Iglesia Católica (Constitución Fidei Depositum)",
+              "year": "1992",
+              "summary": "Exposición oficial de la doctrina de la fe y de la moral católica promulgada por San Juan Pablo II.",
+              "url": "https://www.vatican.va/archive/catechism_sp/index_sp.html"
+            },
+            {
+              "title": "Código de Derecho Canónico (Constitución Sacrae Disciplinae Leges)",
+              "year": "1983",
+              "summary": "Promulgación del Código de Derecho Canónico vigente para la Iglesia Latina (Cánones 1–1752).",
+              "url": "https://www.vatican.va/archive/cod-iuris-canonici/cic_index_sp.html"
+            }
+          ]
         }
       ]
     },
     {
-      "id": "codigo_derecho_canonico",
-      "title": "Código de Derecho Canónico",
-      "subtitle": "Legislación universal vigente de la Iglesia Católica (CIC 1983 y reformas)",
-      "icon": "⚖️",
-      "badge": "Legislación Canónica · vatican.va",
-      "documents": [
+      "id": "pablo-vi",
+      "name": "San Pablo VI",
+      "secularName": "Giovanni Battista Montini",
+      "pontificate": "21 de junio de 1963 – 6 de agosto de 1978",
+      "motto": "In nomine Domini («En el nombre del Señor»)",
+      "origin": "Concesio, Brescia, Italia 🇮🇹",
+      "avatarMonogram": "PVI",
+      "avatarColor": "#0F5132",
+      "vaticanProfileUrl": "https://www.vatican.va/content/paul-vi/es.html",
+      "shortBio": "262.º Papa de la Iglesia Católica, canonizado en 2018. Condujo y clausuró el Concilio Vaticano II, promulgando sus cuatro grandes Constituciones, e impulsó el diálogo ecuménico y la evangelización del mundo contemporáneo.",
+      "fullBio": "Nacido en Concesio (Brescia) en 1897, sirvió en la Secretaría de Estado junto a Pío XI y Pío XII antes de ser nombrado Arzobispo de Milán en 1954. Elegido Papa en 1963, llevó a término el Concilio Vaticano II, fue el primer Pontífice en peregrinar a Tierra Santa y a los cinco continentes, y legó documentos magistrales como Evangelii Nuntiandi, Populorum Progressio y Humanae Vitae.",
+      "documentCategories": [
         {
-          "id": "cic-indice-completo",
-          "title": "Código de Derecho Canónico (CIC) — Texto Oficial Completo (Cánones 1–1752)",
-          "type": "Constitución Apostólica Sacrae Disciplinae Leges",
-          "author": "San Juan Pablo II",
-          "year": "1983 / Vigente",
-          "summary": "Repositorio oficial de los siete libros del Código de Derecho Canónico de la Iglesia Latina.",
-          "sourceName": "La Santa Sede (vatican.va)",
-          "url": "https://www.vatican.va/archive/cod-iuris-canonici/cic_index_sp.html"
+          "category": "Constituciones del Concilio Vaticano II",
+          "items": [
+            {
+              "title": "Dei Verbum — Constitución Dogmática sobre la Divina Revelación",
+              "year": "1965",
+              "summary": "Sobre la Divina Revelación, la Sagrada Escritura y la Sagrada Tradición.",
+              "url": "https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/vat-ii_const_19651118_dei-verbum_sp.html"
+            },
+            {
+              "title": "Lumen Gentium — Constitución Dogmática sobre la Iglesia",
+              "year": "1964",
+              "summary": "Sobre el misterio de la Iglesia, el Pueblo de Dios y la vocación universal a la santidad.",
+              "url": "https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/vat-ii_const_19641121_lumen-gentium_sp.html"
+            },
+            {
+              "title": "Sacrosanctum Concilium — Constitución sobre la Sagrada Liturgia",
+              "year": "1963",
+              "summary": "Sobre la renovación de la Sagrada Liturgia y la participación activa de los fieles.",
+              "url": "https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/vat-ii_const_19631204_sacrosanctum-concilium_sp.html"
+            },
+            {
+              "title": "Gaudium et Spes — Constitución Pastoral sobre la Iglesia en el Mundo Actual",
+              "year": "1965",
+              "summary": "Sobre la dignidad de la persona humana, la comunidad política, la familia y la paz.",
+              "url": "https://www.vatican.va/archive/hist_councils/ii_vatican_council/documents/vat-ii_const_19651207_gaudium-et-spes_sp.html"
+            }
+          ]
         },
         {
-          "id": "cic-libro-1",
-          "title": "Libro I: De las Normas Generales (cc. 1–203)",
-          "type": "Código de Derecho Canónico",
-          "author": "Santa Sede",
-          "year": "1983",
-          "summary": "Leyes eclesiásticas, costumbre, decretos generales, estatutos, personas físicas y jurídicas, oficios eclesiásticos y cómputo del tiempo.",
-          "sourceName": "La Santa Sede (vatican.va)",
-          "url": "https://www.vatican.va/archive/cod-iuris-canonici/esp/documents/cic_libro1_sp.html"
-        },
+          "category": "Encíclicas y Exhortaciones",
+          "items": [
+            {
+              "title": "Evangelii Nuntiandi (La evangelización en el mundo contemporáneo)",
+              "year": "1975",
+              "summary": "Exhortación Apostólica magna sobre la misión evangelizadora de la Iglesia.",
+              "url": "https://www.vatican.va/content/paul-vi/es/apost_exhortations/documents/hf_p-vi_exh_19751208_evangelii-nuntiandi.html"
+            },
+            {
+              "title": "Humanae Vitae (Sobre la transmisión de la vida humana)",
+              "year": "1968",
+              "summary": "Carta Encíclica sobre el amor conyugal y la paternidad responsable.",
+              "url": "https://www.vatican.va/content/paul-vi/es/encyclicals/documents/hf_p-vi_enc_25071968_humanae-vitae.html"
+            },
+            {
+              "title": "Populorum Progressio (El desarrollo de los pueblos)",
+              "year": "1967",
+              "summary": "Carta Encíclica sobre el desarrollo integral y solidario de la humanidad: «El desarrollo es el nuevo nombre de la paz».",
+              "url": "https://www.vatican.va/content/paul-vi/es/encyclicals/documents/hf_p-vi_enc_26031967_populorum.html"
+            },
+            {
+              "title": "Ecclesiam Suam",
+              "year": "1964",
+              "summary": "Primera Carta Encíclica sobre los caminos de la Iglesia y el diálogo de la salvación.",
+              "url": "https://www.vatican.va/content/paul-vi/es/encyclicals/documents/hf_p-vi_enc_06081964_ecclesiam.html"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "juan-xxiii",
+      "name": "San Juan XXIII",
+      "secularName": "Angelo Giuseppe Roncalli",
+      "pontificate": "28 de octubre de 1958 – 3 de junio de 1963",
+      "motto": "Oboedientia et Pax («Obediencia y Paz»)",
+      "origin": "Sotto il Monte, Bérgamo, Italia 🇮🇹",
+      "avatarMonogram": "JXXIII",
+      "avatarColor": "#7C2D12",
+      "vaticanProfileUrl": "https://www.vatican.va/content/john-xxiii/es.html",
+      "shortBio": "261.º Papa de la Iglesia Católica, llamado afectuosamente «el Papa Bueno» y canonizado en 2014. Convocó e inauguró el Concilio Ecuménico Vaticano II (1962) y escribió las históricas encíclicas Pacem in Terris y Mater et Magistra.",
+      "fullBio": "Nacido en Bérgamo en 1881, sirvió como delegado apostólico en Bulgaria, Turquía y Grecia, Nuncio en Francia y Patriarca de Venecia. Elegido Papa en 1958 a los 76 años, sorprendió al mundo convocando el Concilio Vaticano II para renovar la vida pastoral de la Iglesia y promover la paz universal.",
+      "documentCategories": [
         {
-          "id": "cic-libro-2",
-          "title": "Libro II: Del Pueblo de Dios (cc. 204–746)",
-          "type": "Código de Derecho Canónico",
-          "author": "Santa Sede",
-          "year": "1983",
-          "summary": "Obligaciones y derechos de todos los fieles y de los laicos, constitución jerárquica de la Iglesia, parroquias, obispos e institutos de vida consagrada.",
-          "sourceName": "La Santa Sede (vatican.va)",
-          "url": "https://www.vatican.va/archive/cod-iuris-canonici/esp/documents/cic_libro2_sp.html"
-        },
+          "category": "Encíclicas",
+          "items": [
+            {
+              "title": "Pacem in Terris (La paz en la tierra)",
+              "year": "1963",
+              "summary": "Carta Encíclica sobre la paz entre todos los pueblos fundada en la verdad, la justicia, el amor y la libertad.",
+              "url": "https://www.vatican.va/content/john-xxiii/es/encyclicals/documents/hf_j-xxiii_enc_11041963_pacem.html"
+            },
+            {
+              "title": "Mater et Magistra (Madre y Maestra)",
+              "year": "1961",
+              "summary": "Carta Encíclica sobre el reciente desarrollo de la cuestión social a la luz de la doctrina cristiana.",
+              "url": "https://www.vatican.va/content/john-xxiii/es/encyclicals/documents/hf_j-xxiii_enc_15051961_mater.html"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "leon-xiii",
+      "name": "Papa León XIII",
+      "secularName": "Vincenzo Gioacchino Pecci",
+      "pontificate": "20 de febrero de 1878 – 20 de julio de 1903",
+      "motto": "Lumen in caelo («Luz en el cielo»)",
+      "origin": "Carpineto Romano, Italia 🇮🇹",
+      "avatarMonogram": "LXIII",
+      "avatarColor": "#4C1D95",
+      "vaticanProfileUrl": "https://www.vatican.va/content/leo-xiii/es.html",
+      "shortBio": "256.º Papa de la Iglesia Católica, fundador de la Doctrina Social de la Iglesia moderna con la encíclica Rerum Novarum (1891) y promotor de los estudios bíblicos, filosóficos y marianos.",
+      "fullBio": "Nacido en 1810 y elegido Papa en 1878, ejerció un pontificado de 25 años de gran apertura intelectual y social. Con Rerum Novarum sentó las bases de la Doctrina Social de la Iglesia en defensa de la dignidad del trabajador y del salario justo.",
+      "documentCategories": [
         {
-          "id": "cic-libro-3",
-          "title": "Libro III: De la Función de Enseñar de la Iglesia (cc. 747–833)",
-          "type": "Código de Derecho Canónico",
-          "author": "Santa Sede",
-          "year": "1983",
-          "summary": "El ministerio de la Palabra divina, la predicación y catequesis, la actividad misionera y la educación católica.",
-          "sourceName": "La Santa Sede (vatican.va)",
-          "url": "https://www.vatican.va/archive/cod-iuris-canonici/esp/documents/cic_libro3_sp.html"
-        },
-        {
-          "id": "cic-libro-4",
-          "title": "Libro IV: De la Función de Santificar de la Iglesia (cc. 834–1253)",
-          "type": "Código de Derecho Canónico",
-          "author": "Santa Sede",
-          "year": "1983",
-          "summary": "Normas canónicas sobre la celebración de los siete sacramentos, los sacramentales, las exequias, los lugares sagrados y los tiempos litúrgicos.",
-          "sourceName": "La Santa Sede (vatican.va)",
-          "url": "https://www.vatican.va/archive/cod-iuris-canonici/esp/documents/cic_libro4_sp.html"
-        },
-        {
-          "id": "cic-libros-5-6-7",
-          "title": "Libros V, VI y VII: Bienes Temporales, Sanciones y Procesos (cc. 1254–1752)",
-          "type": "Código de Derecho Canónico",
-          "author": "Santa Sede",
-          "year": "1983 / 2021",
-          "summary": "Administración de los bienes de la Iglesia, derecho penal canónico actualizado (Pascite Gregem Dei) y procesos eclesiásticos.",
-          "sourceName": "La Santa Sede (vatican.va)",
-          "url": "https://www.vatican.va/archive/cod-iuris-canonici/esp/documents/cic_libro5_sp.html"
+          "category": "Encíclicas",
+          "items": [
+            {
+              "title": "Rerum Novarum (Sobre la situación de los obreros)",
+              "year": "1891",
+              "summary": "Carta Encíclica fundacional de la Doctrina Social de la Iglesia sobre el capital, el trabajo y la justicia social.",
+              "url": "https://www.vatican.va/content/leo-xiii/es/encyclicals/documents/hf_l-xiii_enc_15051891_rerum-novarum.html"
+            }
+          ]
         }
       ]
     }
@@ -14626,93 +15143,287 @@ async function loadChurchDocuments() {
     const res = await fetch(DOCUMENTS_DATA_URL, { headers: { "Accept": "application/json" } });
     if (!res.ok) return;
     const data = await res.json();
-    if (data && Array.isArray(data.categories) && data.categories.length > 0) {
+    if (data && Array.isArray(data.popes) && data.popes.length > 0) {
       DOCUMENTS_DATA = data;
       if (state.view === "documents") renderDocumentsView();
     }
   } catch (err) {
-    console.warn("[Documentos de la Iglesia] Usando catálogo institucional embebido:", err);
+    console.warn("[Documentos de la Iglesia] Usando catálogo pontificio embebido:", err);
   }
+}
+
+function renderPopeAvatarSvgHtml(pope, size = 56) {
+  const bg = pope.avatarColor || "#6E1420";
+  const mono = pope.avatarMonogram || "PP";
+  return `
+    <div class="pope-avatar-badge" style="width:${size}px;height:${size}px;background:${esc(bg)}" aria-hidden="true">
+      <svg viewBox="0 0 64 64" width="${size}" height="${size}" fill="none">
+        <circle cx="32" cy="32" r="30" stroke="rgba(255,255,255,0.28)" stroke-width="1.5"/>
+        <!-- Llaves de San Pedro cruzadas sutiles en la parte superior -->
+        <path d="M24 14l16 10M40 14L24 24" stroke="#FDE68A" stroke-width="1.7" stroke-linecap="round"/>
+        <circle cx="32" cy="11" r="2.2" fill="#FDE68A"/>
+        <text x="32" y="44" text-anchor="middle" fill="#FFFFFF" font-family="Georgia, serif" font-weight="800" font-size="${mono.length > 4 ? "11" : mono.length > 2 ? "13" : "16"}">${esc(mono)}</text>
+      </svg>
+    </div>
+  `;
 }
 
 function renderDocumentsView() {
   const container = $("#documents-content");
   if (!container) return;
 
-  const categories = Array.isArray(DOCUMENTS_DATA.categories) ? DOCUMENTS_DATA.categories : [];
+  const popes = Array.isArray(DOCUMENTS_DATA.popes) ? DOCUMENTS_DATA.popes : [];
   const rawQ = String(state.docsSearchQuery || "").trim();
   const qNorm = norm(rawQ);
+  const selectedPope = state.selectedPopeId ? popes.find(p => p.id === state.selectedPopeId) : null;
 
-  const filteredCategories = categories.map(cat => {
-    const docs = Array.isArray(cat.documents) ? cat.documents : [];
-    if (!qNorm) return { ...cat, filteredDocs: docs };
-    const matched = docs.filter(d =>
-      norm(d.title).includes(qNorm) ||
-      norm(d.type).includes(qNorm) ||
-      norm(d.author).includes(qNorm) ||
-      norm(d.summary).includes(qNorm) ||
-      norm(cat.title).includes(qNorm)
-    );
-    return { ...cat, filteredDocs: matched };
-  }).filter(cat => !qNorm || cat.filteredDocs.length > 0);
+  let bodyHtml = "";
 
-  container.innerHTML = `
-    <div class="bible-controls-bar" role="region" aria-label="Buscador y filtro de Documentos de la Iglesia">
-      <div class="bible-search-box">
-        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
-        <input type="search" id="docs-search-input" value="${esc(rawQ)}" placeholder="Buscar encíclica, constitución, catecismo o canon (ej: Laudato Si, Dei Verbum)..." autocomplete="off" aria-label="Buscar en Documentos de la Iglesia" />
-        ${rawQ ? `<button type="button" class="bible-search-clear-btn" data-docs-clear-search="true" aria-label="Limpiar búsqueda">✕</button>` : ""}
+  // Si hay búsqueda activa global (y no estamos dentro de un Papa o el usuario busca un documento específico)
+  if (qNorm.length >= 2 && !selectedPope) {
+    const matchedPopes = [];
+    const matchedDocs = [];
+
+    popes.forEach(pope => {
+      const pMatch =
+        norm(pope.name).includes(qNorm) ||
+        norm(pope.secularName).includes(qNorm) ||
+        norm(pope.shortBio).includes(qNorm) ||
+        norm(pope.motto).includes(qNorm);
+      if (pMatch) matchedPopes.push(pope);
+
+      (pope.documentCategories || []).forEach(cat => {
+        (cat.items || []).forEach(doc => {
+          if (
+            norm(doc.title).includes(qNorm) ||
+            norm(doc.summary).includes(qNorm) ||
+            norm(cat.category).includes(qNorm) ||
+            norm(pope.name).includes(qNorm) ||
+            norm(doc.year).includes(qNorm)
+          ) {
+            matchedDocs.push({ pope, category: cat.category, doc });
+          }
+        });
+      });
+    });
+
+    bodyHtml = `
+      <div class="bible-search-results">
+        <div class="bible-search-header">
+          <span>Resultados en el Magisterio Pontificio para <strong>«${esc(rawQ)}»</strong> (${matchedPopes.length} ${matchedPopes.length === 1 ? "Pontífice" : "Pontífices"}, ${matchedDocs.length} ${matchedDocs.length === 1 ? "documento" : "documentos"})</span>
+          <button type="button" class="btn-sm ghost" data-docs-clear-search="true">✕ Limpiar búsqueda</button>
+        </div>
+
+        ${matchedPopes.length > 0 ? `
+          <div class="pope-hierarchy-grid" style="margin-bottom:16px">
+            ${matchedPopes.map(pope => {
+              const totalDocs = (pope.documentCategories || []).reduce((acc, c) => acc + (Array.isArray(c.items) ? c.items.length : 0), 0);
+              return `
+                <article class="pope-card" data-select-pope="${esc(pope.id)}" role="button" tabindex="0" aria-label="Ver perfil y documentos de ${esc(pope.name)}">
+                  <div class="pope-card-top">
+                    ${renderPopeAvatarSvgHtml(pope, 56)}
+                    <div class="pope-card-meta">
+                      <span class="pope-pontificate-badge">🇻🇦 Pontificado: ${esc(pope.pontificate)}</span>
+                      <h2 class="pope-card-name">${esc(pope.name)}</h2>
+                      <span class="pope-secular-name">${esc(pope.secularName)} · ${esc(pope.origin)}</span>
+                    </div>
+                  </div>
+                  <p class="pope-card-bio">${esc(pope.shortBio)}</p>
+                  <div class="pope-card-footer">
+                    <span class="pope-doc-count-pill">📜 ${totalDocs} documentos oficiales</span>
+                    <span class="pope-open-cta">Ver perfil y documentos ›</span>
+                  </div>
+                </article>
+              `;
+            }).join("")}
+          </div>
+        ` : ""}
+
+        ${matchedDocs.length > 0 ? `
+          <div class="church-doc-items-grid">
+            ${matchedDocs.map(({ pope, category, doc }) => `
+              <article class="church-doc-item-card">
+                <div class="church-doc-item-top">
+                  <span class="church-doc-type-badge">${esc(category)}</span>
+                  <span class="church-doc-year-badge">${esc(doc.year)}</span>
+                </div>
+                <h3 class="church-doc-item-title">${esc(doc.title)}</h3>
+                <span class="church-doc-author">✍️ ${esc(pope.name)} (${esc(pope.secularName)})</span>
+                <p class="church-doc-summary">${esc(doc.summary)}</p>
+                <div class="church-doc-footer" style="display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">
+                  <a href="${esc(doc.url)}" target="_blank" rel="noopener" class="reflection-official-link">
+                    Ver documento oficial en vatican.va ↗
+                  </a>
+                  <button type="button" class="btn-sm ghost" data-select-pope="${esc(pope.id)}">Ver perfil de ${esc(pope.name)} ›</button>
+                </div>
+              </article>
+            `).join("")}
+          </div>
+        ` : (matchedPopes.length === 0 ? `
+          <div class="empty-state" style="padding:24px 16px">
+            <p style="margin:0;color:var(--muted)">No se encontraron Papas ni documentos pontificios para «${esc(rawQ)}».</p>
+          </div>
+        ` : "")}
       </div>
-      <div class="docs-quick-pills" role="group" aria-label="Categorías oficiales de Documentos de la Iglesia">
-        ${categories.map(cat => {
-          const isOpen = Boolean(state.openDocsCategories && state.openDocsCategories[cat.id]);
-          return `<button type="button" class="bible-chapter-pill ${isOpen ? "is-active" : ""}" data-toggle-doc-cat="${esc(cat.id)}">
-            ${esc(cat.icon || "📜")} ${esc(cat.title)}
-          </button>`;
-        }).join("")}
-        <button type="button" class="btn-sm ghost" data-docs-expand-all="true">Expandir todas</button>
-      </div>
-    </div>
+    `;
+  }
+  // VISTA B: Perfil Detallado del Papa Seleccionado + Documentos Categorizados
+  else if (selectedPope) {
+    const docCats = Array.isArray(selectedPope.documentCategories) ? selectedPope.documentCategories : [];
+    const activeCatFilter = state.popeDocCategoryFilter || "ALL";
+    const totalDocsCount = docCats.reduce((acc, c) => acc + (Array.isArray(c.items) ? c.items.length : 0), 0);
 
-    <div class="church-docs-accordion">
-      ${filteredCategories.map(cat => {
-        const isOpen = qNorm ? true : Boolean(state.openDocsCategories && state.openDocsCategories[cat.id]);
-        const docs = cat.filteredDocs || [];
-        return `
-          <section class="church-doc-category-card ${isOpen ? "is-open" : ""}" aria-label="${esc(cat.title)}">
-            <button type="button" class="church-doc-accordion-btn" data-toggle-doc-cat="${esc(cat.id)}" aria-expanded="${isOpen}">
-              <div class="church-doc-cat-info">
-                <span class="reading-kicker">${esc(cat.icon || "📜")} ${esc(cat.badge || "Repositorio Institucional · vatican.va")}</span>
-                <h2 class="church-doc-cat-title">${esc(cat.title)}</h2>
-                <p class="church-doc-cat-sub">${esc(cat.subtitle)}</p>
-              </div>
-              <span class="reading-expand-pill">${isOpen ? `▲ Ocultar (${docs.length})` : `▼ Ver ${docs.length} documentos`}</span>
+    const visibleCats = docCats.map(c => {
+      const items = Array.isArray(c.items) ? c.items : [];
+      const filteredItems = qNorm
+        ? items.filter(it => norm(it.title).includes(qNorm) || norm(it.summary).includes(qNorm) || norm(it.year).includes(qNorm))
+        : items;
+      return { ...c, filteredItems };
+    }).filter(c => {
+      if (activeCatFilter !== "ALL" && c.category !== activeCatFilter) return false;
+      return c.filteredItems.length > 0;
+    });
+
+    const popeBioTts = `${selectedPope.name}. Nombre secular: ${selectedPope.secularName}. Pontificado: ${selectedPope.pontificate}. Lema episcopal: ${selectedPope.motto}. Biografía: ${selectedPope.fullBio || selectedPope.shortBio}`;
+
+    bodyHtml = `
+      <div class="pope-detail-view">
+        <div class="pope-detail-nav">
+          <button type="button" class="btn-sm ghost" data-back-to-popes="true">
+            ← Volver al listado de los Papas
+          </button>
+          <span class="bible-testament-kicker">Jerarquía Papal · La Santa Sede (vatican.va)</span>
+        </div>
+
+        <article class="pope-detail-hero">
+          <div class="pope-detail-hero-top">
+            ${renderPopeAvatarSvgHtml(selectedPope, 72)}
+            <div class="pope-detail-hero-info">
+              <span class="pope-pontificate-badge">🇻🇦 Pontificado: ${esc(selectedPope.pontificate)}</span>
+              <h2 class="pope-detail-title">${esc(selectedPope.name)}</h2>
+              <p class="pope-detail-subtitle"><strong>Nombre secular:</strong> ${esc(selectedPope.secularName)} · <strong>Origen:</strong> ${esc(selectedPope.origin)}</p>
+              <p class="pope-detail-motto"><strong>Lema pontificio:</strong> <em>${esc(selectedPope.motto)}</em></p>
+            </div>
+          </div>
+
+          ${renderTtsBarHtml(`tts_pope_bio_${selectedPope.id}`, popeBioTts, `Escuchar biografía de ${selectedPope.name}`)}
+
+          <div class="pope-detail-bio-box">
+            <h3 class="pope-bio-heading">Semblanza Biográfica y Magisterio</h3>
+            <p class="pope-detail-bio-text">${esc(selectedPope.fullBio || selectedPope.shortBio)}</p>
+            <div style="margin-top:10px">
+              <a href="${esc(selectedPope.vaticanProfileUrl || "https://www.vatican.va")}" target="_blank" rel="noopener" class="reflection-official-link">
+                Archivo Pontificio Oficial de ${esc(selectedPope.name)} en La Santa Sede (vatican.va) ↗
+              </a>
+            </div>
+          </div>
+        </article>
+
+        <!-- Filtro de categorías documentales del Papa seleccionado -->
+        <div class="pope-doc-filter-bar" role="tablist" aria-label="Categorías de documentos de ${esc(selectedPope.name)}">
+          <button type="button" class="bible-chapter-pill ${activeCatFilter === "ALL" ? "is-active" : ""}" data-pope-cat-filter="ALL">
+            Todas las categorías (${totalDocsCount})
+          </button>
+          ${docCats.map(c => `
+            <button type="button" class="bible-chapter-pill ${activeCatFilter === c.category ? "is-active" : ""}" data-pope-cat-filter="${esc(c.category)}">
+              ${esc(c.category)} (${Array.isArray(c.items) ? c.items.length : 0})
             </button>
+          `).join("")}
+        </div>
 
-            ${isOpen ? `
+        <!-- Documentos oficiales categorizados -->
+        <div class="pope-categories-stack">
+          ${visibleCats.map(cat => `
+            <section class="church-doc-category-card is-open" aria-label="${esc(cat.category)}">
+              <div class="church-doc-cat-header-static">
+                <div>
+                  <span class="reading-kicker">🇻🇦 Magisterio de ${esc(selectedPope.name)}</span>
+                  <h3 class="church-doc-cat-title">${esc(cat.category)}</h3>
+                </div>
+                <span class="pope-doc-count-pill">${cat.filteredItems.length} ${cat.filteredItems.length === 1 ? "documento" : "documentos"}</span>
+              </div>
               <div class="church-doc-items-grid">
-                ${docs.map(doc => `
+                ${cat.filteredItems.map(doc => `
                   <article class="church-doc-item-card">
                     <div class="church-doc-item-top">
-                      <span class="church-doc-type-badge">${esc(doc.type)}</span>
-                      <span class="church-doc-year-badge">${esc(doc.year)}</span>
+                      <span class="church-doc-type-badge">${esc(cat.category)}</span>
+                      <span class="church-doc-year-badge">Año ${esc(doc.year)}</span>
                     </div>
-                    <h3 class="church-doc-item-title">${esc(doc.title)}</h3>
-                    <span class="church-doc-author">✍️ ${esc(doc.author)}</span>
+                    <h4 class="church-doc-item-title">${esc(doc.title)}</h4>
+                    <span class="church-doc-author">✍️ ${esc(selectedPope.name)}</span>
                     <p class="church-doc-summary">${esc(doc.summary)}</p>
                     <div class="church-doc-footer">
                       <a href="${esc(doc.url)}" target="_blank" rel="noopener" class="reflection-official-link">
-                        Fuente oficial: ${esc(doc.sourceName || "La Santa Sede (vatican.va)")} — Abrir documento íntegro ↗
+                        Leer documento oficial en vatican.va ↗
                       </a>
                     </div>
                   </article>
                 `).join("")}
               </div>
-            ` : ""}
-          </section>
-        `;
-      }).join("")}
+            </section>
+          `).join("")}
+        </div>
+      </div>
+    `;
+  }
+  // VISTA A (Principal): Listado Jerárquico de los Papas con imagen representativa, fechas de pontificado y biografía resumida
+  else {
+    bodyHtml = `
+      <div class="pope-hierarchy-intro">
+        <span class="bible-testament-kicker">Magisterio Pontificio · Sucesores de San Pedro</span>
+        <p style="margin:4px 0 0;font-size:0.86rem;color:var(--muted)">Seleccioná un Sumo Pontífice para explorar su perfil biográfico y acceder a sus Encíclicas, Exhortaciones Apostólicas, Bulas y Constituciones oficiales en <strong>vatican.va</strong>.</p>
+      </div>
+
+      <div class="pope-hierarchy-grid" role="list" aria-label="Listado de los Papas">
+        ${popes.map(pope => {
+          const totalDocs = (pope.documentCategories || []).reduce((acc, c) => acc + (Array.isArray(c.items) ? c.items.length : 0), 0);
+          const catNames = (pope.documentCategories || []).map(c => c.category);
+          return `
+            <article class="pope-card" role="listitem" data-select-pope="${esc(pope.id)}" tabindex="0" aria-label="Abrir perfil y documentos de ${esc(pope.name)}">
+              <div class="pope-card-top">
+                ${renderPopeAvatarSvgHtml(pope, 60)}
+                <div class="pope-card-meta">
+                  <span class="pope-pontificate-badge">🇻🇦 ${esc(pope.pontificate)}</span>
+                  <h2 class="pope-card-name">${esc(pope.name)}</h2>
+                  <span class="pope-secular-name">${esc(pope.secularName)} · ${esc(pope.origin)}</span>
+                </div>
+              </div>
+              <p class="pope-card-motto"><strong>Lema:</strong> <em>${esc(pope.motto)}</em></p>
+              <p class="pope-card-bio">${esc(pope.shortBio)}</p>
+              <div class="bible-testament-pills" style="margin-top:4px">
+                ${catNames.map(cName => `<span class="bible-cat-mini-pill">${esc(cName)}</span>`).join("")}
+              </div>
+              <div class="pope-card-footer">
+                <span class="pope-doc-count-pill">📜 ${totalDocs} documentos en vatican.va</span>
+                <span class="pope-open-cta">Ver perfil y documentos ›</span>
+              </div>
+            </article>
+          `;
+        }).join("")}
+      </div>
+    `;
+  }
+
+  container.innerHTML = `
+    <div class="bible-controls-bar" role="region" aria-label="Buscador y navegación de Documentos de la Iglesia por Jerarquía Papal">
+      <div class="bible-search-box">
+        <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/></svg>
+        <input type="search" id="docs-search-input" value="${esc(rawQ)}" placeholder="Buscar Papa, encíclica, exhortación o constitución (ej: Francisco, Laudato Si, Dei Verbum)..." autocomplete="off" aria-label="Buscar en Documentos de la Iglesia" />
+        ${rawQ ? `<button type="button" class="bible-search-clear-btn" data-docs-clear-search="true" aria-label="Limpiar búsqueda">✕</button>` : ""}
+      </div>
+      <div class="docs-quick-pills" role="group" aria-label="Acceso rápido a los Pontífices">
+        <button type="button" class="bible-chapter-pill ${!selectedPope ? "is-active" : ""}" data-back-to-popes="true">
+          🇻🇦 Todos los Papas (${popes.length})
+        </button>
+        ${popes.map(pope => `
+          <button type="button" class="bible-chapter-pill ${selectedPope && selectedPope.id === pope.id ? "is-active" : ""}" data-select-pope="${esc(pope.id)}">
+            ${esc(pope.name)}
+          </button>
+        `).join("")}
+      </div>
     </div>
+
+    ${bodyHtml}
   `;
 
   const searchInput = container.querySelector("#docs-search-input");
@@ -14731,6 +15442,9 @@ function renderDocumentsView() {
   }
 
   container.onclick = (e) => {
+    // No interceptar clics en enlaces externos a vatican.va
+    if (e.target.closest("a[href]")) return;
+
     const clearBtn = e.target.closest("[data-docs-clear-search]");
     if (clearBtn) {
       state.docsSearchQuery = "";
@@ -14738,18 +15452,28 @@ function renderDocumentsView() {
       return;
     }
 
-    const expandAllBtn = e.target.closest("[data-docs-expand-all]");
-    if (expandAllBtn) {
-      categories.forEach(c => { state.openDocsCategories[c.id] = true; });
+    const backBtn = e.target.closest("[data-back-to-popes]");
+    if (backBtn) {
+      state.selectedPopeId = null;
+      state.popeDocCategoryFilter = "ALL";
       renderDocumentsView();
       return;
     }
 
-    const toggleCatBtn = e.target.closest("[data-toggle-doc-cat]");
-    if (toggleCatBtn) {
-      const catId = toggleCatBtn.getAttribute("data-toggle-doc-cat");
-      if (catId) {
-        state.openDocsCategories[catId] = !state.openDocsCategories[catId];
+    const filterBtn = e.target.closest("[data-pope-cat-filter]");
+    if (filterBtn) {
+      state.popeDocCategoryFilter = filterBtn.getAttribute("data-pope-cat-filter") || "ALL";
+      renderDocumentsView();
+      return;
+    }
+
+    const selectPopeEl = e.target.closest("[data-select-pope]");
+    if (selectPopeEl) {
+      const popeId = selectPopeEl.getAttribute("data-select-pope");
+      if (popeId) {
+        state.selectedPopeId = popeId;
+        state.popeDocCategoryFilter = "ALL";
+        state.docsSearchQuery = "";
         renderDocumentsView();
       }
     }
@@ -15755,6 +16479,61 @@ function bindAppEvents() {
     });
   });
   document.addEventListener("click", e => {
+    // 1. Controles globales de Narración por Voz (Web Speech API: Play, Pause/Resume, Stop)
+    const ttsPlayBtn = e.target.closest("[data-tts-play]");
+    if (ttsPlayBtn) {
+      e.preventDefault();
+      const ttsId = ttsPlayBtn.getAttribute("data-tts-play");
+      startTtsNarration(ttsId, ttsTextRegistry[ttsId] || "");
+      if (ttsId && ttsId.includes("modal_saint") && !$("#saint-detail-modal")?.hidden) {
+        openSaintMoreModal(currentModalSaintIdx);
+      }
+      return;
+    }
+
+    const ttsPauseBtn = e.target.closest("[data-tts-pause]");
+    if (ttsPauseBtn) {
+      e.preventDefault();
+      const ttsId = ttsPauseBtn.getAttribute("data-tts-pause");
+      pauseOrResumeTts(ttsId);
+      if (ttsId && ttsId.includes("modal_saint") && !$("#saint-detail-modal")?.hidden) {
+        openSaintMoreModal(currentModalSaintIdx);
+      }
+      return;
+    }
+
+    const ttsStopBtn = e.target.closest("[data-tts-stop]");
+    if (ttsStopBtn) {
+      e.preventDefault();
+      const ttsId = ttsStopBtn.getAttribute("data-tts-stop");
+      stopTtsNarration(false);
+      if (ttsId && ttsId.includes("modal_saint") && !$("#saint-detail-modal")?.hidden) {
+        openSaintMoreModal(currentModalSaintIdx);
+      }
+      return;
+    }
+
+    // 2. Selector Multi-Fuente en Reflexiones, Evangelio, Lecturas y Santos del Día
+    const sourceBtn = e.target.closest("[data-select-source-section]");
+    if (sourceBtn) {
+      e.preventDefault();
+      const sectionKey = sourceBtn.getAttribute("data-select-source-section");
+      const sourceId = sourceBtn.getAttribute("data-select-source-id");
+      if (sectionKey && sourceId) {
+        if (!state.homilySourceBySection) state.homilySourceBySection = {};
+        state.homilySourceBySection[sectionKey] = sourceId;
+        if (sectionKey === "modal_saint" && !$("#saint-detail-modal")?.hidden) {
+          openSaintMoreModal(currentModalSaintIdx);
+        } else if (sectionKey.startsWith("saint_")) {
+          renderSaintsView();
+        } else {
+          renderLiturgyView();
+        }
+      }
+      return;
+    }
+
+    // 3. Cierre del selector de fechas estilizado al tocar fuera
     if (!state.openDatePickerId) return;
     if (e.target.closest("[data-cdp-root]")) return;
     const openId = state.openDatePickerId;
