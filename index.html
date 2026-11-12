@@ -129,6 +129,16 @@
       </svg>
       <span data-i18n="nav_saints">Santos del Día</span>
     </button>
+    <button type="button" class="nav-tab" id="tab-documents" role="tab" aria-selected="false" aria-controls="view-documents" data-target-view="documents">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+        <polyline points="14 2 14 8 20 8"/>
+        <line x1="16" y1="13" x2="8" y2="13"/>
+        <line x1="16" y1="17" x2="8" y2="17"/>
+        <line x1="10" y1="9" x2="8" y2="9"/>
+      </svg>
+      <span data-i18n="nav_documents">Documentos de la Iglesia</span>
+    </button>
     <!-- MÓDULO OCULTO: Comunidad y racha (Preservado para futuras versiones) -->
     <button type="button" class="nav-tab" id="tab-community" role="tab" aria-selected="false" aria-controls="view-community" data-target-view="community" hidden style="display:none !important">
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
@@ -191,6 +201,12 @@
       <span class="bento-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><ellipse cx="12" cy="3.2" rx="5" ry="1.4"/><path d="M5.5 21a6.5 6.5 0 0 1 13 0"/></svg></span>
       <span class="bento-text"><strong class="bento-title">Santos</strong></span>
       <span class="bento-meta" id="bento-meta-saints"></span>
+      <span class="bento-chevron" aria-hidden="true">›</span>
+    </button>
+    <button type="button" class="bento-card bento-documents" data-go="documents">
+      <span class="bento-ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/></svg></span>
+      <span class="bento-text"><strong class="bento-title">Documentos de la Iglesia</strong></span>
+      <span class="bento-meta" id="bento-meta-documents">Magisterio · Vaticano II · Catecismo</span>
       <span class="bento-chevron" aria-hidden="true">›</span>
     </button>
     <button type="button" class="bento-card bento-settings bento-wide" data-open="settings">
@@ -384,6 +400,16 @@
     </div>
 
     <div id="saints-content" class="liturgy-body"></div>
+  </section>
+
+  <!-- ==================== VISTA 5B: DOCUMENTOS DE LA IGLESIA (MAGISTERIO, CONCILIO VATICANO II, CATECISMO Y DERECHO CANÓNICO) ==================== -->
+  <section class="app view-panel" id="view-documents" role="tabpanel" aria-labelledby="tab-documents" aria-hidden="true">
+    <div class="page-intro">
+      <h1 data-i18n="documents_heading">Documentos de la Iglesia</h1>
+      <p class="sub" data-i18n="documents_subheading">Magisterio Pontificio, Concilio Vaticano II, Catecismo de la Iglesia Católica y Código de Derecho Canónico</p>
+    </div>
+
+    <div id="documents-content" class="liturgy-body documents-module-body"></div>
   </section>
 
   <!-- MÓDULO OCULTO: Comunidad y racha (Preservado para futuras versiones) -->

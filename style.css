@@ -4622,8 +4622,287 @@ body.dark-mode .bible-search-verse-ref {
   border-top: 1px solid var(--line);
 }
 
-@media (max-width: 520px) {
-  .bible-quick-selects {
+.bible-quick-selects.bible-hierarchy-three {
+  grid-template-columns: 1.5fr 1fr 1fr;
+}
+
+.bible-selector-section-label {
+  font-size: 0.76rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--muted);
+  margin: 4px 0 8px;
+}
+
+.bible-verse-pill-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 18px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid var(--line);
+}
+
+.bible-verse-pill {
+  min-width: 34px;
+  height: 30px;
+  padding: 0 9px;
+  border-radius: 999px;
+  border: 1px solid var(--line);
+  background: var(--surface-2);
+  color: var(--ink);
+  font: inherit;
+  font-size: 0.78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+.bible-verse-pill.is-active {
+  background: var(--gold);
+  color: #1A1412;
+  border-color: var(--gold);
+}
+
+.bible-verse-line {
+  cursor: pointer;
+}
+.bible-verse-line.is-selected-verse {
+  background: var(--brand-soft);
+  border-left: 3px solid var(--gold);
+  padding: 8px 12px;
+  font-weight: 500;
+}
+
+/* =====================================================================
+   TARJETAS DE REFLEXIÓN / HOMILÍA OFICIAL CON TRAZABILIDAD DE FUENTES
+   ===================================================================== */
+.official-homily-card {
+  margin-top: 14px;
+  padding: 16px 16px;
+  border-radius: 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--gold);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.official-homily-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.official-homily-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  background: var(--brand-soft);
+  color: var(--brand);
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+body.dark-mode .official-homily-badge {
+  color: #F3E5AB;
+}
+
+.official-homily-authority {
+  font-size: 0.76rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.official-homily-text {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 0.98rem;
+  line-height: 1.65;
+  color: var(--ink);
+}
+
+.official-sources-block {
+  margin-top: 12px;
+  padding-top: 12px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.official-sources-kicker {
+  font-size: 0.76rem;
+  font-weight: 700;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+}
+
+.official-sources-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.reflection-official-link.secondary-source-link {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  font-weight: 600;
+  font-size: 0.79rem;
+}
+
+/* =====================================================================
+   NUEVO MÓDULO: DOCUMENTOS DE LA IGLESIA (ACORDEÓN / TARJETAS)
+   ===================================================================== */
+.docs-quick-pills {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.church-docs-accordion {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.church-doc-category-card {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  overflow: hidden;
+  box-shadow: var(--shadow-1);
+}
+
+.church-doc-accordion-btn {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 18px 20px;
+  background: transparent;
+  border: 0;
+  color: var(--ink);
+  text-align: left;
+  cursor: pointer;
+  transition: background-color 0.15s ease;
+}
+.church-doc-accordion-btn:hover {
+  background: var(--surface-2);
+}
+
+.church-doc-cat-info {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.church-doc-cat-title {
+  margin: 0;
+  font-family: var(--serif);
+  font-size: 1.28rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.church-doc-cat-sub {
+  margin: 0;
+  font-size: 0.84rem;
+  color: var(--muted);
+}
+
+.church-doc-items-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 12px;
+  padding: 4px 18px 18px;
+  border-top: 1px solid var(--line);
+}
+
+.church-doc-item-card {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 16px;
+  border-radius: 16px;
+  background: var(--surface-2);
+  border: 1px solid var(--line);
+}
+
+.church-doc-item-top {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.church-doc-type-badge {
+  font-size: 0.73rem;
+  font-weight: 700;
+  color: var(--brand);
+  background: var(--brand-soft);
+  padding: 2px 8px;
+  border-radius: 999px;
+}
+body.dark-mode .church-doc-type-badge {
+  color: #F3E5AB;
+}
+
+.church-doc-year-badge {
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.church-doc-item-title {
+  margin: 2px 0 0;
+  font-family: var(--serif);
+  font-size: 1.08rem;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.church-doc-author {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--muted);
+}
+
+.church-doc-summary {
+  margin: 0;
+  font-size: 0.88rem;
+  line-height: 1.55;
+  color: var(--ink-2);
+  flex: 1;
+}
+
+.church-doc-footer {
+  margin-top: 6px;
+  padding-top: 8px;
+  border-top: 1px solid var(--line);
+  display: flex;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 640px) {
+  .bible-quick-selects,
+  .bible-quick-selects.bible-hierarchy-three {
     grid-template-columns: 1fr;
+  }
+  .church-doc-items-grid {
+    grid-template-columns: 1fr;
+  }
+  .church-doc-accordion-btn {
+    flex-direction: column;
+    align-items: flex-start;
   }
 }

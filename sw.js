@@ -1,5 +1,5 @@
-const APP_CACHE = "parroquias-app-v37";
-const DATA_CACHE = "parroquias-data-v37";
+const APP_CACHE = "parroquias-app-v38";
+const DATA_CACHE = "parroquias-data-v38";
 
 const APP_SHELL = [
   "./",
@@ -19,7 +19,8 @@ const DATA_URLS = [
   "./data/parroquias.json",
   "./data/liturgia.json",
   "./data/reflexiones.json",
-  "./data/libro_pueblo_de_dios.json"
+  "./data/libro_pueblo_de_dios.json",
+  "./data/documentos_iglesia.json"
 ];
 
 self.addEventListener("install", (event) => {
