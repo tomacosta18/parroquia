@@ -10685,17 +10685,43 @@ const CDP_MONTH_NAMES = [
 ];
 const CDP_WEEKDAYS_SHORT = ["Lun", "Mar", "Mié", "Jue", "Vie", "Sáb", "Dom"];
 
+const SHORT_ES_DATE_FMT = new Intl.DateTimeFormat("es-AR", {
+  weekday: "short",
+  day: "2-digit",
+  month: "short",
+  year: "numeric"
+});
+const LONG_ES_DATE_FMT = new Intl.DateTimeFormat("es-AR", {
+  weekday: "long",
+  day: "numeric",
+  month: "long",
+  year: "numeric"
+});
+const SHORT_DATE_LABEL_CACHE = new Map();
+const LONG_DATE_LABEL_CACHE = new Map();
+
 function formatHumanSpanishDate(isoDateStr) {
   const cleanIso = /^\d{4}-\d{2}-\d{2}$/.test(String(isoDateStr || "")) ? String(isoDateStr) : getTodayIsoDate();
+  if (SHORT_DATE_LABEL_CACHE.has(cleanIso)) return SHORT_DATE_LABEL_CACHE.get(cleanIso);
   const [y, m, d] = cleanIso.split("-").map(Number);
   const dt = new Date(y || 2026, (m || 11) - 1, d || 5, 12, 0, 0);
-  const label = dt.toLocaleDateString("es-AR", {
-    weekday: "short",
-    day: "2-digit",
-    month: "short",
-    year: "numeric"
-  });
-  return label.charAt(0).toUpperCase() + label.slice(1);
+  const label = SHORT_ES_DATE_FMT.format(dt);
+  const formatted = label.charAt(0).toUpperCase() + label.slice(1);
+  if (SHORT_DATE_LABEL_CACHE.size > 400) SHORT_DATE_LABEL_CACHE.clear();
+  SHORT_DATE_LABEL_CACHE.set(cleanIso, formatted);
+  return formatted;
+}
+
+function formatLongSpanishDate(isoDateStr) {
+  const cleanIso = /^\d{4}-\d{2}-\d{2}$/.test(String(isoDateStr || "")) ? String(isoDateStr) : getTodayIsoDate();
+  if (LONG_DATE_LABEL_CACHE.has(cleanIso)) return LONG_DATE_LABEL_CACHE.get(cleanIso);
+  const [y, m, d] = cleanIso.split("-").map(Number);
+  const dt = new Date(y || 2026, (m || 11) - 1, d || 5, 12, 0, 0);
+  const label = LONG_ES_DATE_FMT.format(dt);
+  const formatted = label.charAt(0).toUpperCase() + label.slice(1);
+  if (LONG_DATE_LABEL_CACHE.size > 400) LONG_DATE_LABEL_CACHE.clear();
+  LONG_DATE_LABEL_CACHE.set(cleanIso, formatted);
+  return formatted;
 }
 
 function renderCustomDatePickerHtml(pickerId, selectedIsoDate, opts = {}) {
@@ -10789,9 +10815,12 @@ function updateDateForPicker(pickerId, newIsoDate, closePopover = true) {
     Store.set("ui_liturgy_date_v1", cleanIso);
     renderLiturgyView();
   } else if (pickerId === "saints") {
+    if (String(state.ttsActiveId || "").startsWith("tts_saint") || String(state.ttsActiveId || "").includes("saint")) {
+      stopTtsNarration(true);
+    }
     state.saintsDate = cleanIso;
     Store.set("ui_saints_date_v1", cleanIso);
-    renderSaintsView();
+    renderSaintsView({ deferList: true });
   }
 }
 
@@ -10811,7 +10840,7 @@ function handleCustomDatePickerInteraction(e) {
     }
     if (pid === "streak") renderSpiritualView();
     else if (pid === "liturgy") renderLiturgyView();
-    else if (pid === "saints") renderSaintsView();
+    else if (pid === "saints") renderSaintsView({ headerOnly: true });
     return true;
   }
 
@@ -10828,7 +10857,7 @@ function handleCustomDatePickerInteraction(e) {
     state.datePickerViewMonth[pid] = { year: dt.getFullYear(), month: dt.getMonth() };
     if (pid === "streak") renderSpiritualView();
     else if (pid === "liturgy") renderLiturgyView();
-    else if (pid === "saints") renderSaintsView();
+    else if (pid === "saints") renderSaintsView({ headerOnly: true });
     return true;
   }
 
@@ -10872,7 +10901,7 @@ function handleCustomDatePickerInteraction(e) {
     state.openDatePickerId = null;
     if (pid === "streak") renderSpiritualView();
     else if (pid === "liturgy") renderLiturgyView();
-    else if (pid === "saints") renderSaintsView();
+    else if (pid === "saints") renderSaintsView({ headerOnly: true });
     return true;
   }
 
@@ -12142,20 +12171,13 @@ function getGospelForDate(isoDateStr) {
   const exactMatch = OFFICIAL_GOSPELS_BY_MMDD[mmdd];
   const seedIndex = Math.abs(y * 372 + m * 31 + d) % ARGENTINE_GOSPELS_CYCLE.length;
   const baseReading = exactMatch || ARGENTINE_GOSPELS_CYCLE[seedIndex];
-
-  const dt = new Date(y, m - 1, d, 12, 0, 0);
-  const formattedLongDate = dt.toLocaleDateString("es-AR", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric"
-  });
+  const formattedLongDate = formatLongSpanishDate(cleanIso);
 
   return {
     ...baseReading,
     isoDate: cleanIso,
     mmdd,
-    formattedLongDate: formattedLongDate.charAt(0).toUpperCase() + formattedLongDate.slice(1)
+    formattedLongDate
   };
 }
 
@@ -12176,13 +12198,34 @@ function saintNamesOverlap(nameA, nameB) {
   return toksA.some(t => toksB.has(t));
 }
 
-function getSaintsForDate(isoDateStr) {
-  const cleanIso = /^\d{4}-\d{2}-\d{2}$/.test(String(isoDateStr || "")) ? String(isoDateStr) : getTodayIsoDate();
-  const parts = cleanIso.split("-").map(Number);
-  const m = parts[1] || 11;
-  const d = parts[2] || 5;
-  const mmdd = `${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+/* Índice memoizado del santoral (equivalente a useMemo): clave MM-DD -> lista de santos ya normalizada.
+   Se resuelve una única vez por fecha del año y se invalida cuando llegan nuevos datos remotos. */
+const SAINTS_DAY_INDEX = new Map();
+// Paquete diario memoizado por fecha ISO (evangelio formateado, reflexión verificada y santos)
+const SAINTS_DAY_BUNDLE_CACHE = new Map();
+const SAINTS_DAY_BUNDLE_CACHE_MAX = 60;
 
+function invalidateSaintsDayIndex() {
+  SAINTS_DAY_INDEX.clear();
+  SAINTS_DAY_BUNDLE_CACHE.clear();
+}
+
+function toMmddKey(isoDateStr) {
+  const cleanIso = /^\d{4}-\d{2}-\d{2}$/.test(String(isoDateStr || "")) ? String(isoDateStr) : getTodayIsoDate();
+  return cleanIso.slice(5, 10);
+}
+
+function getSaintsForDate(isoDateStr) {
+  const mmdd = toMmddKey(isoDateStr);
+  let saints = SAINTS_DAY_INDEX.get(mmdd);
+  if (!saints) {
+    saints = computeSaintsForMmdd(mmdd);
+    SAINTS_DAY_INDEX.set(mmdd, saints);
+  }
+  return saints;
+}
+
+function computeSaintsForMmdd(mmdd) {
   const dict = getSantoralDictionary();
   const annual = dict && Array.isArray(dict[mmdd]) ? dict[mmdd] : null;
   const supplementalList = Array.isArray(SAINTS_BY_MMDD[mmdd]) ? SAINTS_BY_MMDD[mmdd] : null;
@@ -12236,16 +12279,8 @@ function getSaintsForDate(isoDateStr) {
     }));
   }
 
-  return [{
-    name: "Santos y Mártires del Martirologio Romano",
-    feast: `Calendario Litúrgico · ${mmdd}`,
-    iconSvg: SVG_SAINT_HALO,
-    bio: "Conmemoración de los fieles testigos del Evangelio celebrados en esta fecha del año litúrgico católico.",
-    quote: "",
-    curiosities: [],
-    otherQuotes: [],
-    secondaryCommemorations: []
-  }];
+  // Sin registros para esta fecha: lista vacía (la vista muestra un estado vacío elegante)
+  return [];
 }
 
 async function fetchDailyLiturgyData() {
@@ -12265,6 +12300,7 @@ async function fetchDailyLiturgyData() {
     }
     if (data && data.saintsByMmdd && typeof data.saintsByMmdd === "object") {
       Object.assign(SAINTS_BY_MMDD, data.saintsByMmdd);
+      invalidateSaintsDayIndex();
     }
     state.liturgyFetchStatus = "synced";
     state.liturgyFetchNotice = "";
@@ -14773,13 +14809,47 @@ function renderBibleView() {
   };
 }
 
-function renderSaintsView() {
-  const container = $("#saints-content");
-  if (!container) return;
+/* =====================================================================
+   SANTOS DEL DÍA · Render en dos capas (cabecera inmediata + listado diferido)
+   - La cabecera (fecha + selector) se actualiza al instante en cada toque.
+   - El listado se recalcula con debounce y token de solicitud: si el usuario
+     cambia de día varias veces seguidas, sólo se pinta el día definitivo.
+   ===================================================================== */
+const SAINTS_DAY_DEBOUNCE_MS = 160;
+let saintsListRequestToken = 0;
+let saintsListDebounceTimer = null;
 
-  const g = getGospelForDate(state.saintsDate);
-  const verRef = getVerifiedReflectionForDate(g.isoDate);
-  const saints = getSaintsForDate(state.saintsDate);
+function getSaintsDayBundle(isoDateStr) {
+  const iso = /^\d{4}-\d{2}-\d{2}$/.test(String(isoDateStr || "")) ? String(isoDateStr) : getTodayIsoDate();
+  let bundle = SAINTS_DAY_BUNDLE_CACHE.get(iso);
+  if (!bundle) {
+    const g = getGospelForDate(iso);
+    bundle = {
+      iso,
+      g,
+      verRef: getVerifiedReflectionForDate(g.isoDate),
+      saints: getSaintsForDate(iso)
+    };
+    if (SAINTS_DAY_BUNDLE_CACHE.size >= SAINTS_DAY_BUNDLE_CACHE_MAX) {
+      SAINTS_DAY_BUNDLE_CACHE.delete(SAINTS_DAY_BUNDLE_CACHE.keys().next().value);
+    }
+    SAINTS_DAY_BUNDLE_CACHE.set(iso, bundle);
+  }
+  return bundle;
+}
+
+function ensureSaintsViewShell(container) {
+  if (container.querySelector("#saints-list-region")) return;
+  container.innerHTML = `
+    <div id="saints-header-slot"></div>
+    <section class="saints-section-card" id="saints-list-region" aria-label="Santos del Día" aria-live="polite" aria-busy="false"></section>
+  `;
+}
+
+function renderSaintsHeader() {
+  const slot = $("#saints-header-slot");
+  if (!slot) return;
+  const { g } = getSaintsDayBundle(state.saintsDate);
   const isTodayAr = g.isoDate === getArgentinaTodayIso();
   const statusBannerHtml = state.liturgyFetchStatus === "fallback"
     ? `<div class="liturgy-fallback-banner" role="status">
@@ -14787,9 +14857,8 @@ function renderSaintsView() {
        </div>`
     : "";
 
-  container.innerHTML = `
+  slot.innerHTML = `
     ${statusBannerHtml}
-    <!-- Barra de Selección de Fecha del Santoral con Selector Estilizado Personalizado -->
     <div class="liturgy-toolbar">
       <div class="liturgy-toolbar-info">
         <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
@@ -14803,61 +14872,168 @@ function renderSaintsView() {
         ${renderCustomDatePickerHtml("saints", g.isoDate)}
       </div>
     </div>
+  `;
+}
 
-    <section class="saints-section-card" aria-label="Santos del Día">
-      <div class="gospel-head" style="margin-bottom:8px">
-        <h3>Santos del Día · ${esc(g.formattedLongDate)}</h3>
+function renderSaintsSkeletonHtml() {
+  return `
+    <div class="saints-skeleton" aria-hidden="true">
+      <div class="sk-line sk-title"></div>
+      <div class="sk-card">
+        <div class="sk-row">
+          <div class="sk-circle"></div>
+          <div class="sk-stack">
+            <div class="sk-line sk-w60"></div>
+            <div class="sk-line sk-w35"></div>
+          </div>
+        </div>
+        <div class="sk-line sk-w100"></div>
+        <div class="sk-line sk-w90"></div>
+        <div class="sk-line sk-w70"></div>
+      </div>
+    </div>
+    <span class="sr-only">Cargando santoral…</span>
+  `;
+}
+
+function renderSaintsEmptyHtml(g) {
+  return `
+    <div class="gospel-head" style="margin-bottom:8px">
+      <h3>Santos del Día · ${esc(g.formattedLongDate)}</h3>
+    </div>
+    <div class="saints-empty-state" role="status">
+      <span class="saints-empty-icon" aria-hidden="true">${SVG_SAINT_HALO}</span>
+      <p>No se registran festividades específicas para esta fecha en el martirologio principal.</p>
+    </div>
+  `;
+}
+
+function renderSaintCardHtml(st, idx, g, verRef) {
+  const secondaryList = Array.isArray(st.secondaryCommemorations) ? st.secondaryCommemorations.filter(Boolean) : [];
+  const saintTtsText = [
+    `Santo del Día: ${st.name}.`,
+    st.feast ? `${st.feast}.` : "",
+    st.bio ? `Biografía: ${st.bio}` : "",
+    st.quote ? `Frase espiritual: ${st.quote}` : "",
+    secondaryList.length ? `Otras conmemoraciones del día: ${secondaryList.join("; ")}.` : ""
+  ].filter(Boolean).join(" ");
+
+  return `
+    <article class="saint-card">
+      <div class="saint-card-head">
+        <div class="saint-title-wrap">
+          <span class="saint-halo-icon" aria-hidden="true">${st.iconSvg || SVG_SAINT_HALO}</span>
+          <div>
+            <h4>${esc(st.name)}</h4>
+            <span class="saint-feast-badge">${esc(st.feast)}</span>
+          </div>
+        </div>
+        <div class="saint-actions">
+          <button type="button" class="btn-saint-more" data-saint-idx="${idx}" aria-label="Saber más sobre ${esc(st.name)}">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
+            Saber Más
+          </button>
+          ${SHOW_COMMUNITY ? `<button type="button" class="btn-sm ghost" style="flex:none" data-save-saint-idx="${idx}">📓 Guardar en Notas</button>` : ""}
+        </div>
       </div>
 
-      ${saints.map((st, idx) => {
-        const secondaryList = Array.isArray(st.secondaryCommemorations) ? st.secondaryCommemorations.filter(Boolean) : [];
-        const saintTtsParts = [
-          `Santo del Día: ${st.name}.`,
-          st.feast ? `${st.feast}.` : "",
-          st.bio ? `Biografía: ${st.bio}` : "",
-          st.quote ? `Frase espiritual: ${st.quote}` : "",
-          secondaryList.length ? `Otras conmemoraciones del día: ${secondaryList.join("; ")}.` : ""
-        ].filter(Boolean);
-        const saintTtsText = saintTtsParts.join(" ");
-        return `
-        <article class="saint-card">
-          <div class="saint-card-head">
-            <div class="saint-title-wrap">
-              <span class="saint-halo-icon" aria-hidden="true">${st.iconSvg || SVG_SAINT_HALO}</span>
-              <div>
-                <h4>${esc(st.name)}</h4>
-                <span class="saint-feast-badge">${esc(st.feast)}</span>
-              </div>
-            </div>
-            <div class="saint-actions">
-              <button type="button" class="btn-saint-more" data-saint-idx="${idx}" aria-label="Saber más sobre ${esc(st.name)}">
-                <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><line x1="12" y1="16" x2="12" y2="12"/><line x1="12" y1="8" x2="12.01" y2="8"/></svg>
-                Saber Más
-              </button>
-              ${SHOW_COMMUNITY ? `<button type="button" class="btn-sm ghost" style="flex:none" data-save-saint-idx="${idx}">📓 Guardar en Notas</button>` : ""}
-            </div>
-          </div>
+      ${renderTtsBarHtml(`tts_saint_bio_${idx}`, saintTtsText, `Escuchar biografía de ${st.name}`)}
 
-          ${renderTtsBarHtml(`tts_saint_bio_${idx}`, saintTtsText, `Escuchar biografía de ${st.name}`)}
+      <p class="saint-bio">${esc(st.bio)}</p>
+      ${st.quote ? `<div class="saint-quote">${esc(st.quote)}</div>` : ""}
+      ${secondaryList.length ? `
+        <div class="saint-secondary-block" aria-label="Conmemoraciones secundarias del día">
+          <span class="saint-secondary-label">Conmemoraciones secundarias del día</span>
+          <ul class="saint-secondary-list">
+            ${secondaryList.map(sec => `<li>${esc(sec)}</li>`).join("")}
+          </ul>
+        </div>
+      ` : ""}
 
-          <p class="saint-bio">${esc(st.bio)}</p>
-          ${st.quote ? `<div class="saint-quote">${esc(st.quote)}</div>` : ""}
-          ${secondaryList.length ? `
-            <div class="saint-secondary-block" aria-label="Conmemoraciones secundarias del día">
-              <span class="saint-secondary-label">Conmemoraciones secundarias del día</span>
-              <ul class="saint-secondary-list">
-                ${secondaryList.map(sec => `<li>${esc(sec)}</li>`).join("")}
-              </ul>
-            </div>
-          ` : ""}
+      <div style="margin-top:12px">
+        ${renderMultiSourceReflectionCardHtml(`saint_${idx}`, "🇻🇦 Reflexión y Fuentes · Santo del Día", g, verRef, st)}
+      </div>
+    </article>
+  `;
+}
 
-          <!-- Tarjeta de Reflexión / Homilía Multi-Fuente sobre el Santo del Día -->
-          <div style="margin-top:12px">
-            ${renderMultiSourceReflectionCardHtml(`saint_${idx}`, "🇻🇦 Reflexión y Fuentes · Santo del Día", g, verRef, st)}
-          </div>
-        </article>
-      `;}).join("")}
-    </section>`;
+function renderSaintsList(animate = false) {
+  const region = $("#saints-list-region");
+  if (!region) return;
+  let html;
+  try {
+    const { g, verRef, saints } = getSaintsDayBundle(state.saintsDate);
+    html = !Array.isArray(saints) || saints.length === 0
+      ? renderSaintsEmptyHtml(g)
+      : `
+        <div class="gospel-head" style="margin-bottom:8px">
+          <h3>Santos del Día · ${esc(g.formattedLongDate)}</h3>
+        </div>
+        ${saints.map((st, idx) => renderSaintCardHtml(st, idx, g, verRef)).join("")}
+      `;
+  } catch (err) {
+    console.warn("[Santoral] Error al renderizar el día seleccionado:", err);
+    html = `
+      <div class="saints-empty-state" role="status">
+        <span class="saints-empty-icon" aria-hidden="true">${SVG_SAINT_HALO}</span>
+        <p>No se registran festividades específicas para esta fecha en el martirologio principal.</p>
+      </div>
+    `;
+  }
+  region.innerHTML = animate ? `<div class="saints-list-enter">${html}</div>` : html;
+  region.setAttribute("aria-busy", "false");
+  region.classList.remove("is-loading");
+}
+
+/** Muestra el skeleton al instante y pinta el listado sólo para el último día pedido. */
+function scheduleSaintsListRender() {
+  const region = $("#saints-list-region");
+  if (!region) return;
+  const token = ++saintsListRequestToken;
+
+  if (!region.classList.contains("is-loading")) {
+    region.classList.add("is-loading");
+    region.setAttribute("aria-busy", "true");
+    region.innerHTML = renderSaintsSkeletonHtml();
+  }
+
+  if (saintsListDebounceTimer) clearTimeout(saintsListDebounceTimer);
+  saintsListDebounceTimer = setTimeout(() => {
+    saintsListDebounceTimer = null;
+    const paint = () => {
+      // Ignorar estados intermedios: sólo el token más reciente pinta, y sólo si la vista sigue montada
+      if (token !== saintsListRequestToken || !$("#saints-list-region")) return;
+      renderSaintsList(true);
+    };
+    if (typeof requestAnimationFrame === "function") requestAnimationFrame(paint);
+    else paint();
+  }, SAINTS_DAY_DEBOUNCE_MS);
+}
+
+/**
+ * Render principal de la vista "Santos del Día".
+ * @param {{ deferList?: boolean, headerOnly?: boolean }} opts
+ *   - deferList: cambio de día → cabecera inmediata + skeleton + listado con debounce.
+ *   - headerOnly: abrir/cerrar/navegar el calendario sin recalcular el listado.
+ */
+function renderSaintsView(opts = {}) {
+  const container = $("#saints-content");
+  if (!container) return;
+  ensureSaintsViewShell(container);
+  renderSaintsHeader();
+
+  if (opts.headerOnly) return;
+  if (opts.deferList) {
+    scheduleSaintsListRender();
+    return;
+  }
+  // Render directo: invalida cualquier render diferido pendiente
+  saintsListRequestToken++;
+  if (saintsListDebounceTimer) {
+    clearTimeout(saintsListDebounceTimer);
+    saintsListDebounceTimer = null;
+  }
+  renderSaintsList(false);
 }
 
 var currentModalSaintIdx = 0;
@@ -17290,7 +17466,7 @@ function bindAppEvents() {
     state.openDatePickerId = null;
     if (openId === "streak") renderSpiritualView();
     else if (openId === "liturgy") renderLiturgyView();
-    else if (openId === "saints") renderSaintsView();
+    else if (openId === "saints") renderSaintsView({ headerOnly: true });
   });
 
   $("#liturgy-content")?.addEventListener("click", e => {
@@ -17432,7 +17608,7 @@ function bindAppEvents() {
       if (titleEl) titleEl.value = `Santo del Día: ${st.name}`;
       if (catEl) catEl.value = "Oración";
       if (contentEl) {
-        contentEl.value = `${st.quote}\n\nPropósito inspirado en ${st.name}:\n`;
+        contentEl.value = `${st.quote ? `${st.quote}\n\n` : ""}Propósito inspirado en ${st.name}:\n`;
         contentEl.focus();
       }
     });
