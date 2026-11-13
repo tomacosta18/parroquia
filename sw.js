@@ -1,11 +1,12 @@
-const APP_CACHE = "parroquias-app-v39";
-const DATA_CACHE = "parroquias-data-v39";
+const APP_CACHE = "parroquias-app-v40";
+const DATA_CACHE = "parroquias-data-v40";
 
 const APP_SHELL = [
   "./",
   "./index.html",
   "./style.css",
   "./app.js",
+  "./data/santoral_anual.js",
   "./manifest.json",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
